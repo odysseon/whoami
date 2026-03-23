@@ -1,0 +1,23 @@
+{
+  "name": "@odysseon/whoami-core",
+  "version": "0.1.0",
+  "description": "Framework-agnostic identity and authentication core",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "jose": "^6.2.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
