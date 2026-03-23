@@ -4,5 +4,8 @@
   ],
   "packages/**/*.ts": [
     "eslint --fix"
+  ],
+  "packages/**/*.spec.ts": [
+    "node --import tsx --test"
   ]
 }
