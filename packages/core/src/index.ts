@@ -19,3 +19,8 @@ export type * from "./interfaces/ports/repositories/refresh-token-repository.por
 // Utility Ports
 export type * from "./interfaces/ports/utilities/token-extractor.port.js";
 export type * from "./interfaces/ports/utilities/logger.port.js";
+
+// Operation Contracts
+export type * from "./interfaces/operation-contracts/auth-tokens.interface.js";
+export type * from "./interfaces/operation-contracts/login-credentials.interface.js";
+export type * from "./interfaces/operation-contracts/register-data.interface.js";
