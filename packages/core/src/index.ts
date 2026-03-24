@@ -32,3 +32,4 @@ export type { WhoamiServiceDependencies } from "./core/whoami.service.js";
 // Adapters
 export { JoseTokenSigner } from "./adapters/security/jose-token-signer.adapter.js";
 export type { JoseSignerConfig } from "./adapters/security/jose-token-signer.adapter.js";
+export { CryptoTokenHasher } from "./adapters/security/crypto-token-hasher.adapter.js";
