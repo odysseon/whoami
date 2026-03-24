@@ -21,7 +21,8 @@ describe("WhoamiService - Registration", () => {
       },
       refreshTokenRepository: {
         store: mock.fn(),
-        consume: mock.fn(),
+        findByHash: mock.fn(),
+        rotate: mock.fn(),
         revokeAllForUser: mock.fn(),
       },
       passwordHasher: { hash: mock.fn(), verify: mock.fn() },
@@ -183,19 +184,26 @@ describe("WhoamiService - Registration", () => {
     const validFutureDate = new Date(Date.now() + 100000);
     const pastDate = new Date(Date.now() - 100000);
 
-    it("should successfully rotate tokens on valid refresh", async () => {
+    it("should successfully rotate tokens atomically and hash dynamically", async () => {
+      // Dynamic mock: Prepends 'hashed_' to whatever string is passed in
       mockDeps.tokenHasher.hash.mock.mockImplementation(
-        async () => "hashed_incoming_token",
+        async (input: string) => "hashed_" + input,
       );
-      mockDeps.refreshTokenRepository.consume.mock.mockImplementation(
+
+      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
         async () => ({
           id: "token_record_1",
           userId: "user_123",
-          tokenHash: "hashed_incoming_token",
+          tokenHash: "hashed_raw_old_refresh_token",
           expiresAt: validFutureDate,
           isRevoked: false,
         }),
       );
+
+      mockDeps.refreshTokenRepository.rotate.mock.mockImplementation(
+        async () => true,
+      );
+
       mockDeps.userRepository.findById.mock.mockImplementation(async () => ({
         id: "user_123",
       }));
@@ -208,22 +216,58 @@ describe("WhoamiService - Registration", () => {
       assert.equal(result.accessToken, "new_access_token");
       assert.ok(result.refreshToken);
 
-      const findArgs = mockDeps.userRepository.findById.mock.calls[0].arguments;
-      assert.equal(findArgs[0], "user_123");
+      // Verify the atomic rotation was called correctly
+      const rotateArgs =
+        mockDeps.refreshTokenRepository.rotate.mock.calls[0].arguments;
 
-      const storeArgs =
-        mockDeps.refreshTokenRepository.store.mock.calls[0].arguments[0];
-      assert.equal(storeArgs.userId, "user_123");
-      assert.equal(storeArgs.tokenHash, "hashed_incoming_token");
-      assert.equal(storeArgs.isRevoked, false);
-      assert.equal(storeArgs.id, undefined);
+      // Arg 0: Ensure it targeted the old hash
+      assert.equal(rotateArgs[0], "hashed_raw_old_refresh_token");
+
+      // Arg 1: Ensure the NEW hash corresponds to the newly generated raw token
+      assert.equal(rotateArgs[1].userId, "user_123");
+      assert.equal(rotateArgs[1].tokenHash, "hashed_" + result.refreshToken);
+      assert.equal(rotateArgs[1].isRevoked, false);
+      assert.equal(rotateArgs[1].id, undefined);
     });
 
-    it("should throw INVALID_CREDENTIALS if token is not found or already consumed", async () => {
+    it("should trigger breach protocol if atomic rotation fails (race condition)", async () => {
       mockDeps.tokenHasher.hash.mock.mockImplementation(
-        async () => "hashed_fake_token",
+        async () => "hashed_raw_old_token",
       );
-      mockDeps.refreshTokenRepository.consume.mock.mockImplementation(
+      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
+        async () => ({
+          userId: "user_123",
+          expiresAt: validFutureDate,
+          isRevoked: false,
+        }),
+      );
+      mockDeps.userRepository.findById.mock.mockImplementation(async () => ({
+        id: "user_123",
+      }));
+
+      // Simulate another request consuming the token a millisecond before this one
+      mockDeps.refreshTokenRepository.rotate.mock.mockImplementation(
+        async () => false,
+      );
+
+      await assert.rejects(
+        () => service.refreshTokens("raw_old_token"),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "INVALID_CREDENTIALS");
+          return true;
+        },
+      );
+
+      // Verify lockdown occurred
+      const revokeArgs =
+        mockDeps.refreshTokenRepository.revokeAllForUser.mock.calls[0]
+          .arguments;
+      assert.equal(revokeArgs[0], "user_123");
+    });
+
+    it("should throw INVALID_CREDENTIALS if token is not found", async () => {
+      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
         async () => null,
       );
 
@@ -238,7 +282,7 @@ describe("WhoamiService - Registration", () => {
     });
 
     it("should throw TOKEN_EXPIRED if the token is past its expiration date", async () => {
-      mockDeps.refreshTokenRepository.consume.mock.mockImplementation(
+      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
         async () => ({
           userId: "user_123",
           expiresAt: pastDate,
@@ -257,7 +301,7 @@ describe("WhoamiService - Registration", () => {
     });
 
     it("should nuke sessions and throw if a revoked token is used", async () => {
-      mockDeps.refreshTokenRepository.consume.mock.mockImplementation(
+      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
         async () => ({
           userId: "user_hacker",
           expiresAt: validFutureDate,

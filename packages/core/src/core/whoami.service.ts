@@ -1,7 +1,6 @@
 import type { IEmailUserRepository } from "../interfaces/ports/repositories/user-repository.port.js";
 import type { IRefreshTokenRepository } from "../interfaces/ports/repositories/refresh-token-repository.port.js";
 import type { IPasswordHasher } from "../interfaces/ports/security/password-hasher.port.js";
-import type { ITokenHasher } from "../interfaces/ports/security/token-hasher.port.js";
 import type { ITokenSigner } from "../interfaces/ports/security/token-signer.port.js";
 import type { ILogger } from "../interfaces/ports/utilities/logger.port.js";
 
@@ -12,6 +11,7 @@ import type { IEmailPasswordCredentials } from "../interfaces/operation-contract
 import type { IRegisterWithEmailData } from "../interfaces/operation-contracts/register-data.interface.js";
 
 import { WhoamiError } from "../errors/whoami-error.js";
+import { IDeterministicTokenHasher } from "../interfaces/ports/security/deterministic-token-hasher.port.js";
 
 /**
  * The strict dependencies required to instantiate the WhoamiService.
@@ -20,7 +20,7 @@ export interface WhoamiServiceDependencies {
   userRepository: IEmailUserRepository;
   refreshTokenRepository: IRefreshTokenRepository;
   passwordHasher: IPasswordHasher;
-  tokenHasher: ITokenHasher;
+  tokenHasher: IDeterministicTokenHasher;
   tokenSigner: ITokenSigner;
   logger: ILogger;
 }
@@ -119,32 +119,23 @@ export class WhoamiService {
   public async refreshTokens(
     rawRefreshTokenString: string,
   ): Promise<IAuthTokens> {
-    // 1. Hash the incoming token to safely query the DB
-    const tokenHash = await this.deps.tokenHasher.hash(rawRefreshTokenString);
+    // 1. Hash the incoming token deterministically to query the DB
+    const oldTokenHash = await this.deps.tokenHasher.hash(
+      rawRefreshTokenString,
+    );
 
-    // 2. Atomically attempt to consume the token
+    // 2. Fetch the token to inspect its state BEFORE rotation
     const tokenRecord =
-      await this.deps.refreshTokenRepository.consume(tokenHash);
+      await this.deps.refreshTokenRepository.findByHash(oldTokenHash);
     if (!tokenRecord) {
-      this.deps.logger.warn(
-        "Token refresh failed: Token not found or already consumed",
-      );
+      this.deps.logger.warn("Token refresh failed: Token not found");
       throw new WhoamiError(
         "INVALID_CREDENTIALS",
         "Invalid or expired refresh token.",
       );
     }
 
-    // 3. Check expiration
-    if (tokenRecord.expiresAt < new Date()) {
-      this.deps.logger.warn("Token refresh failed: Token expired", {
-        userId: tokenRecord.userId,
-      });
-      throw new WhoamiError("TOKEN_EXPIRED", "Refresh token has expired.");
-    }
-
-    // 4. Check revocation (Defense in depth)
-    // If a revoked token is used, assume a breach and nuke all sessions for this user.
+    // 3. Check revocation (Defense in depth)
     if (tokenRecord.isRevoked) {
       this.deps.logger.error(
         "SECURITY ALERT: Attempted use of revoked refresh token",
@@ -159,7 +150,15 @@ export class WhoamiService {
       throw new WhoamiError("INVALID_CREDENTIALS", "Token has been revoked.");
     }
 
-    // 5. Ensure the user still exists (hasn't been deleted since the token was issued)
+    // 4. Check expiration
+    if (tokenRecord.expiresAt < new Date()) {
+      this.deps.logger.warn("Token refresh failed: Token expired", {
+        userId: tokenRecord.userId,
+      });
+      throw new WhoamiError("TOKEN_EXPIRED", "Refresh token has expired.");
+    }
+
+    // 5. Ensure the user still exists
     const user = await this.deps.userRepository.findById(tokenRecord.userId);
     if (!user) {
       this.deps.logger.warn("Token refresh failed: User no longer exists", {
@@ -168,7 +167,7 @@ export class WhoamiService {
       throw new WhoamiError("USER_NOT_FOUND", "User no longer exists.");
     }
 
-    // 6. Generate new tokens (Rotation)
+    // 6. Generate new tokens
     const newAccessToken = await this.deps.tokenSigner.sign(
       { sub: user.id },
       900,
@@ -179,13 +178,27 @@ export class WhoamiService {
 
     const expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    // 7. Store the new token
-    await this.deps.refreshTokenRepository.store({
-      userId: user.id,
-      tokenHash: newHashedRefreshToken,
-      expiresAt: expirationDate,
-      isRevoked: false,
-    });
+    // 7. ATOMIC ROTATION
+    const rotated = await this.deps.refreshTokenRepository.rotate(
+      oldTokenHash,
+      {
+        userId: user.id,
+        tokenHash: newHashedRefreshToken,
+        expiresAt: expirationDate,
+        isRevoked: false,
+      },
+    );
+
+    // 8. Handle Race Conditions (Token reuse during concurrent requests)
+    if (!rotated) {
+      this.deps.logger.error(
+        "SECURITY ALERT: Token reuse detected during atomic rotation",
+        undefined,
+        { userId: user.id },
+      );
+      await this.deps.refreshTokenRepository.revokeAllForUser(user.id);
+      throw new WhoamiError("INVALID_CREDENTIALS", "Token reuse detected.");
+    }
 
     this.deps.logger.info("Tokens rotated successfully", { userId: user.id });
 
