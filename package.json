@@ -8,7 +8,7 @@
     "prepare": "husky",
     "build": "pnpm -r build",
     "test": "node --import tsx --test packages/**/*.spec.ts",
-    "test:cov": "node --import tsx --experimental-test-coverage --test packages/**/*.spec.ts",
+    "test:cov": "node --import tsx --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test packages/**/*.spec.ts",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"packages/**/*.ts\"",
     "changeset": "changeset",
