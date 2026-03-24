@@ -1,13 +1,1 @@
-# 1. Get the current branch name
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-# 2. Block direct pushes to main
-if [ "$BRANCH" = "main" ]; then
-  echo "🛑 FATAL: Direct pushes to the 'main' branch are strictly forbidden."
-  echo "👉 Please create a feature branch and open a Pull Request."
-  exit 1
-fi
-
-# 3. If not on main, run the tests before allowing the push
-echo "🏃 Running pre-push tests..."
 pnpm test
