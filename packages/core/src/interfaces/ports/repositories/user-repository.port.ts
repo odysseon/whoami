@@ -1,4 +1,8 @@
-import type { IUser, IUserWithEmail } from "../../models/user.interface.js";
+import type {
+  IUser,
+  IUserWithEmail,
+  IUserWithPassword,
+} from "../../models/user.interface.js";
 
 /**
  * The base contract for retrieving an identity.
@@ -12,5 +16,9 @@ export interface IUserRepository {
  * A consumer's repository can implement this ONLY if they use emails.
  */
 export interface IEmailUserRepository extends IUserRepository {
-  findByEmail(email: string): Promise<IUserWithEmail | null>;
+  findByEmail(email: string): Promise<IUserWithPassword | null>;
+  create(data: {
+    email: string;
+    passwordHash: string;
+  }): Promise<IUserWithEmail>;
 }
