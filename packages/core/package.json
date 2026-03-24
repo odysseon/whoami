@@ -2,9 +2,31 @@
   "name": "@odysseon/whoami-core",
   "version": "0.3.0",
   "description": "Framework-agnostic identity and authentication core",
+  "keywords": [
+    "authentication",
+    "framework-agnostic",
+    "identity",
+    "jwt",
+    "odysseon",
+    "security",
+    "whoami"
+  ],
+  "homepage": "https://github.com/odysseon/whoami/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/odysseon/whoami/issues"
+  },
+  "license": "ISC",
+  "author": "Hammed Anuoluwapo Pelumi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/odysseon/whoami.git",
+    "directory": "packages/core"
+  },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "type": "module",
   "main": "./dist/index.js",
