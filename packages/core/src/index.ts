@@ -28,3 +28,7 @@ export type * from "./interfaces/operation-contracts/register-data.interface.js"
 // Core Service
 export { WhoamiService } from "./core/whoami.service.js";
 export type { WhoamiServiceDependencies } from "./core/whoami.service.js";
+
+// Adapters
+export { JoseTokenSigner } from "./adapters/security/jose-token-signer.adapter.js";
+export type { JoseSignerConfig } from "./adapters/security/jose-token-signer.adapter.js";
