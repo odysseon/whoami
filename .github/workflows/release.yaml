@@ -1,36 +1,45 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Continuous Integration"]
+    types:
+      - completed
+    branches: [main]
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     name: Version & Publish
     runs-on: ubuntu-latest
 
-    # We need permissions to push tags and create Pull Requests
-    permissions:
-      contents: write
-      pull-requests: write
-      id-token: write
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+      - name: 🔐 Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
       - name: 🛎️ Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # We pass the App token to checkout so Git commits are authored by the Bot
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: 📦 Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v3
         with:
           version: 10
 
       - name: ⚙️ Setup Node.js 24
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: "pnpm"
@@ -42,12 +51,11 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          # This command automatically bumps package.json and updates CHANGELOG.md
           version: pnpm version
-          # This command builds the project and publishes it
           publish: pnpm release
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # We pass the dynamic App token to Changesets
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
