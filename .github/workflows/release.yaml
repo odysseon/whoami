@@ -49,12 +49,15 @@ jobs:
       - name: 📥 Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: 🏗️ Build Packages
+        run: pnpm build
+
       - name: 🚀 Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm exec changeset version
-          publish: pnpm exec changeset publish
+          publish: pnpm release
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
