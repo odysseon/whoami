@@ -37,62 +37,113 @@ describe("WhoamiService - Registration", () => {
     );
   });
 
-  it("should successfully register a new user", async () => {
-    mockDeps.userRepository.findByEmail.mock.mockImplementation(
-      async () => null,
-    );
-    mockDeps.passwordHasher.hash.mock.mockImplementation(
-      async () => "hashed_password_123",
-    );
-    mockDeps.userRepository.create.mock.mockImplementation(
-      // Strictly typed argument instead of 'any'
-      async (data: { email: string }) => ({
-        id: "user_123",
-        email: data.email,
-      }),
-    );
+  describe("Registration Flow", () => {
+    it("should successfully register a new user", async () => {
+      mockDeps.userRepository.findByEmail.mock.mockImplementation(
+        async () => null,
+      );
+      mockDeps.passwordHasher.hash.mock.mockImplementation(
+        async () => "hashed_password_123",
+      );
+      mockDeps.userRepository.create.mock.mockImplementation(
+        // Strictly typed argument instead of 'any'
+        async (data: { email: string }) => ({
+          id: "user_123",
+          email: data.email,
+        }),
+      );
 
-    const result = await service.registerWithEmail({
-      email: "test@odysseon.com",
-      password: "supersecretpassword",
+      const result = await service.registerWithEmail({
+        email: "test@odysseon.com",
+        password: "supersecretpassword",
+      });
+
+      assert.equal(result.id, "user_123");
+      assert.equal(result.email, "test@odysseon.com");
+
+      assert.equal(
+        mockDeps.passwordHasher.hash.mock.calls[0].arguments[0],
+        "supersecretpassword",
+      );
+
+      const createArgs =
+        mockDeps.userRepository.create.mock.calls[0].arguments[0];
+      assert.equal(createArgs.email, "test@odysseon.com");
+      assert.equal(createArgs.passwordHash, "hashed_password_123");
+
+      // Verify logger was called
+      assert.equal(mockDeps.logger.info.mock.callCount(), 1);
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 0);
     });
 
-    assert.equal(result.id, "user_123");
-    assert.equal(result.email, "test@odysseon.com");
+    it("should throw USER_ALREADY_EXISTS if the email is taken", async () => {
+      mockDeps.userRepository.findByEmail.mock.mockImplementation(async () => ({
+        id: "existing_user_999",
+        email: "test@odysseon.com",
+      }));
 
-    assert.equal(
-      mockDeps.passwordHasher.hash.mock.calls[0].arguments[0],
-      "supersecretpassword",
-    );
+      await assert.rejects(
+        () =>
+          service.registerWithEmail({
+            email: "test@odysseon.com",
+            password: "password",
+          }),
+        // Use unknown and narrow the type safely
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "USER_ALREADY_EXISTS");
+          return true;
+        },
+      );
 
-    const createArgs =
-      mockDeps.userRepository.create.mock.calls[0].arguments[0];
-    assert.equal(createArgs.email, "test@odysseon.com");
-    assert.equal(createArgs.passwordHash, "hashed_password_123");
-  });
+      assert.equal(mockDeps.passwordHasher.hash.mock.callCount(), 0);
+      assert.equal(mockDeps.userRepository.create.mock.callCount(), 0);
 
-  it("should throw USER_ALREADY_EXISTS if the email is taken", async () => {
-    mockDeps.userRepository.findByEmail.mock.mockImplementation(async () => ({
-      id: "existing_user_999",
-      email: "test@odysseon.com",
-    }));
+      // Verify logger warning was called
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
+    });
 
-    await assert.rejects(
-      () =>
-        service.registerWithEmail({
-          email: "test@odysseon.com",
-          password: "password",
-        }),
-      // Use unknown and narrow the type safely
-      (err: unknown) => {
-        assert.ok(err instanceof WhoamiError);
-        assert.equal(err.code, "USER_ALREADY_EXISTS");
-        return true;
-      },
-    );
+    it("should throw INVALID_CREDENTIALS when empty password is provided", async () => {
+      await assert.rejects(
+        () =>
+          service.registerWithEmail({
+            email: "test@odysseon.com",
+            password: "",
+          }),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "INVALID_CREDENTIALS");
+          assert.equal(err.message, "Password cannot be empty.");
+          return true;
+        },
+      );
 
-    assert.equal(mockDeps.passwordHasher.hash.mock.callCount(), 0);
-    assert.equal(mockDeps.userRepository.create.mock.callCount(), 0);
+      // Verify early exit - no repository calls
+      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
+      assert.equal(mockDeps.passwordHasher.hash.mock.callCount(), 0);
+      assert.equal(mockDeps.userRepository.create.mock.callCount(), 0);
+
+      // Verify logger warning
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
+    });
+
+    it("should throw INVALID_CREDENTIALS when whitespace-only password is provided", async () => {
+      await assert.rejects(
+        () =>
+          service.registerWithEmail({
+            email: "test@odysseon.com",
+            password: "   ",
+          }),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "INVALID_CREDENTIALS");
+          return true;
+        },
+      );
+
+      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
+      assert.equal(mockDeps.passwordHasher.hash.mock.callCount(), 0);
+    });
   });
 
   describe("Login Flow", () => {
@@ -133,6 +184,9 @@ describe("WhoamiService - Registration", () => {
       assert.equal(storeArgs.tokenHash, "hashed_refresh_token_string");
       assert.equal(storeArgs.userId, "user_123");
       assert.equal(storeArgs.isRevoked, false);
+
+      // Verify logger was called
+      assert.equal(mockDeps.logger.info.mock.callCount(), 1);
     });
 
     it("should throw INVALID_CREDENTIALS if the user does not exist", async () => {
@@ -154,6 +208,7 @@ describe("WhoamiService - Registration", () => {
       );
 
       assert.equal(mockDeps.passwordHasher.verify.mock.callCount(), 0);
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
     });
 
     it("should throw INVALID_CREDENTIALS if the password does not match", async () => {
@@ -177,6 +232,44 @@ describe("WhoamiService - Registration", () => {
       );
 
       assert.equal(mockDeps.tokenSigner.sign.mock.callCount(), 0);
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
+    });
+
+    it("should throw INVALID_CREDENTIALS when empty password is provided", async () => {
+      await assert.rejects(
+        () =>
+          service.loginWithEmail({
+            email: "test@odysseon.com",
+            password: "",
+          }),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "INVALID_CREDENTIALS");
+          return true;
+        },
+      );
+
+      // Early exit - no repository calls
+      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
+      assert.equal(mockDeps.passwordHasher.verify.mock.callCount(), 0);
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
+    });
+
+    it("should throw INVALID_CREDENTIALS when whitespace-only password is provided", async () => {
+      await assert.rejects(
+        () =>
+          service.loginWithEmail({
+            email: "test@odysseon.com",
+            password: "   ",
+          }),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "INVALID_CREDENTIALS");
+          return true;
+        },
+      );
+
+      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
     });
   });
 
@@ -228,6 +321,9 @@ describe("WhoamiService - Registration", () => {
       assert.equal(rotateArgs[1].tokenHash, "hashed_" + result.refreshToken);
       assert.equal(rotateArgs[1].isRevoked, false);
       assert.equal(rotateArgs[1].id, undefined);
+
+      // Verify logger was called
+      assert.equal(mockDeps.logger.info.mock.callCount(), 1);
     });
 
     it("should trigger breach protocol if atomic rotation fails (race condition)", async () => {
@@ -264,6 +360,9 @@ describe("WhoamiService - Registration", () => {
         mockDeps.refreshTokenRepository.revokeAllForUser.mock.calls[0]
           .arguments;
       assert.equal(revokeArgs[0], "user_123");
+
+      // Verify error logging
+      assert.equal(mockDeps.logger.error.mock.callCount(), 1);
     });
 
     it("should throw INVALID_CREDENTIALS if token is not found", async () => {
@@ -279,6 +378,8 @@ describe("WhoamiService - Registration", () => {
           return true;
         },
       );
+
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
     });
 
     it("should throw TOKEN_EXPIRED if the token is past its expiration date", async () => {
@@ -298,6 +399,8 @@ describe("WhoamiService - Registration", () => {
           return true;
         },
       );
+
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
     });
 
     it("should nuke sessions and throw if a revoked token is used", async () => {
@@ -322,6 +425,36 @@ describe("WhoamiService - Registration", () => {
         mockDeps.refreshTokenRepository.revokeAllForUser.mock.calls[0]
           .arguments;
       assert.equal(revokeArgs[0], "user_hacker");
+
+      // Verify security alert logging
+      assert.equal(mockDeps.logger.error.mock.callCount(), 1);
+    });
+
+    it("should throw USER_NOT_FOUND if user no longer exists", async () => {
+      mockDeps.tokenHasher.hash.mock.mockImplementation(
+        async () => "hashed_token",
+      );
+      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
+        async () => ({
+          userId: "user_deleted",
+          expiresAt: validFutureDate,
+          isRevoked: false,
+        }),
+      );
+      mockDeps.userRepository.findById.mock.mockImplementation(
+        async () => null,
+      );
+
+      await assert.rejects(
+        () => service.refreshTokens("raw_token"),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "USER_NOT_FOUND");
+          return true;
+        },
+      );
+
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
     });
 
     it("should throw INVALID_CREDENTIALS when an empty string is provided", async () => {
@@ -341,6 +474,7 @@ describe("WhoamiService - Registration", () => {
         mockDeps.refreshTokenRepository.findByHash.mock.callCount(),
         0,
       );
+      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
     });
 
     it("should throw INVALID_CREDENTIALS when a whitespace-only string is provided", async () => {

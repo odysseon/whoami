@@ -31,6 +31,10 @@ export class WhoamiService {
   public async registerWithEmail(
     data: IRegisterWithEmailData,
   ): Promise<IUserWithEmail> {
+    if (!data.password || data.password.trim() === "") {
+      this.deps.logger.warn("Registration failed: Empty password provided");
+      throw new WhoamiError("INVALID_CREDENTIALS", "Password cannot be empty.");
+    }
     // 1. Check if the identity already exists
     const existingUser = await this.deps.userRepository.findByEmail(data.email);
     if (existingUser) {
@@ -67,6 +71,10 @@ export class WhoamiService {
       "INVALID_CREDENTIALS",
       "Invalid email or password.",
     );
+    if (!credentials.password || credentials.password.trim() === "") {
+      this.deps.logger.warn("Login failed: Empty password provided");
+      throw genericError;
+    }
 
     // 1. Fetch the identity
     const user = await this.deps.userRepository.findByEmail(credentials.email);
