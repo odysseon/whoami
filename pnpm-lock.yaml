@@ -68,6 +68,12 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/adapter-webcrypto:
+    devDependencies:
+      '@odysseon/whoami-core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/core: {}
 
 packages:
