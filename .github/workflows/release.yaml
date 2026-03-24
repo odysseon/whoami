@@ -53,11 +53,10 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: pnpm version
-          publish: pnpm release
+          version: pnpm exec changeset version
+          publish: pnpm exec changeset publish
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
-          # We pass the dynamic App token to Changesets
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
