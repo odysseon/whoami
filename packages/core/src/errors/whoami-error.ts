@@ -4,6 +4,7 @@
  */
 export type WhoamiErrorCode =
   | "USER_NOT_FOUND"
+  | "USER_ALREADY_EXISTS"
   | "INVALID_CREDENTIALS"
   | "TOKEN_EXPIRED"
   | "TOKEN_MALFORMED"

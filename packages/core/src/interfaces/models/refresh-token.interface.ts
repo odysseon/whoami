@@ -8,3 +8,5 @@ export interface IRefreshToken {
   expiresAt: Date;
   isRevoked: boolean;
 }
+
+export type IStoreRefreshToken = Omit<IRefreshToken, "id">;

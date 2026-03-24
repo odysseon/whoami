@@ -1,10 +1,13 @@
-import type { IRefreshToken } from "../../models/refresh-token.interface.js";
+import type {
+  IRefreshToken,
+  IStoreRefreshToken,
+} from "../../models/refresh-token.interface.js";
 
 export interface IRefreshTokenRepository {
   /**
    * Persists a new refresh token to the database.
    */
-  store(token: IRefreshToken): Promise<void>;
+  store(token: IStoreRefreshToken): Promise<void>;
 
   /**
    * ATOMIC CONSUMPTION: This is the most critical security method.

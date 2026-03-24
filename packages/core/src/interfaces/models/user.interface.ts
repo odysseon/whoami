@@ -18,6 +18,6 @@ export interface IUserWithEmail extends IUser {
  * Capability Interface: For identities that authenticate via a traditional secret.
  * Used exclusively by local/credential strategies.
  */
-export interface IUserWithPassword extends IUser {
+export interface IUserWithPassword extends IUserWithEmail {
   passwordHash: string;
 }
