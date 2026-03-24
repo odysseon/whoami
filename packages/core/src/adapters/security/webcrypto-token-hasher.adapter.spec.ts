@@ -1,12 +1,12 @@
 import { describe, it, beforeEach } from "node:test";
 import { strict as assert } from "node:assert";
-import { CryptoTokenHasher } from "./crypto-token-hasher.adapter.js";
+import { WebCryptoTokenHasher } from "./webcrypto-token-hasher.adapter.js";
 
 describe("CryptoTokenHasher Adapter", () => {
-  let hasher: CryptoTokenHasher;
+  let hasher: WebCryptoTokenHasher;
 
   beforeEach(() => {
-    hasher = new CryptoTokenHasher();
+    hasher = new WebCryptoTokenHasher();
   });
 
   it("should successfully hash a token", async () => {
