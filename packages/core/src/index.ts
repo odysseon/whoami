@@ -24,3 +24,7 @@ export type * from "./interfaces/ports/utilities/logger.port.js";
 export type * from "./interfaces/operation-contracts/auth-tokens.interface.js";
 export type * from "./interfaces/operation-contracts/login-credentials.interface.js";
 export type * from "./interfaces/operation-contracts/register-data.interface.js";
+
+// Core Service
+export { WhoamiService } from "./core/whoami.service.js";
+export type { WhoamiServiceDependencies } from "./core/whoami.service.js";
