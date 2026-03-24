@@ -323,6 +323,44 @@ describe("WhoamiService - Registration", () => {
           .arguments;
       assert.equal(revokeArgs[0], "user_hacker");
     });
+
+    it("should throw INVALID_CREDENTIALS when an empty string is provided", async () => {
+      await assert.rejects(
+        () => service.refreshTokens(""),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "INVALID_CREDENTIALS");
+          assert.equal(err.message, "Invalid or expired refresh token.");
+          return true;
+        },
+      );
+
+      // Verify that no repository calls were made (early exit)
+      assert.equal(mockDeps.tokenHasher.hash.mock.callCount(), 0);
+      assert.equal(
+        mockDeps.refreshTokenRepository.findByHash.mock.callCount(),
+        0,
+      );
+    });
+
+    it("should throw INVALID_CREDENTIALS when a whitespace-only string is provided", async () => {
+      await assert.rejects(
+        () => service.refreshTokens("   "),
+        (err: unknown) => {
+          assert.ok(err instanceof WhoamiError);
+          assert.equal(err.code, "INVALID_CREDENTIALS");
+          assert.equal(err.message, "Invalid or expired refresh token.");
+          return true;
+        },
+      );
+
+      // Verify early exit behavior
+      assert.equal(mockDeps.tokenHasher.hash.mock.callCount(), 0);
+      assert.equal(
+        mockDeps.refreshTokenRepository.findByHash.mock.callCount(),
+        0,
+      );
+    });
   });
 
   describe("Verify Access Token", () => {
