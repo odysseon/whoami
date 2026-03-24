@@ -30,6 +30,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # CRITICAL: Pin to the exact commit that passed CI to prevent race conditions
+          ref: ${{ github.event.workflow_run.head_sha }}
           # We pass the App token to checkout so Git commits are authored by the Bot
           token: ${{ steps.app-token.outputs.token }}
 
