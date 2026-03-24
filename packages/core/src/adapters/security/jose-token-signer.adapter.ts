@@ -53,8 +53,23 @@ export class JoseTokenSigner implements ITokenSigner {
         audience: this.config.audience,
       });
 
+      // -------------------------------------------------------------
+      // The Type Firewall: Validate required claims exist at runtime
+      // -------------------------------------------------------------
+      if (typeof payload.sub !== "string" || payload.sub.trim().length === 0) {
+        throw new WhoamiError(
+          "TOKEN_MALFORMED",
+          "Token payload is missing a valid subject (sub) claim.",
+        );
+      }
+
       return payload as unknown as IJwtPayload;
     } catch (error) {
+      // If manual WhoamiError was thrown above, just bubble it up
+      if (error instanceof WhoamiError) {
+        throw error;
+      }
+
       // -------------------------------------------------------------
       // The Translator Boundary: Map library errors to Domain errors
       // -------------------------------------------------------------
@@ -77,7 +92,6 @@ export class JoseTokenSigner implements ITokenSigner {
         );
       }
 
-      // Fallback for any other cryptographic errors
       throw new WhoamiError("TOKEN_MALFORMED", "Failed to verify token.");
     }
   }
