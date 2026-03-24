@@ -1,0 +1,45 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  quality-control:
+    name: Quality Control
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🛎️ Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: 📦 Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: ⚙️ Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 💅 Check Formatting
+        # We use --check here so it fails if a file isn't formatted correctly,
+        # rather than overwriting it silently in the cloud.
+        run: pnpm exec prettier --check "packages/**/*.{ts,js,json,md,yaml,yml}"
+
+      - name: 🚨 Run Linter
+        run: pnpm lint
+
+      - name: 🧪 Run Native Tests
+        run: pnpm test
+
+      - name: 🏗️ Verify Build
+        # Ensures that the TypeScript compiler can successfully emit ESM
+        run: pnpm build
