@@ -119,6 +119,15 @@ export class WhoamiService {
   public async refreshTokens(
     rawRefreshTokenString: string,
   ): Promise<IAuthTokens> {
+    // Input Boundary Validation: Catch empty strings before they hit the cryptography layer
+    if (!rawRefreshTokenString || rawRefreshTokenString.trim() === "") {
+      this.deps.logger.warn("Token refresh failed: Empty token provided");
+      throw new WhoamiError(
+        "INVALID_CREDENTIALS",
+        "Invalid or expired refresh token.",
+      );
+    }
+
     // 1. Hash the incoming token deterministically to query the DB
     const oldTokenHash = await this.deps.tokenHasher.hash(
       rawRefreshTokenString,
