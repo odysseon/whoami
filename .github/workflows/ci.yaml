@@ -34,12 +34,12 @@ jobs:
         # rather than overwriting it silently in the cloud.
         run: pnpm exec prettier --check "packages/**/*.{ts,js,json,md,yaml,yml}"
 
+      - name: 🏗️ Verify Build
+        # Ensures that the TypeScript compiler can successfully emit ESM
+        run: pnpm build
+
       - name: 🚨 Run Linter
         run: pnpm lint
 
       - name: 🧪 Run Native Tests
         run: pnpm test
-
-      - name: 🏗️ Verify Build
-        # Ensures that the TypeScript compiler can successfully emit ESM
-        run: pnpm build
