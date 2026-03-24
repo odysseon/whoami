@@ -2,6 +2,8 @@
   "files": [],
   "references": [
     { "path": "./packages/core/tsconfig.build.json" },
-    { "path": "./packages/adapter-argon2/tsconfig.build.json" }
+    { "path": "./packages/adapter-argon2/tsconfig.build.json" },
+    { "path": "./packages/adapter-jose/tsconfig.build.json" },
+    { "path": "./packages/adapter-webcrypto/tsconfig.build.json" }
   ]
 }
