@@ -10,16 +10,18 @@ export interface IRefreshTokenRepository {
   store(token: IStoreRefreshToken): Promise<void>;
 
   /**
-   * ATOMIC CONSUMPTION: This is the most critical security method.
-   * It must find the token by its hash, verify it is not revoked,
-   * AND instantly delete or mark it as used in a single atomic transaction.
-   * * Returns null if the token does not exist or was already consumed.
+   * Retrieves a token by its deterministic hash without altering its state.
+   * Used to explicitly inspect the token (e.g., checking expiration or revocation) before rotation.
    */
-  consume(tokenHash: string): Promise<IRefreshToken | null>;
+  findByHash(tokenHash: string): Promise<IRefreshToken | null>;
 
   /**
-   * Revokes all active refresh tokens for a specific user ID.
-   * Useful for "Log out of all devices" functionality.
+   * ATOMIC ROTATION: This is the most critical security method.
+   * It must find the old token by its hash, delete it (or mark it consumed),
+   * AND insert the new token data in a SINGLE database transaction.
+   * * @returns true if the rotation succeeded, false if the old token was no longer valid/available (indicating a race condition or token reuse).
    */
+  rotate(oldTokenHash: string, newData: IStoreRefreshToken): Promise<boolean>;
+
   revokeAllForUser(userId: string): Promise<void>;
 }
