@@ -1,5 +1,13 @@
 # @odysseon/whoami-adapter-argon2
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [c7731b5]
+- Updated dependencies [da11601]
+  - @odysseon/whoami-core@0.4.0
+
 ## 0.1.0
 
 ### Minor Changes
