@@ -17,6 +17,10 @@
       }
     }
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\""
