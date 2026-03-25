@@ -48,3 +48,38 @@ import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
 })
 export class AppModule {}
 ```
+
+### Async configuration (environment-driven)
+
+For configuration that depends on other providers or environment variables:
+
+```ts
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
+import { PrismaUserRepository } from "./user.repository";
+import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
+
+@Module({
+  imports: [
+    ConfigModule,
+    WhoamiModule.registerAsync({
+      userRepository: {
+        useClass: PrismaUserRepository,
+      },
+      refreshTokenRepository: {
+        useClass: PrismaRefreshTokenRepository,
+      },
+      tokenSignerOptions: {
+        useFactory: (config: ConfigService) => ({
+          secret: config.get<string>("JWT_SECRET")!,
+          issuer: config.get<string>("JWT_ISSUER", "your-app"),
+          audience: config.get<string>("JWT_AUDIENCE", "your-app-users"),
+        }),
+        inject: [ConfigService],
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
