@@ -21,3 +21,12 @@ export interface IUserWithEmail extends IUser {
 export interface IUserWithPassword extends IUserWithEmail {
   passwordHash: string;
 }
+
+/**
+ * Capability Interface: For identities linked to a Google account.
+ * Used by adapters that support Google OAuth flows.
+ */
+export interface IUserWithGoogle extends IUser {
+  googleSub: string;
+  email?: string;
+}
