@@ -85,6 +85,11 @@ describe("Nest adapter helpers", () => {
     );
     assert.ok(
       mapWhoamiError(
+        new WhoamiError("INVALID_CONFIGURATION", "Configuration is invalid."),
+      ) instanceof BadRequestException,
+    );
+    assert.ok(
+      mapWhoamiError(
         new WhoamiError("TOKEN_REUSED", "Token reused."),
       ) instanceof UnauthorizedException,
     );
@@ -269,50 +274,39 @@ describe("Nest adapter helpers", () => {
     });
 
     assert.deepEqual(syncModule.controllers, []);
+    assert.ok((syncModule.exports as unknown[]).includes(WHOAMI_CONFIGURATION));
 
     const syncProviders = syncModule.providers as Array<
       Record<string, unknown>
     >;
     assert.ok(
-      syncProviders.some(
-        (provider) =>
-          provider.provide === WHOAMI_USER_REPOSITORY &&
-          provider.useValue === undefined,
+      syncProviders.every(
+        (provider) => provider.provide !== WHOAMI_USER_REPOSITORY,
       ),
     );
     assert.ok(
-      syncProviders.some(
-        (provider) =>
-          provider.provide === WHOAMI_GOOGLE_USER_REPOSITORY &&
-          provider.useValue === undefined,
+      syncProviders.every(
+        (provider) => provider.provide !== WHOAMI_GOOGLE_USER_REPOSITORY,
       ),
     );
     assert.ok(
-      syncProviders.some(
-        (provider) =>
-          provider.provide === WHOAMI_REFRESH_TOKEN_REPOSITORY &&
-          provider.useValue === undefined,
+      syncProviders.every(
+        (provider) => provider.provide !== WHOAMI_REFRESH_TOKEN_REPOSITORY,
       ),
     );
     assert.ok(
-      syncProviders.some(
-        (provider) =>
-          provider.provide === WHOAMI_PASSWORD_HASHER &&
-          provider.useValue === undefined,
+      syncProviders.every(
+        (provider) => provider.provide !== WHOAMI_PASSWORD_HASHER,
       ),
     );
     assert.ok(
-      syncProviders.some(
-        (provider) =>
-          provider.provide === WHOAMI_TOKEN_HASHER &&
-          provider.useValue === undefined,
+      syncProviders.every(
+        (provider) => provider.provide !== WHOAMI_TOKEN_HASHER,
       ),
     );
     assert.ok(
-      syncProviders.some(
-        (provider) =>
-          provider.provide === WHOAMI_GOOGLE_ID_TOKEN_VERIFIER &&
-          provider.useValue === undefined,
+      syncProviders.every(
+        (provider) => provider.provide !== WHOAMI_GOOGLE_ID_TOKEN_VERIFIER,
       ),
     );
 
@@ -445,6 +439,9 @@ describe("Nest adapter helpers", () => {
         (provider) =>
           provider.provide === WHOAMI_CONFIGURATION && provider.useValue,
       ),
+    );
+    assert.ok(
+      (asyncModule.exports as unknown[]).includes(WHOAMI_CONFIGURATION),
     );
   });
 });

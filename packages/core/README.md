@@ -18,6 +18,12 @@ The core now supports:
 
 Every capability is driven by interfaces and configuration only, so consumer apps can enable credentials auth, Google OAuth, both, or neither, while still keeping the package framework-agnostic and adapter-driven.
 
+Default behavior is explicit:
+
+- Auth methods are disabled unless `configuration.authMethods.*` is explicitly set to `true`
+- Refresh tokens are disabled unless `configuration.refreshTokens.enabled` is explicitly set to `true`
+- If providers are supplied without matching explicit configuration, the service fails fast with `INVALID_CONFIGURATION`
+
 ## Installation
 
 ```bash

@@ -17,6 +17,13 @@ Out of the box, the module gives you:
 
 The `GET /auth/me` route uses the built-in bearer-token extractor and confirms identity from the access token. The guaranteed baseline is `sub`. `GET /auth/status` exposes which auth methods and token strategy are enabled. Any richer user-loading logic remains the responsibility of the consumer app.
 
+Configuration is authoritative:
+
+- `configuration.authMethods.credentials` must be explicitly `true` to enable credentials auth
+- `configuration.authMethods.googleOAuth` must be explicitly `true` to enable Google OAuth
+- `configuration.refreshTokens.enabled` must be explicitly `true` to enable refresh tokens
+- Supplying providers without matching explicit configuration fails fast with `INVALID_CONFIGURATION`
+
 Default security adapters wired by `WhoamiModule`:
 
 - `@odysseon/whoami-adapter-argon2` (password hasher)
