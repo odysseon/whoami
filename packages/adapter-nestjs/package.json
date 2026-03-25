@@ -26,19 +26,17 @@
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\""
   },
-  "dependencies": {
-    "@nestjs/common": "^10.0.0",
-    "@nestjs/core": "^10.0.0",
-    "@nestjs/testing": "^10.0.0",
-    "@odysseon/whoami-core": "workspace:*",
-    "@odysseon/whoami-adapter-argon2": "workspace:*",
-    "@odysseon/whoami-adapter-jose": "workspace:*",
-    "@odysseon/whoami-adapter-webcrypto": "workspace:*"
-  },
   "peerDependencies": {
     "@odysseon/whoami-core": "^0.4.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0"
+  },
+  "devDependencies": {
+    "@odysseon/whoami-core": "workspace:*",
+    "@odysseon/whoami-adapter-argon2": "workspace:*",
+    "@odysseon/whoami-adapter-jose": "workspace:*",
+    "@odysseon/whoami-adapter-webcrypto": "workspace:*",
+    "@nestjs/testing": "^10.0.0"
   },
   "engines": {
     "node": ">=24.0.0"

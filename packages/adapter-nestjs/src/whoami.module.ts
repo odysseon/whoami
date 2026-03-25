@@ -218,8 +218,8 @@ export class WhoamiModule {
     } else if (options.tokenSignerOptions) {
       providers.push({
         provide: WHOAMI_TOKEN_SIGNER,
-        useFactory: (...args: unknown[]): ITokenSigner => {
-          const config = options.tokenSignerOptions!.useFactory(...args);
+        useFactory: async (...args: unknown[]): Promise<ITokenSigner> => {
+          const config = await options.tokenSignerOptions!.useFactory(...args);
           return new JoseTokenSigner(config);
         },
         inject: options.tokenSignerOptions.inject ?? [],
@@ -291,6 +291,7 @@ export class WhoamiModule {
 
     return {
       module: WhoamiModule,
+      imports: options.imports,
       providers,
       exports: [WhoamiService],
     };
