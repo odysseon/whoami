@@ -1,11 +1,11 @@
 {
   "packages/**/*.{ts,js,json,md,yaml,yml}": [
-    "prettier --write"
+    "prettier --write --ignore-unknown"
   ],
   "packages/**/*.ts": [
     "eslint --fix"
   ],
   "packages/**/*.spec.ts": [
-    "node --import tsx --test"
+    "node --import ./scripts/register-tsx.mjs --test"
   ]
 }
