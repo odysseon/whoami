@@ -4,21 +4,37 @@ import type {
   IRefreshTokenRepository,
   IPasswordHasher,
   ITokenSigner,
+  ITokenExtractor,
   ILogger,
 } from "@odysseon/whoami-core";
 
 // Type for NestJS injection tokens
 type InjectionToken = string | symbol | ((...args: unknown[]) => unknown);
+type ClassType<T> = new (...args: unknown[]) => T;
+
+export interface WhoamiNestControllerOptions {
+  enabled?: boolean;
+  path?: string;
+}
+
+interface AsyncProviderOptions<T> {
+  useClass?: ClassType<T>;
+  useFactory?: (...args: unknown[]) => T | Promise<T>;
+  useExisting?: string | symbol;
+  inject?: InjectionToken[];
+}
 
 export interface WhoamiNestModuleOptions {
-  userRepository: new (...args: unknown[]) => IEmailUserRepository;
-  refreshTokenRepository: new (...args: unknown[]) => IRefreshTokenRepository;
+  userRepository: ClassType<IEmailUserRepository>;
+  refreshTokenRepository: ClassType<IRefreshTokenRepository>;
 
   // Optional; defaults to the official adapters.
-  passwordHasher?: new (...args: unknown[]) => IPasswordHasher;
-  tokenHasher?: new (...args: unknown[]) => IDeterministicTokenHasher;
-  tokenSigner?: new (...args: unknown[]) => ITokenSigner;
-  logger?: new (...args: unknown[]) => ILogger;
+  passwordHasher?: ClassType<IPasswordHasher>;
+  tokenHasher?: ClassType<IDeterministicTokenHasher>;
+  tokenSigner?: ClassType<ITokenSigner>;
+  tokenExtractor?: ClassType<ITokenExtractor>;
+  logger?: ClassType<ILogger>;
+  controller?: WhoamiNestControllerOptions | false;
 
   // Convenience config for default JoseTokenSigner when tokenSigner is unspecified.
   tokenSignerOptions?: {
@@ -35,52 +51,16 @@ type ModuleImports = any[];
 export interface WhoamiNestModuleAsyncOptions {
   imports?: ModuleImports;
 
-  userRepository: {
-    useClass?: new (...args: unknown[]) => IEmailUserRepository;
-    useFactory?: (
-      ...args: unknown[]
-    ) => IEmailUserRepository | Promise<IEmailUserRepository>;
-    useExisting?: string | symbol;
-    inject?: InjectionToken[];
-  };
-  refreshTokenRepository: {
-    useClass?: new (...args: unknown[]) => IRefreshTokenRepository;
-    useFactory?: (
-      ...args: unknown[]
-    ) => IRefreshTokenRepository | Promise<IRefreshTokenRepository>;
-    useExisting?: string | symbol;
-    inject?: InjectionToken[];
-  };
+  userRepository: AsyncProviderOptions<IEmailUserRepository>;
+  refreshTokenRepository: AsyncProviderOptions<IRefreshTokenRepository>;
 
   // Optional; defaults to the official adapters.
-  passwordHasher?: {
-    useClass?: new (...args: unknown[]) => IPasswordHasher;
-    useFactory?: (
-      ...args: unknown[]
-    ) => IPasswordHasher | Promise<IPasswordHasher>;
-    useExisting?: string | symbol;
-    inject?: InjectionToken[];
-  };
-  tokenHasher?: {
-    useClass?: new (...args: unknown[]) => IDeterministicTokenHasher;
-    useFactory?: (
-      ...args: unknown[]
-    ) => IDeterministicTokenHasher | Promise<IDeterministicTokenHasher>;
-    useExisting?: string | symbol;
-    inject?: InjectionToken[];
-  };
-  tokenSigner?: {
-    useClass?: new (...args: unknown[]) => ITokenSigner;
-    useFactory?: (...args: unknown[]) => ITokenSigner | Promise<ITokenSigner>;
-    useExisting?: string | symbol;
-    inject?: InjectionToken[];
-  };
-  logger?: {
-    useClass?: new (...args: unknown[]) => ILogger;
-    useFactory?: (...args: unknown[]) => ILogger | Promise<ILogger>;
-    useExisting?: string | symbol;
-    inject?: InjectionToken[];
-  };
+  passwordHasher?: AsyncProviderOptions<IPasswordHasher>;
+  tokenHasher?: AsyncProviderOptions<IDeterministicTokenHasher>;
+  tokenSigner?: AsyncProviderOptions<ITokenSigner>;
+  tokenExtractor?: AsyncProviderOptions<ITokenExtractor>;
+  logger?: AsyncProviderOptions<ILogger>;
+  controller?: WhoamiNestControllerOptions | false;
 
   // Convenience config for default JoseTokenSigner when tokenSigner is unspecified.
   tokenSignerOptions?: {

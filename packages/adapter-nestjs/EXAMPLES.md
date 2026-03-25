@@ -1,64 +1,65 @@
 # @odysseon/whoami-adapter-nestjs Examples
 
-### 1. Core wiring only (recommended)
+### 1. Zero-to-working controller
 
-`WhoamiModule` provides dependency wiring for `WhoamiService` + default secure adapters.
-
-You are responsible for your own controllers and DTOs.
-
-#### Example controller
+`WhoamiModule` now provides dependency wiring for `WhoamiService`, the default secure adapters, a built-in auth controller, and an access-token guard.
 
 ```ts
-import { Body, Controller, Post, UnauthorizedException } from "@nestjs/common";
-import { WhoamiService } from "@odysseon/whoami-core";
-import { IEmailPasswordCredentials } from "@odysseon/whoami-core";
-import { WhoamiError } from "@odysseon/whoami-core";
+import { Module } from "@nestjs/common";
+import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
+import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
+import { PrismaUserRepository } from "./user.repository";
 
-@Controller("auth")
-export class AuthController {
-  constructor(private readonly whoamiService: WhoamiService) {}
+@Module({
+  imports: [
+    WhoamiModule.register({
+      userRepository: PrismaUserRepository,
+      refreshTokenRepository: PrismaRefreshTokenRepository,
+      tokenSignerOptions: {
+        secret: process.env.JWT_SECRET!,
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
 
-  @Post("register")
-  async register(@Body() body: { email: string; password: string }) {
-    try {
-      return await this.whoamiService.registerWithEmail(body);
-    } catch (error) {
-      if (error instanceof WhoamiError) {
-        throw new UnauthorizedException(error.message);
-      }
-      throw error;
-    }
-  }
+This exposes:
 
-  @Post("login")
-  async login(@Body() body: IEmailPasswordCredentials) {
-    try {
-      return this.whoamiService.loginWithEmail(body);
-    } catch (error) {
-      if (error instanceof WhoamiError) {
-        throw new UnauthorizedException(error.message);
-      }
-      throw error;
-    }
-  }
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `GET /auth/me`
 
-  @Post("refresh")
-  async refresh(@Body("refreshToken") refreshToken: string) {
-    try {
-      return this.whoamiService.refreshTokens(refreshToken);
-    } catch (error) {
-      if (error instanceof WhoamiError) {
-        throw new UnauthorizedException(error.message);
-      }
-      throw error;
-    }
+`GET /auth/me` confirms identity from the access token and returns the verified JWT payload, where the baseline guarantee is `sub`.
+
+### 2. Guard your own routes
+
+```ts
+import { Controller, Get, UseGuards } from "@nestjs/common";
+import {
+  WhoamiAuthGuard,
+  WhoamiIdentity,
+  type WhoamiRequestIdentity,
+} from "@odysseon/whoami-adapter-nestjs";
+
+@Controller("account")
+export class AccountController {
+  @Get("me")
+  @UseGuards(WhoamiAuthGuard)
+  me(@WhoamiIdentity() identity: WhoamiRequestIdentity) {
+    return {
+      sub: identity.sub,
+    };
   }
 }
 ```
 
-### 2. Things this package does NOT do
+If you extend the core models or operation contracts, disable the built-in controller and create your own controller around the re-exported `WhoamiService`.
+
+### 3. Things this package does NOT do
 
 - DB repository implementation (should be separate package, e.g. `whoami-adapter-prisma`)
-- HTTP layer API design (auth routes, status codes, serialization)
+- Rich user hydration beyond confirming the caller's identity
 - Schema validation / class-validator configuration
 - Session/roles/permissions authorization

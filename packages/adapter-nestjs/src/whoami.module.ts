@@ -1,4 +1,4 @@
-import { DynamicModule, Module, Provider } from "@nestjs/common";
+import { DynamicModule, Module, Provider, Type } from "@nestjs/common";
 import type {
   IDeterministicTokenHasher,
   IEmailUserRepository,
@@ -12,11 +12,13 @@ import { WhoamiService } from "@odysseon/whoami-core";
 import { JoseTokenSigner } from "@odysseon/whoami-adapter-jose";
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
 import { WebCryptoTokenHasher } from "@odysseon/whoami-adapter-webcrypto";
+import { BearerTokenExtractor } from "./default-token-extractor.js";
 import { NestLoggerAdapter } from "./nest-logger.adapter.js";
 import {
   WHOAMI_LOGGER,
   WHOAMI_PASSWORD_HASHER,
   WHOAMI_REFRESH_TOKEN_REPOSITORY,
+  WHOAMI_TOKEN_EXTRACTOR,
   WHOAMI_TOKEN_HASHER,
   WHOAMI_TOKEN_SIGNER,
   WHOAMI_USER_REPOSITORY,
@@ -25,6 +27,18 @@ import {
   WhoamiNestModuleAsyncOptions,
   WhoamiNestModuleOptions,
 } from "./types.js";
+import { createWhoamiController } from "./whoami.controller.js";
+import { WhoamiAuthGuard } from "./whoami-auth.guard.js";
+
+function resolveController(
+  options?: { enabled?: boolean; path?: string } | false,
+): Array<Type<unknown>> {
+  if (options === false || options?.enabled === false) {
+    return [];
+  }
+
+  return [createWhoamiController(options?.path ?? "auth")];
+}
 
 @Module({})
 export class WhoamiModule {
@@ -63,6 +77,10 @@ export class WhoamiModule {
         },
       },
       {
+        provide: WHOAMI_TOKEN_EXTRACTOR,
+        useClass: options.tokenExtractor ?? BearerTokenExtractor,
+      },
+      {
         provide: WHOAMI_LOGGER,
         useFactory: (): ILogger => {
           if (options.logger) {
@@ -71,6 +89,7 @@ export class WhoamiModule {
           return new NestLoggerAdapter("WhoamiModule");
         },
       },
+      WhoamiAuthGuard,
       {
         provide: WhoamiService,
         useFactory: (
@@ -104,8 +123,9 @@ export class WhoamiModule {
 
     return {
       module: WhoamiModule,
+      controllers: resolveController(options.controller),
       providers,
-      exports: [WhoamiService],
+      exports: [WhoamiService, WhoamiAuthGuard, WHOAMI_TOKEN_EXTRACTOR],
     };
   }
 
@@ -235,6 +255,30 @@ export class WhoamiModule {
       });
     }
 
+    // Token Extractor
+    if (options.tokenExtractor?.useClass) {
+      providers.push({
+        provide: WHOAMI_TOKEN_EXTRACTOR,
+        useClass: options.tokenExtractor.useClass,
+      });
+    } else if (options.tokenExtractor?.useFactory) {
+      providers.push({
+        provide: WHOAMI_TOKEN_EXTRACTOR,
+        useFactory: options.tokenExtractor.useFactory,
+        inject: options.tokenExtractor.inject ?? [],
+      });
+    } else if (options.tokenExtractor?.useExisting) {
+      providers.push({
+        provide: WHOAMI_TOKEN_EXTRACTOR,
+        useExisting: options.tokenExtractor.useExisting,
+      });
+    } else {
+      providers.push({
+        provide: WHOAMI_TOKEN_EXTRACTOR,
+        useClass: BearerTokenExtractor,
+      });
+    }
+
     // Logger
     if (options.logger?.useClass) {
       providers.push({
@@ -258,6 +302,8 @@ export class WhoamiModule {
         useFactory: (): ILogger => new NestLoggerAdapter("WhoamiModule"),
       });
     }
+
+    providers.push(WhoamiAuthGuard);
 
     providers.push({
       provide: WhoamiService,
@@ -292,8 +338,9 @@ export class WhoamiModule {
     return {
       module: WhoamiModule,
       imports: options.imports,
+      controllers: resolveController(options.controller),
       providers,
-      exports: [WhoamiService],
+      exports: [WhoamiService, WhoamiAuthGuard, WHOAMI_TOKEN_EXTRACTOR],
     };
   }
 }
