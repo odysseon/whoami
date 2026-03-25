@@ -6,6 +6,7 @@ export * from "./whoami-auth.guard.js";
 export * from "./whoami-auth.types.js";
 export * from "./whoami.controller.js";
 export * from "./whoami.decorator.js";
+export * from "./dto/google-oauth.dto.js";
 export * from "./dto/login.dto.js";
 export * from "./dto/refresh.dto.js";
 export * from "./dto/register.dto.js";

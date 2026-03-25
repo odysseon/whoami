@@ -2,7 +2,7 @@
 
 ### 1. Zero-to-working controller
 
-`WhoamiModule` now provides dependency wiring for `WhoamiService`, the default secure adapters, a built-in auth controller, and an access-token guard.
+`WhoamiModule` provides dependency wiring for `WhoamiService`, the default secure adapters, a built-in auth controller, and an access-token guard.
 
 ```ts
 import { Module } from "@nestjs/common";
@@ -18,6 +18,15 @@ import { PrismaUserRepository } from "./user.repository";
       tokenSignerOptions: {
         secret: process.env.JWT_SECRET!,
       },
+      configuration: {
+        authMethods: {
+          credentials: true,
+          googleOAuth: false,
+        },
+        refreshTokens: {
+          enabled: true,
+        },
+      },
     }),
   ],
 })
@@ -29,9 +38,11 @@ This exposes:
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
+- `POST /auth/google`
+- `GET /auth/status`
 - `GET /auth/me`
 
-`GET /auth/me` confirms identity from the access token and returns the verified JWT payload, where the baseline guarantee is `sub`.
+`GET /auth/me` confirms identity from the access token and returns the verified JWT payload, where the baseline guarantee is `sub`. `GET /auth/status` exposes which auth methods and token strategy are enabled.
 
 ### 2. Guard your own routes
 
@@ -57,7 +68,38 @@ export class AccountController {
 
 If you extend the core models or operation contracts, disable the built-in controller and create your own controller around the re-exported `WhoamiService`.
 
-### 3. Things this package does NOT do
+### 3. Google-only configuration
+
+```ts
+import { Module } from "@nestjs/common";
+import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
+import { GoogleTokenVerifier } from "./google-token-verifier";
+import { GoogleUserRepository } from "./google-user.repository";
+
+@Module({
+  imports: [
+    WhoamiModule.register({
+      googleUserRepository: GoogleUserRepository,
+      googleIdTokenVerifier: GoogleTokenVerifier,
+      tokenSignerOptions: {
+        secret: process.env.JWT_SECRET!,
+      },
+      configuration: {
+        authMethods: {
+          credentials: false,
+          googleOAuth: true,
+        },
+        refreshTokens: {
+          enabled: false,
+        },
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+### 4. Things this package does NOT do
 
 - DB repository implementation (should be separate package, e.g. `whoami-adapter-prisma`)
 - Rich user hydration beyond confirming the caller's identity
