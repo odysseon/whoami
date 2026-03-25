@@ -3,544 +3,122 @@ import type {
   IUser,
   IUserWithEmail,
 } from "../interfaces/models/user.interface.js";
-import { WhoamiError } from "../errors/whoami-error.js";
 import type { IAuthTokens } from "../interfaces/operation-contracts/auth-tokens.interface.js";
 import type { IWhoamiAuthConfiguration } from "../interfaces/operation-contracts/auth-configuration.interface.js";
 import type { IWhoamiAuthStatus } from "../interfaces/operation-contracts/auth-status.interface.js";
-import type { IGoogleOAuthCredentials } from "../interfaces/operation-contracts/google-oauth-credentials.interface.js";
-import type { IEmailPasswordCredentials } from "../interfaces/operation-contracts/login-credentials.interface.js";
-import type { IRegisterWithEmailData } from "../interfaces/operation-contracts/register-data.interface.js";
+import type {
+  IEmailPasswordCredentials,
+  IOAuthCredentials,
+} from "../interfaces/operation-contracts/credentials.interface.js";
 import type { IRefreshTokenRepository } from "../interfaces/ports/repositories/refresh-token-repository.port.js";
 import type {
-  IEmailUserRepository,
-  IGoogleUserRepository,
+  IPasswordUserRepository,
+  IOAuthUserRepository,
 } from "../interfaces/ports/repositories/user-repository.port.js";
 import type { IDeterministicTokenHasher } from "../interfaces/ports/security/deterministic-token-hasher.port.js";
-import type { IGoogleIdTokenVerifier } from "../interfaces/ports/security/google-id-token-verifier.port.js";
 import type { IPasswordHasher } from "../interfaces/ports/security/password-hasher.port.js";
 import type { ITokenSigner } from "../interfaces/ports/security/token-signer.port.js";
 import type { ILogger } from "../interfaces/ports/utilities/logger.port.js";
 
-const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 900;
-const DEFAULT_REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+// Import the sub-services
+import { ConfigurationValidator } from "./services/configuration-validator.service.js";
+import { TokenOrchestrator } from "./services/token-orchestrator.service.js";
+import { CredentialAuthenticator } from "./services/credential-authenticator.service.js";
+import { OAuthAuthenticator } from "./services/oauth-authenticator.service.js";
 
-/**
- * The strict dependencies required to instantiate the WhoamiService.
- */
 export interface WhoamiServiceDependencies {
   tokenSigner: ITokenSigner;
   logger: ILogger;
-  userRepository?: IEmailUserRepository;
-  googleUserRepository?: IGoogleUserRepository;
+  passwordUserRepository?: IPasswordUserRepository;
+  oauthUserRepository?: IOAuthUserRepository;
   refreshTokenRepository?: IRefreshTokenRepository;
   passwordHasher?: IPasswordHasher;
   tokenHasher?: IDeterministicTokenHasher;
-  googleIdTokenVerifier?: IGoogleIdTokenVerifier;
   configuration?: IWhoamiAuthConfiguration;
 }
 
 export class WhoamiService {
-  private readonly status: IWhoamiAuthStatus;
-  private readonly configurationState: "explicit" | "unspecified";
+  private readonly configValidator: ConfigurationValidator;
+  private readonly tokenOrchestrator: TokenOrchestrator;
+  private readonly credentialAuth: CredentialAuthenticator;
+  private readonly oauthAuth: OAuthAuthenticator;
 
   constructor(private readonly deps: WhoamiServiceDependencies) {
-    this.configurationState = deps.configuration ? "explicit" : "unspecified";
-    this.status = this.resolveStatus();
-    this.validateConfiguration();
-    this.logStatus();
+    this.configValidator = new ConfigurationValidator(deps);
+    const status = this.configValidator.status;
+
+    this.tokenOrchestrator = new TokenOrchestrator(deps, status);
+    this.credentialAuth = new CredentialAuthenticator(
+      deps,
+      status,
+      this.tokenOrchestrator,
+    );
+    this.oauthAuth = new OAuthAuthenticator(
+      deps,
+      status,
+      this.tokenOrchestrator,
+    );
   }
 
   public getAuthStatus(): IWhoamiAuthStatus {
-    return {
-      authMethods: { ...this.status.authMethods },
-      refreshTokens: this.status.refreshTokens,
-      accessTokenTtlSeconds: this.status.accessTokenTtlSeconds,
-      refreshTokenTtlSeconds: this.status.refreshTokenTtlSeconds,
-    };
+    return this.configValidator.status;
   }
 
+  // --- CREDENTIAL METHODS ---
   public async registerWithEmail(
-    data: IRegisterWithEmailData,
+    data: IEmailPasswordCredentials,
   ): Promise<IUserWithEmail> {
-    this.ensureCredentialsEnabled("Registration failed");
-
-    if (!data.password || data.password.trim() === "") {
-      this.deps.logger.warn("Registration failed: Empty password provided");
-      throw new WhoamiError("INVALID_CREDENTIALS", "Password cannot be empty.");
-    }
-
-    const userRepository = this.getEmailUserRepository();
-    const passwordHasher = this.getPasswordHasher();
-
-    const existingUser = await userRepository.findByEmail(data.email);
-    if (existingUser) {
-      this.deps.logger.warn("Registration attempt with existing email", {
-        email: data.email,
-      });
-      throw new WhoamiError(
-        "USER_ALREADY_EXISTS",
-        "An identity with this email already exists.",
-      );
-    }
-
-    const passwordHash = await passwordHasher.hash(data.password);
-    const newUser = await userRepository.create({
-      email: data.email,
-      passwordHash,
-    });
-
-    this.deps.logger.info("New identity registered via email", {
-      userId: newUser.id,
-    });
-
-    return newUser;
+    return await this.credentialAuth.register(data);
   }
 
   public async loginWithEmail(
     credentials: IEmailPasswordCredentials,
   ): Promise<IAuthTokens> {
-    this.ensureCredentialsEnabled("Email login failed");
-
-    const genericError = new WhoamiError(
-      "INVALID_CREDENTIALS",
-      "Invalid email or password.",
-    );
-    if (!credentials.password || credentials.password.trim() === "") {
-      this.deps.logger.warn("Login failed: Empty password provided");
-      throw genericError;
-    }
-
-    const userRepository = this.getEmailUserRepository();
-    const passwordHasher = this.getPasswordHasher();
-    const user = await userRepository.findByEmail(credentials.email);
-
-    if (!user) {
-      this.deps.logger.warn("Failed login attempt: User not found", {
-        email: credentials.email,
-      });
-      throw genericError;
-    }
-
-    const isValidPassword = await passwordHasher.verify(
-      user.passwordHash,
-      credentials.password,
-    );
-    if (!isValidPassword) {
-      this.deps.logger.warn("Failed login attempt: Invalid password", {
-        userId: user.id,
-      });
-      throw genericError;
-    }
-
-    const tokens = await this.issueTokens(user.id);
-    this.deps.logger.info("Successful login via credentials", {
-      userId: user.id,
-      refreshTokensEnabled: this.status.refreshTokens,
-    });
-
-    return tokens;
+    return await this.credentialAuth.login(credentials);
   }
 
-  public async loginWithGoogle(
-    credentials: IGoogleOAuthCredentials,
-  ): Promise<IAuthTokens> {
-    this.ensureGoogleEnabled("Google login failed");
-
-    if (!credentials.idToken || credentials.idToken.trim() === "") {
-      this.deps.logger.warn("Google login failed: Empty ID token provided");
-      throw new WhoamiError(
-        "INVALID_CREDENTIALS",
-        "Google ID token is required.",
-      );
-    }
-
-    const googleVerifier = this.getGoogleIdTokenVerifier();
-    const googleUserRepository = this.getGoogleUserRepository();
-    const googleIdentity = await googleVerifier.verify(credentials.idToken);
-    const user = await googleUserRepository.resolveGoogleUser(googleIdentity);
-    const tokens = await this.issueTokens(user.id);
-
-    this.deps.logger.info("Successful login via Google OAuth", {
-      userId: user.id,
-      googleSub: googleIdentity.sub,
-      refreshTokensEnabled: this.status.refreshTokens,
-    });
-
-    return tokens;
+  public async updatePassword(
+    userId: string,
+    newPassword: string,
+  ): Promise<void> {
+    return await this.credentialAuth.updatePassword(userId, newPassword);
   }
 
+  // --- OAUTH METHODS ---
+  public async loginWithOAuth(data: IOAuthCredentials): Promise<IAuthTokens> {
+    return await this.oauthAuth.login(data);
+  }
+
+  public async linkOAuthProvider(
+    userId: string,
+    data: IOAuthCredentials,
+  ): Promise<void> {
+    return await this.oauthAuth.linkProvider(userId, data);
+  }
+
+  // --- TOKEN METHODS ---
   public async refreshTokens(
     rawRefreshTokenString: string,
   ): Promise<IAuthTokens> {
-    this.ensureRefreshTokensEnabled();
-
-    if (!rawRefreshTokenString || rawRefreshTokenString.trim() === "") {
-      this.deps.logger.warn("Token refresh failed: Empty token provided");
-      throw new WhoamiError(
-        "INVALID_CREDENTIALS",
-        "Invalid or expired refresh token.",
-      );
-    }
-
-    const tokenHasher = this.getTokenHasher();
-    const refreshTokenRepository = this.getRefreshTokenRepository();
-    const oldTokenHash = await tokenHasher.hash(rawRefreshTokenString);
-    const tokenRecord = await refreshTokenRepository.findByHash(oldTokenHash);
-
-    if (!tokenRecord) {
-      this.deps.logger.warn("Token refresh failed: Token not found");
-      throw new WhoamiError(
-        "INVALID_CREDENTIALS",
-        "Invalid or expired refresh token.",
-      );
-    }
-
-    if (tokenRecord.isRevoked) {
-      this.deps.logger.error(
-        "SECURITY ALERT: Attempted use of revoked refresh token",
-        undefined,
-        {
-          userId: tokenRecord.userId,
-        },
-      );
-      await refreshTokenRepository.revokeAllForUser(tokenRecord.userId);
-      throw new WhoamiError("TOKEN_REUSED", "Token has been revoked.");
-    }
-
-    if (tokenRecord.expiresAt < new Date()) {
-      this.deps.logger.warn("Token refresh failed: Token expired", {
-        userId: tokenRecord.userId,
-      });
-      throw new WhoamiError("TOKEN_EXPIRED", "Refresh token has expired.");
-    }
-
-    const user = await this.findUserById(tokenRecord.userId);
-    if (!user) {
-      this.deps.logger.warn("Token refresh failed: User no longer exists", {
-        userId: tokenRecord.userId,
-      });
-      throw new WhoamiError("USER_NOT_FOUND", "User no longer exists.");
-    }
-
-    const accessToken = await this.deps.tokenSigner.sign(
-      { sub: user.id },
-      this.status.accessTokenTtlSeconds,
+    return await this.tokenOrchestrator.refreshTokens(
+      rawRefreshTokenString,
+      (id) => this.findUserById(id),
     );
-    const newRawRefreshToken = crypto.randomUUID();
-    const newHashedRefreshToken = await tokenHasher.hash(newRawRefreshToken);
-    const expirationDate = new Date(
-      Date.now() + this.getRefreshTokenTtlSeconds() * 1000,
-    );
-
-    const rotated = await refreshTokenRepository.rotate(oldTokenHash, {
-      userId: user.id,
-      tokenHash: newHashedRefreshToken,
-      expiresAt: expirationDate,
-      isRevoked: false,
-    });
-
-    if (!rotated) {
-      this.deps.logger.error(
-        "SECURITY ALERT: Token reuse detected during atomic rotation",
-        undefined,
-        { userId: user.id },
-      );
-      await refreshTokenRepository.revokeAllForUser(user.id);
-      throw new WhoamiError("TOKEN_REUSED", "Token reuse detected.");
-    }
-
-    this.deps.logger.info("Tokens rotated successfully", { userId: user.id });
-
-    return {
-      accessToken,
-      refreshToken: newRawRefreshToken,
-    };
   }
 
   public async verifyAccessToken(accessToken: string): Promise<IJwtPayload> {
-    return await this.deps.tokenSigner.verify(accessToken);
+    return await this.tokenOrchestrator.verifyAccessToken(accessToken);
   }
 
-  private resolveStatus(): IWhoamiAuthStatus {
-    const configuration = this.deps.configuration;
-    const accessTokenTtlSeconds =
-      configuration?.accessTokenTtlSeconds ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS;
-
-    return {
-      authMethods: {
-        credentials: configuration?.authMethods?.credentials ?? false,
-        googleOAuth: configuration?.authMethods?.googleOAuth ?? false,
-      },
-      refreshTokens: configuration?.refreshTokens?.enabled ?? false,
-      accessTokenTtlSeconds,
-      refreshTokenTtlSeconds:
-        (configuration?.refreshTokens?.enabled ?? false)
-          ? (configuration?.refreshTokenTtlSeconds ??
-            DEFAULT_REFRESH_TOKEN_TTL_SECONDS)
-          : null,
-    };
-  }
-
-  private validateConfiguration(): void {
-    if (this.status.accessTokenTtlSeconds <= 0) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires accessTokenTtlSeconds to be greater than 0.",
-      );
-    }
-
-    if (
-      this.status.refreshTokens &&
-      (!this.status.refreshTokenTtlSeconds ||
-        this.status.refreshTokenTtlSeconds <= 0)
-    ) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires refreshTokenTtlSeconds to be greater than 0 when refresh tokens are enabled.",
-      );
-    }
-
-    this.ensureExplicitAuthMethodConfiguration("credentials");
-    this.ensureExplicitAuthMethodConfiguration("googleOAuth");
-    this.ensureExplicitRefreshTokenConfiguration();
-
-    if (this.status.authMethods.credentials) {
-      this.getEmailUserRepository();
-      this.getPasswordHasher();
-    }
-
-    if (this.status.authMethods.googleOAuth) {
-      this.getGoogleUserRepository();
-      this.getGoogleIdTokenVerifier();
-    }
-
-    if (this.status.refreshTokens) {
-      this.getRefreshTokenRepository();
-      this.getTokenHasher();
-    }
-  }
-
-  private logStatus(): void {
-    if (this.configurationState === "unspecified") {
-      this.deps.logger.warn(
-        "Whoami configuration status",
-        "No explicit auth configuration provided; all auth methods and refresh tokens default to disabled until explicitly enabled.",
-      );
-    }
-    this.deps.logger.info("Credentials authentication status", {
-      enabled: this.status.authMethods.credentials,
-    });
-    this.deps.logger.info("Google OAuth authentication status", {
-      enabled: this.status.authMethods.googleOAuth,
-    });
-    this.deps.logger.info("Refresh token status", {
-      enabled: this.status.refreshTokens,
-    });
-  }
-
-  private ensureCredentialsEnabled(message: string): void {
-    if (!this.status.authMethods.credentials) {
-      this.deps.logger.warn(`${message}: Credentials authentication disabled`);
-      throw new WhoamiError(
-        "AUTH_METHOD_DISABLED",
-        "Credentials authentication is disabled.",
-      );
-    }
-  }
-
-  private ensureGoogleEnabled(message: string): void {
-    if (!this.status.authMethods.googleOAuth) {
-      this.deps.logger.warn(`${message}: Google OAuth authentication disabled`);
-      throw new WhoamiError(
-        "AUTH_METHOD_DISABLED",
-        "Google OAuth authentication is disabled.",
-      );
-    }
-  }
-
-  private ensureRefreshTokensEnabled(): void {
-    if (!this.status.refreshTokens) {
-      this.deps.logger.warn("Token refresh failed: Refresh tokens disabled");
-      throw new WhoamiError(
-        "AUTH_METHOD_DISABLED",
-        "Refresh tokens are disabled.",
-      );
-    }
-  }
-
-  private getEmailUserRepository(): IEmailUserRepository {
-    if (!this.deps.userRepository) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires userRepository when credentials authentication is enabled.",
-      );
-    }
-
-    return this.deps.userRepository;
-  }
-
-  private getGoogleUserRepository(): IGoogleUserRepository {
-    if (!this.deps.googleUserRepository) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires googleUserRepository when Google OAuth is enabled.",
-      );
-    }
-
-    return this.deps.googleUserRepository;
-  }
-
-  private getRefreshTokenRepository(): IRefreshTokenRepository {
-    if (!this.deps.refreshTokenRepository) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires refreshTokenRepository when refresh tokens are enabled.",
-      );
-    }
-
-    return this.deps.refreshTokenRepository;
-  }
-
-  private getPasswordHasher(): IPasswordHasher {
-    if (!this.deps.passwordHasher) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires passwordHasher when credentials authentication is enabled.",
-      );
-    }
-
-    return this.deps.passwordHasher;
-  }
-
-  private getTokenHasher(): IDeterministicTokenHasher {
-    if (!this.deps.tokenHasher) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires tokenHasher when refresh tokens are enabled.",
-      );
-    }
-
-    return this.deps.tokenHasher;
-  }
-
-  private getGoogleIdTokenVerifier(): IGoogleIdTokenVerifier {
-    if (!this.deps.googleIdTokenVerifier) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration requires googleIdTokenVerifier when Google OAuth is enabled.",
-      );
-    }
-
-    return this.deps.googleIdTokenVerifier;
-  }
-
-  private getRefreshTokenTtlSeconds(): number {
-    if (this.status.refreshTokenTtlSeconds === null) {
-      throw new WhoamiError(
-        "INVALID_CONFIGURATION",
-        "Whoami configuration cannot read refresh token TTL when refresh tokens are disabled.",
-      );
-    }
-
-    return this.status.refreshTokenTtlSeconds;
-  }
-
-  private async issueTokens(userId: string): Promise<IAuthTokens> {
-    const accessToken = await this.deps.tokenSigner.sign(
-      { sub: userId },
-      this.status.accessTokenTtlSeconds,
-    );
-
-    if (!this.status.refreshTokens) {
-      return { accessToken };
-    }
-
-    const rawRefreshToken = crypto.randomUUID();
-    const tokenHasher = this.getTokenHasher();
-    const refreshTokenRepository = this.getRefreshTokenRepository();
-    const hashedRefreshToken = await tokenHasher.hash(rawRefreshToken);
-    const expirationDate = new Date(
-      Date.now() + this.getRefreshTokenTtlSeconds() * 1000,
-    );
-
-    await refreshTokenRepository.store({
-      userId,
-      tokenHash: hashedRefreshToken,
-      expiresAt: expirationDate,
-      isRevoked: false,
-    });
-
-    return {
-      accessToken,
-      refreshToken: rawRefreshToken,
-    };
-  }
-
+  // --- INTERNAL ROUTING ---
   private async findUserById(userId: string): Promise<IUser | null> {
-    if (this.deps.userRepository) {
-      const user = await this.deps.userRepository.findById(userId);
-      if (user) {
-        return user;
-      }
+    if (this.deps.passwordUserRepository) {
+      const user = await this.deps.passwordUserRepository.findById(userId);
+      if (user) return user;
     }
-
-    if (this.deps.googleUserRepository) {
-      return await this.deps.googleUserRepository.findById(userId);
+    if (this.deps.oauthUserRepository) {
+      return await this.deps.oauthUserRepository.findById(userId);
     }
-
     return null;
-  }
-
-  private ensureExplicitAuthMethodConfiguration(
-    method: keyof IWhoamiAuthStatus["authMethods"],
-  ): void {
-    const hasProviders =
-      method === "credentials"
-        ? Boolean(this.deps.userRepository || this.deps.passwordHasher)
-        : Boolean(
-            this.deps.googleUserRepository || this.deps.googleIdTokenVerifier,
-          );
-    const explicitValue = this.deps.configuration?.authMethods?.[method];
-
-    if (explicitValue !== undefined) {
-      return;
-    }
-
-    if (!hasProviders) {
-      return;
-    }
-
-    this.deps.logger.warn("Whoami configuration ambiguity detected", {
-      authMethod: method,
-      reason: "Provider detected without explicit authMethods configuration.",
-    });
-    throw new WhoamiError(
-      "INVALID_CONFIGURATION",
-      `Whoami configuration requires authMethods.${method} to be explicitly set to true or false when related providers are supplied.`,
-    );
-  }
-
-  private ensureExplicitRefreshTokenConfiguration(): void {
-    const hasRefreshProviders = Boolean(
-      this.deps.refreshTokenRepository || this.deps.tokenHasher,
-    );
-    const explicitValue = this.deps.configuration?.refreshTokens?.enabled;
-
-    if (explicitValue !== undefined) {
-      return;
-    }
-
-    if (!hasRefreshProviders) {
-      return;
-    }
-
-    this.deps.logger.warn("Whoami configuration ambiguity detected", {
-      area: "refreshTokens",
-      reason: "Refresh token provider detected without explicit configuration.",
-    });
-    throw new WhoamiError(
-      "INVALID_CONFIGURATION",
-      "Whoami configuration requires refreshTokens.enabled to be explicitly set to true or false when refresh token providers are supplied.",
-    );
   }
 }
