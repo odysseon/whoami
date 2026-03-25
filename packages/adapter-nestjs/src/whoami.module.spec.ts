@@ -1,13 +1,17 @@
 import { describe, it, after } from "node:test";
 import { strict as assert } from "node:assert";
+import type { ExecutionContext } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
-import { WhoamiModule } from "./whoami.module.js";
 import { WhoamiService } from "@odysseon/whoami-core";
 import type {
   IEmailUserRepository,
   IRefreshTokenRepository,
   IUserWithPassword,
 } from "@odysseon/whoami-core";
+import { WhoamiAuthGuard } from "../dist/whoami-auth.guard.js";
+import type { WhoamiRequestIdentity } from "./whoami-auth.types.js";
+import { WhoamiController } from "../dist/whoami.controller.js";
+import { WhoamiModule } from "../dist/whoami.module.js";
 
 class InMemoryUserRepository implements IEmailUserRepository {
   private users: IUserWithPassword[] = [];
@@ -136,5 +140,70 @@ describe("WhoamiModule (Nest adapter)", () => {
     assert.equal(payload.sub, user.id);
     assert.equal(payload.iss, "whoami-tests");
     assert.equal(payload.aud, "whoami-users");
+  });
+
+  it("should expose the default controller and resolve identity through the guard", async () => {
+    moduleRef = await Test.createTestingModule({
+      imports: [
+        WhoamiModule.register({
+          userRepository: InMemoryUserRepository,
+          refreshTokenRepository: InMemoryRefreshTokenRepository,
+          tokenSignerOptions: {
+            secret: "super_secret_key_that_is_at_least_32_chars_long!!",
+            issuer: "whoami-tests",
+            audience: "whoami-users",
+          },
+        }),
+      ],
+    }).compile();
+
+    const controller = moduleRef.get(WhoamiController);
+    const guard = moduleRef.get(WhoamiAuthGuard);
+
+    const user = await controller.register({
+      email: "guard@example.com",
+      password: "password123",
+    });
+    const authTokens = await controller.login({
+      email: "guard@example.com",
+      password: "password123",
+    });
+
+    const request: { headers: { authorization: string }; user?: unknown } = {
+      headers: {
+        authorization: `Bearer ${authTokens.accessToken}`,
+      },
+    };
+
+    const context: ExecutionContext = {
+      switchToHttp: () => ({
+        getRequest: () => request,
+        getResponse: () => undefined,
+        getNext: () => undefined,
+      }),
+      switchToRpc: () => {
+        throw new Error("Not implemented in test");
+      },
+      switchToWs: () => {
+        throw new Error("Not implemented in test");
+      },
+      getClass: () => WhoamiController,
+      getHandler: () => controller.me,
+      getArgs: () => [],
+      getArgByIndex: () => undefined,
+      getType: () => "http",
+    };
+
+    const activated = await guard.canActivate(context);
+    const identity = request.user as WhoamiRequestIdentity;
+
+    assert.equal(activated, true);
+    assert.equal(identity.sub, user.id);
+    assert.equal(identity.iss, "whoami-tests");
+    assert.equal(identity.aud, "whoami-users");
+    assert.ok(typeof identity.exp === "number");
+    assert.ok(typeof identity.iat === "number");
+
+    assert.deepEqual(controller.me(identity), identity);
   });
 });
