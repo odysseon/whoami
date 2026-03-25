@@ -5,11 +5,13 @@ export * from "./errors/whoami-error.js";
 export type * from "./interfaces/models/user.interface.js";
 export type * from "./interfaces/models/refresh-token.interface.js";
 export type * from "./interfaces/models/jwt-payload.interface.js";
+export type * from "./interfaces/models/google-identity.interface.js";
 
 // Security Ports
 export type * from "./interfaces/ports/security/password-hasher.port.js";
 export type * from "./interfaces/ports/security/deterministic-token-hasher.port.js";
 export type * from "./interfaces/ports/security/token-signer.port.js";
+export type * from "./interfaces/ports/security/google-id-token-verifier.port.js";
 
 // Repository Ports
 export type * from "./interfaces/ports/repositories/user-repository.port.js";
@@ -21,6 +23,9 @@ export type * from "./interfaces/ports/utilities/logger.port.js";
 
 // Operation Contracts
 export type * from "./interfaces/operation-contracts/auth-tokens.interface.js";
+export type * from "./interfaces/operation-contracts/auth-configuration.interface.js";
+export type * from "./interfaces/operation-contracts/auth-status.interface.js";
+export type * from "./interfaces/operation-contracts/google-oauth-credentials.interface.js";
 export type * from "./interfaces/operation-contracts/login-credentials.interface.js";
 export type * from "./interfaces/operation-contracts/register-data.interface.js";
 

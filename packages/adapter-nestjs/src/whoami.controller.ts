@@ -1,6 +1,11 @@
 import { Body, Controller, Get, Post, Type, UseGuards } from "@nestjs/common";
-import type { IAuthTokens, IUserWithEmail } from "@odysseon/whoami-core";
+import type {
+  IAuthTokens,
+  IUserWithEmail,
+  IWhoamiAuthStatus,
+} from "@odysseon/whoami-core";
 import { WhoamiError, WhoamiService } from "@odysseon/whoami-core";
+import { GoogleOauthDto } from "./dto/google-oauth.dto.js";
 import { LoginDto } from "./dto/login.dto.js";
 import { RefreshDto } from "./dto/refresh.dto.js";
 import { RegisterDto } from "./dto/register.dto.js";
@@ -57,6 +62,26 @@ function buildWhoamiController(path: string): Type<unknown> {
 
         throw error;
       }
+    }
+
+    @Post("google")
+    async google(@Body() body: GoogleOauthDto): Promise<IAuthTokens> {
+      try {
+        return await this.whoamiService.loginWithGoogle({
+          idToken: body.idToken,
+        });
+      } catch (error) {
+        if (error instanceof WhoamiError) {
+          throw mapWhoamiError(error);
+        }
+
+        throw error;
+      }
+    }
+
+    @Get("status")
+    status(): IWhoamiAuthStatus {
+      return this.whoamiService.getAuthStatus();
     }
 
     @Get("me")

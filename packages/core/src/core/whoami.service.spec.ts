@@ -1,529 +1,746 @@
-import { describe, it, mock, beforeEach } from "node:test";
+import { describe, it, mock } from "node:test";
 import { strict as assert } from "node:assert";
 import {
   WhoamiService,
   type WhoamiServiceDependencies,
 } from "./whoami.service.js";
 import { WhoamiError } from "../errors/whoami-error.js";
+import type { IWhoamiAuthConfiguration } from "../interfaces/operation-contracts/auth-configuration.interface.js";
 
-describe("WhoamiService - Registration", () => {
-  let service: WhoamiService;
-  // Use a generic Record instead of 'any' to appease ESLint while
-  // keeping the mock setup flexible.
-  let mockDeps: Record<string, Record<string, ReturnType<typeof mock.fn>>>;
+type MockFn = ReturnType<typeof mock.fn>;
 
-  beforeEach(() => {
-    mockDeps = {
-      userRepository: {
-        findById: mock.fn(),
-        findByEmail: mock.fn(),
-        create: mock.fn(),
+interface MockedDependencies {
+  userRepository: {
+    findById: MockFn;
+    findByEmail: MockFn;
+    create: MockFn;
+  };
+  googleUserRepository: {
+    findById: MockFn;
+    resolveGoogleUser: MockFn;
+  };
+  refreshTokenRepository: {
+    store: MockFn;
+    findByHash: MockFn;
+    rotate: MockFn;
+    revokeAllForUser: MockFn;
+  };
+  passwordHasher: {
+    hash: MockFn;
+    verify: MockFn;
+  };
+  tokenHasher: {
+    hash: MockFn;
+  };
+  tokenSigner: {
+    sign: MockFn;
+    verify: MockFn;
+  };
+  googleIdTokenVerifier: {
+    verify: MockFn;
+  };
+  logger: {
+    info: MockFn;
+    warn: MockFn;
+    error: MockFn;
+  };
+}
+
+function createMockedDependencies(): MockedDependencies {
+  return {
+    userRepository: {
+      findById: mock.fn(async (id: string) => ({ id })),
+      findByEmail: mock.fn(async () => null),
+      create: mock.fn(async (data: { email: string }) => ({
+        id: "user_123",
+        email: data.email,
+      })),
+    },
+    googleUserRepository: {
+      findById: mock.fn(async () => null),
+      resolveGoogleUser: mock.fn(async () => ({ id: "google_user_123" })),
+    },
+    refreshTokenRepository: {
+      store: mock.fn(async () => {}),
+      findByHash: mock.fn(async () => null),
+      rotate: mock.fn(async () => true),
+      revokeAllForUser: mock.fn(async () => {}),
+    },
+    passwordHasher: {
+      hash: mock.fn(async () => "hashed_password"),
+      verify: mock.fn(async () => true),
+    },
+    tokenHasher: {
+      hash: mock.fn(async (value: string) => `hash:${value}`),
+    },
+    tokenSigner: {
+      sign: mock.fn(async () => "signed_access_token"),
+      verify: mock.fn(async () => ({ sub: "user_123" })),
+    },
+    googleIdTokenVerifier: {
+      verify: mock.fn(async () => ({
+        sub: "google-sub-123",
+        email: "google@odysseon.com",
+        emailVerified: true,
+      })),
+    },
+    logger: {
+      info: mock.fn(() => {}),
+      warn: mock.fn(() => {}),
+      error: mock.fn(() => {}),
+    },
+  };
+}
+
+function createService(options?: {
+  configuration?: IWhoamiAuthConfiguration;
+  omit?: Partial<Record<keyof WhoamiServiceDependencies, true>>;
+  mockedDependencies?: MockedDependencies;
+}): {
+  service: WhoamiService;
+  mockedDependencies: MockedDependencies;
+} {
+  const mockedDependencies =
+    options?.mockedDependencies ?? createMockedDependencies();
+
+  const deps: WhoamiServiceDependencies = {
+    userRepository: options?.omit?.userRepository
+      ? undefined
+      : (mockedDependencies.userRepository as unknown as WhoamiServiceDependencies["userRepository"]),
+    googleUserRepository: options?.omit?.googleUserRepository
+      ? undefined
+      : (mockedDependencies.googleUserRepository as unknown as WhoamiServiceDependencies["googleUserRepository"]),
+    refreshTokenRepository: options?.omit?.refreshTokenRepository
+      ? undefined
+      : (mockedDependencies.refreshTokenRepository as unknown as WhoamiServiceDependencies["refreshTokenRepository"]),
+    passwordHasher: options?.omit?.passwordHasher
+      ? undefined
+      : (mockedDependencies.passwordHasher as unknown as WhoamiServiceDependencies["passwordHasher"]),
+    tokenHasher: options?.omit?.tokenHasher
+      ? undefined
+      : (mockedDependencies.tokenHasher as unknown as WhoamiServiceDependencies["tokenHasher"]),
+    tokenSigner:
+      mockedDependencies.tokenSigner as unknown as WhoamiServiceDependencies["tokenSigner"],
+    googleIdTokenVerifier: options?.omit?.googleIdTokenVerifier
+      ? undefined
+      : (mockedDependencies.googleIdTokenVerifier as unknown as WhoamiServiceDependencies["googleIdTokenVerifier"]),
+    logger:
+      mockedDependencies.logger as unknown as WhoamiServiceDependencies["logger"],
+    configuration: options?.configuration,
+  };
+
+  return {
+    service: new WhoamiService(deps),
+    mockedDependencies,
+  };
+}
+
+describe("WhoamiService", () => {
+  it("should infer enabled auth methods and log their statuses", () => {
+    const { service, mockedDependencies } = createService();
+
+    assert.deepEqual(service.getAuthStatus(), {
+      authMethods: {
+        credentials: true,
+        googleOAuth: true,
       },
-      refreshTokenRepository: {
-        store: mock.fn(),
-        findByHash: mock.fn(),
-        rotate: mock.fn(),
-        revokeAllForUser: mock.fn(),
-      },
-      passwordHasher: { hash: mock.fn(), verify: mock.fn() },
-      tokenHasher: { hash: mock.fn(), verify: mock.fn() },
-      tokenSigner: { sign: mock.fn(), verify: mock.fn() },
-      logger: { info: mock.fn(), warn: mock.fn(), error: mock.fn() },
-    };
-
-    // Cast through unknown to bypass the strict dependency typing for our mocks
-    service = new WhoamiService(
-      mockDeps as unknown as WhoamiServiceDependencies,
+      refreshTokens: true,
+      accessTokenTtlSeconds: 900,
+      refreshTokenTtlSeconds: 604800,
+    });
+    assert.equal(mockedDependencies.logger.info.mock.callCount(), 3);
+    assert.equal(
+      mockedDependencies.logger.info.mock.calls[0].arguments[0],
+      "Credentials authentication status",
+    );
+    assert.equal(
+      mockedDependencies.logger.info.mock.calls[1].arguments[0],
+      "Google OAuth authentication status",
+    );
+    assert.equal(
+      mockedDependencies.logger.info.mock.calls[2].arguments[0],
+      "Refresh token status",
     );
   });
 
-  describe("Registration Flow", () => {
-    it("should successfully register a new user", async () => {
-      mockDeps.userRepository.findByEmail.mock.mockImplementation(
-        async () => null,
-      );
-      mockDeps.passwordHasher.hash.mock.mockImplementation(
-        async () => "hashed_password_123",
-      );
-      mockDeps.userRepository.create.mock.mockImplementation(
-        // Strictly typed argument instead of 'any'
-        async (data: { email: string }) => ({
-          id: "user_123",
-          email: data.email,
-        }),
-      );
+  it("should return a defensive copy of auth status", () => {
+    const { service } = createService();
+    const status = service.getAuthStatus();
 
-      const result = await service.registerWithEmail({
-        email: "test@odysseon.com",
-        password: "supersecretpassword",
-      });
+    status.authMethods.credentials = false;
 
-      assert.equal(result.id, "user_123");
-      assert.equal(result.email, "test@odysseon.com");
+    assert.equal(service.getAuthStatus().authMethods.credentials, true);
+  });
 
-      assert.equal(
-        mockDeps.passwordHasher.hash.mock.calls[0].arguments[0],
-        "supersecretpassword",
-      );
-
-      const createArgs =
-        mockDeps.userRepository.create.mock.calls[0].arguments[0];
-      assert.equal(createArgs.email, "test@odysseon.com");
-      assert.equal(createArgs.passwordHash, "hashed_password_123");
-
-      // Verify logger was called
-      assert.equal(mockDeps.logger.info.mock.callCount(), 1);
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 0);
+  it("should honor explicit disabled auth methods and refresh token settings", () => {
+    const { service } = createService({
+      configuration: {
+        authMethods: {
+          credentials: false,
+          googleOAuth: false,
+        },
+        refreshTokens: {
+          enabled: false,
+        },
+        accessTokenTtlSeconds: 3600,
+      },
     });
 
-    it("should throw USER_ALREADY_EXISTS if the email is taken", async () => {
-      mockDeps.userRepository.findByEmail.mock.mockImplementation(async () => ({
-        id: "existing_user_999",
-        email: "test@odysseon.com",
-      }));
-
-      await assert.rejects(
-        () =>
-          service.registerWithEmail({
-            email: "test@odysseon.com",
-            password: "password",
-          }),
-        // Use unknown and narrow the type safely
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "USER_ALREADY_EXISTS");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.passwordHasher.hash.mock.callCount(), 0);
-      assert.equal(mockDeps.userRepository.create.mock.callCount(), 0);
-
-      // Verify logger warning was called
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS when empty password is provided", async () => {
-      await assert.rejects(
-        () =>
-          service.registerWithEmail({
-            email: "test@odysseon.com",
-            password: "",
-          }),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          assert.equal(err.message, "Password cannot be empty.");
-          return true;
-        },
-      );
-
-      // Verify early exit - no repository calls
-      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
-      assert.equal(mockDeps.passwordHasher.hash.mock.callCount(), 0);
-      assert.equal(mockDeps.userRepository.create.mock.callCount(), 0);
-
-      // Verify logger warning
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS when whitespace-only password is provided", async () => {
-      await assert.rejects(
-        () =>
-          service.registerWithEmail({
-            email: "test@odysseon.com",
-            password: "   ",
-          }),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
-      assert.equal(mockDeps.passwordHasher.hash.mock.callCount(), 0);
+    assert.deepEqual(service.getAuthStatus(), {
+      authMethods: {
+        credentials: false,
+        googleOAuth: false,
+      },
+      refreshTokens: false,
+      accessTokenTtlSeconds: 3600,
+      refreshTokenTtlSeconds: null,
     });
   });
 
-  describe("Login Flow", () => {
-    it("should successfully log in and return tokens", async () => {
-      mockDeps.userRepository.findByEmail.mock.mockImplementation(async () => ({
-        id: "user_123",
-        email: "test@odysseon.com",
-        passwordHash: "hashed_db_password",
-      }));
-      mockDeps.passwordHasher.verify.mock.mockImplementation(async () => true);
-      mockDeps.tokenSigner.sign.mock.mockImplementation(
-        async () => "mock_jwt_access_token",
-      );
-      mockDeps.tokenHasher.hash.mock.mockImplementation(
-        async () => "hashed_refresh_token_string",
-      );
-      mockDeps.refreshTokenRepository.store.mock.mockImplementation(
-        async () => {},
-      );
-
-      const result = await service.loginWithEmail({
-        email: "test@odysseon.com",
-        password: "correct_password",
-      });
-
-      assert.equal(result.accessToken, "mock_jwt_access_token");
-      assert.ok(result.refreshToken);
-
-      const verifyArgs = mockDeps.passwordHasher.verify.mock.calls[0].arguments;
-      assert.equal(verifyArgs[0], "hashed_db_password");
-      assert.equal(verifyArgs[1], "correct_password");
-
-      const signArgs = mockDeps.tokenSigner.sign.mock.calls[0].arguments;
-      assert.deepEqual(signArgs[0], { sub: "user_123" });
-
-      const storeArgs =
-        mockDeps.refreshTokenRepository.store.mock.calls[0].arguments[0];
-      assert.equal(storeArgs.tokenHash, "hashed_refresh_token_string");
-      assert.equal(storeArgs.userId, "user_123");
-      assert.equal(storeArgs.isRevoked, false);
-
-      // Verify logger was called
-      assert.equal(mockDeps.logger.info.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS if the user does not exist", async () => {
-      mockDeps.userRepository.findByEmail.mock.mockImplementation(
-        async () => null,
-      );
-
-      await assert.rejects(
-        () =>
-          service.loginWithEmail({
-            email: "ghost@odysseon.com",
-            password: "password",
-          }),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.passwordHasher.verify.mock.callCount(), 0);
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS if the password does not match", async () => {
-      mockDeps.userRepository.findByEmail.mock.mockImplementation(async () => ({
-        id: "user_123",
-        passwordHash: "real_hash",
-      }));
-      mockDeps.passwordHasher.verify.mock.mockImplementation(async () => false);
-
-      await assert.rejects(
-        () =>
-          service.loginWithEmail({
-            email: "test@odysseon.com",
-            password: "wrong_password",
-          }),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.tokenSigner.sign.mock.callCount(), 0);
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS when empty password is provided", async () => {
-      await assert.rejects(
-        () =>
-          service.loginWithEmail({
-            email: "test@odysseon.com",
-            password: "",
-          }),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      // Early exit - no repository calls
-      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
-      assert.equal(mockDeps.passwordHasher.verify.mock.callCount(), 0);
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS when whitespace-only password is provided", async () => {
-      await assert.rejects(
-        () =>
-          service.loginWithEmail({
-            email: "test@odysseon.com",
-            password: "   ",
-          }),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.userRepository.findByEmail.mock.callCount(), 0);
-    });
+  it("should throw when access token TTL is invalid", () => {
+    assert.throws(
+      () =>
+        createService({
+          configuration: {
+            accessTokenTtlSeconds: 0,
+          },
+        }),
+      /accessTokenTtlSeconds > 0/,
+    );
   });
 
-  describe("Refresh Tokens Flow", () => {
-    const validFutureDate = new Date(Date.now() + 100000);
-    const pastDate = new Date(Date.now() - 100000);
-
-    it("should successfully rotate tokens atomically and hash dynamically", async () => {
-      // Dynamic mock: Prepends 'hashed_' to whatever string is passed in
-      mockDeps.tokenHasher.hash.mock.mockImplementation(
-        async (input: string) => "hashed_" + input,
-      );
-
-      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
-        async () => ({
-          id: "token_record_1",
-          userId: "user_123",
-          tokenHash: "hashed_raw_old_refresh_token",
-          expiresAt: validFutureDate,
-          isRevoked: false,
+  it("should throw when refresh token TTL is invalid while refresh tokens are enabled", () => {
+    assert.throws(
+      () =>
+        createService({
+          configuration: {
+            refreshTokens: { enabled: true },
+            refreshTokenTtlSeconds: 0,
+          },
         }),
-      );
-
-      mockDeps.refreshTokenRepository.rotate.mock.mockImplementation(
-        async () => true,
-      );
-
-      mockDeps.userRepository.findById.mock.mockImplementation(async () => ({
-        id: "user_123",
-      }));
-      mockDeps.tokenSigner.sign.mock.mockImplementation(
-        async () => "new_access_token",
-      );
-
-      const result = await service.refreshTokens("raw_old_refresh_token");
-
-      assert.equal(result.accessToken, "new_access_token");
-      assert.ok(result.refreshToken);
-
-      // Verify the atomic rotation was called correctly
-      const rotateArgs =
-        mockDeps.refreshTokenRepository.rotate.mock.calls[0].arguments;
-
-      // Arg 0: Ensure it targeted the old hash
-      assert.equal(rotateArgs[0], "hashed_raw_old_refresh_token");
-
-      // Arg 1: Ensure the NEW hash corresponds to the newly generated raw token
-      assert.equal(rotateArgs[1].userId, "user_123");
-      assert.equal(rotateArgs[1].tokenHash, "hashed_" + result.refreshToken);
-      assert.equal(rotateArgs[1].isRevoked, false);
-      assert.equal(rotateArgs[1].id, undefined);
-
-      // Verify logger was called
-      assert.equal(mockDeps.logger.info.mock.callCount(), 1);
-    });
-
-    it("should trigger breach protocol if atomic rotation fails (race condition)", async () => {
-      mockDeps.tokenHasher.hash.mock.mockImplementation(
-        async () => "hashed_raw_old_token",
-      );
-      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
-        async () => ({
-          userId: "user_123",
-          expiresAt: validFutureDate,
-          isRevoked: false,
-        }),
-      );
-      mockDeps.userRepository.findById.mock.mockImplementation(async () => ({
-        id: "user_123",
-      }));
-
-      // Simulate another request consuming the token a millisecond before this one
-      mockDeps.refreshTokenRepository.rotate.mock.mockImplementation(
-        async () => false,
-      );
-
-      await assert.rejects(
-        () => service.refreshTokens("raw_old_token"),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      // Verify lockdown occurred
-      const revokeArgs =
-        mockDeps.refreshTokenRepository.revokeAllForUser.mock.calls[0]
-          .arguments;
-      assert.equal(revokeArgs[0], "user_123");
-
-      // Verify error logging
-      assert.equal(mockDeps.logger.error.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS if token is not found", async () => {
-      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
-        async () => null,
-      );
-
-      await assert.rejects(
-        () => service.refreshTokens("raw_fake_token"),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw TOKEN_EXPIRED if the token is past its expiration date", async () => {
-      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
-        async () => ({
-          userId: "user_123",
-          expiresAt: pastDate,
-          isRevoked: false,
-        }),
-      );
-
-      await assert.rejects(
-        () => service.refreshTokens("raw_expired_token"),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "TOKEN_EXPIRED");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should nuke sessions and throw if a revoked token is used", async () => {
-      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
-        async () => ({
-          userId: "user_hacker",
-          expiresAt: validFutureDate,
-          isRevoked: true,
-        }),
-      );
-
-      await assert.rejects(
-        () => service.refreshTokens("raw_stolen_token"),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          return true;
-        },
-      );
-
-      const revokeArgs =
-        mockDeps.refreshTokenRepository.revokeAllForUser.mock.calls[0]
-          .arguments;
-      assert.equal(revokeArgs[0], "user_hacker");
-
-      // Verify security alert logging
-      assert.equal(mockDeps.logger.error.mock.callCount(), 1);
-    });
-
-    it("should throw USER_NOT_FOUND if user no longer exists", async () => {
-      mockDeps.tokenHasher.hash.mock.mockImplementation(
-        async () => "hashed_token",
-      );
-      mockDeps.refreshTokenRepository.findByHash.mock.mockImplementation(
-        async () => ({
-          userId: "user_deleted",
-          expiresAt: validFutureDate,
-          isRevoked: false,
-        }),
-      );
-      mockDeps.userRepository.findById.mock.mockImplementation(
-        async () => null,
-      );
-
-      await assert.rejects(
-        () => service.refreshTokens("raw_token"),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "USER_NOT_FOUND");
-          return true;
-        },
-      );
-
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS when an empty string is provided", async () => {
-      await assert.rejects(
-        () => service.refreshTokens(""),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          assert.equal(err.message, "Invalid or expired refresh token.");
-          return true;
-        },
-      );
-
-      // Verify that no repository calls were made (early exit)
-      assert.equal(mockDeps.tokenHasher.hash.mock.callCount(), 0);
-      assert.equal(
-        mockDeps.refreshTokenRepository.findByHash.mock.callCount(),
-        0,
-      );
-      assert.equal(mockDeps.logger.warn.mock.callCount(), 1);
-    });
-
-    it("should throw INVALID_CREDENTIALS when a whitespace-only string is provided", async () => {
-      await assert.rejects(
-        () => service.refreshTokens("   "),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "INVALID_CREDENTIALS");
-          assert.equal(err.message, "Invalid or expired refresh token.");
-          return true;
-        },
-      );
-
-      // Verify early exit behavior
-      assert.equal(mockDeps.tokenHasher.hash.mock.callCount(), 0);
-      assert.equal(
-        mockDeps.refreshTokenRepository.findByHash.mock.callCount(),
-        0,
-      );
-    });
+      /refreshTokenTtlSeconds > 0/,
+    );
   });
 
-  describe("Verify Access Token", () => {
-    it("should successfully verify and return the payload", async () => {
-      mockDeps.tokenSigner.verify.mock.mockImplementation(async () => ({
-        sub: "user_123",
-      }));
+  it("should throw when credentials auth is enabled without credential dependencies", () => {
+    assert.throws(
+      () =>
+        createService({
+          configuration: {
+            authMethods: { credentials: true, googleOAuth: false },
+            refreshTokens: { enabled: false },
+          },
+          omit: {
+            userRepository: true,
+          },
+        }),
+      /userRepository/,
+    );
+  });
 
-      const result = await service.verifyAccessToken("valid_jwt_string");
+  it("should throw when Google OAuth is enabled without its dependencies", () => {
+    assert.throws(
+      () =>
+        createService({
+          configuration: {
+            authMethods: { credentials: false, googleOAuth: true },
+            refreshTokens: { enabled: false },
+          },
+          omit: {
+            googleIdTokenVerifier: true,
+          },
+        }),
+      /googleIdTokenVerifier/,
+    );
+  });
 
-      assert.equal(result.sub, "user_123");
+  it("should throw when refresh tokens are enabled without refresh dependencies", () => {
+    assert.throws(
+      () =>
+        createService({
+          configuration: {
+            authMethods: { credentials: false, googleOAuth: false },
+            refreshTokens: { enabled: true },
+          },
+          omit: {
+            refreshTokenRepository: true,
+          },
+        }),
+      /refreshTokenRepository/,
+    );
+  });
 
-      const verifyArgs = mockDeps.tokenSigner.verify.mock.calls[0].arguments;
-      assert.equal(verifyArgs[0], "valid_jwt_string");
+  it("should register a new email user", async () => {
+    const { service, mockedDependencies } = createService();
+
+    const result = await service.registerWithEmail({
+      email: "test@odysseon.com",
+      password: "supersecretpassword",
     });
 
-    it("should bubble up errors from the signer adapter", async () => {
-      mockDeps.tokenSigner.verify.mock.mockImplementation(async () => {
-        throw new WhoamiError("TOKEN_EXPIRED", "Token is dead.");
-      });
+    assert.equal(result.id, "user_123");
+    assert.equal(result.email, "test@odysseon.com");
+    assert.equal(
+      mockedDependencies.passwordHasher.hash.mock.calls[0].arguments[0],
+      "supersecretpassword",
+    );
+    assert.equal(
+      mockedDependencies.userRepository.create.mock.calls[0].arguments[0]
+        .passwordHash,
+      "hashed_password",
+    );
+  });
 
-      await assert.rejects(
-        () => service.verifyAccessToken("expired_jwt_string"),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "TOKEN_EXPIRED");
-          return true;
+  it("should reject registration when credentials authentication is disabled", async () => {
+    const { service, mockedDependencies } = createService({
+      configuration: {
+        authMethods: { credentials: false, googleOAuth: false },
+        refreshTokens: { enabled: false },
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.registerWithEmail({
+          email: "test@odysseon.com",
+          password: "password",
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof WhoamiError);
+        assert.equal(error.code, "AUTH_METHOD_DISABLED");
+        return true;
+      },
+    );
+
+    assert.equal(
+      mockedDependencies.userRepository.findByEmail.mock.callCount(),
+      0,
+    );
+  });
+
+  it("should reject registration with empty password", async () => {
+    const { service } = createService();
+
+    await assert.rejects(
+      () =>
+        service.registerWithEmail({
+          email: "test@odysseon.com",
+          password: " ",
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof WhoamiError);
+        assert.equal(error.code, "INVALID_CREDENTIALS");
+        return true;
+      },
+    );
+  });
+
+  it("should reject registration when the email already exists", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.userRepository.findByEmail.mock.mockImplementation(
+      async () => ({
+        id: "user_existing",
+        email: "test@odysseon.com",
+        passwordHash: "already_hashed",
+      }),
+    );
+
+    const { service } = createService({ mockedDependencies });
+
+    await assert.rejects(
+      () =>
+        service.registerWithEmail({
+          email: "test@odysseon.com",
+          password: "password",
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof WhoamiError);
+        assert.equal(error.code, "USER_ALREADY_EXISTS");
+        return true;
+      },
+    );
+  });
+
+  it("should log in with email and issue refresh tokens when enabled", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.userRepository.findByEmail.mock.mockImplementation(
+      async () => ({
+        id: "user_123",
+        email: "test@odysseon.com",
+        passwordHash: "stored_hash",
+      }),
+    );
+
+    const { service } = createService({ mockedDependencies });
+    const result = await service.loginWithEmail({
+      email: "test@odysseon.com",
+      password: "correct_password",
+    });
+
+    assert.equal(result.accessToken, "signed_access_token");
+    assert.ok(typeof result.refreshToken === "string");
+    assert.equal(
+      mockedDependencies.refreshTokenRepository.store.mock.callCount(),
+      1,
+    );
+  });
+
+  it("should log in with email without refresh token when refresh tokens are disabled", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.userRepository.findByEmail.mock.mockImplementation(
+      async () => ({
+        id: "user_123",
+        email: "test@odysseon.com",
+        passwordHash: "stored_hash",
+      }),
+    );
+
+    const { service } = createService({
+      mockedDependencies,
+      configuration: {
+        refreshTokens: { enabled: false },
+      },
+    });
+    const result = await service.loginWithEmail({
+      email: "test@odysseon.com",
+      password: "correct_password",
+    });
+
+    assert.equal(result.accessToken, "signed_access_token");
+    assert.equal(result.refreshToken, undefined);
+    assert.equal(
+      mockedDependencies.refreshTokenRepository.store.mock.callCount(),
+      0,
+    );
+  });
+
+  it("should reject email login when credentials authentication is disabled", async () => {
+    const { service } = createService({
+      configuration: {
+        authMethods: { credentials: false },
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.loginWithEmail({
+          email: "test@odysseon.com",
+          password: "password",
+        }),
+      /Credentials authentication is disabled/,
+    );
+  });
+
+  it("should reject email login with empty password", async () => {
+    const { service } = createService();
+
+    await assert.rejects(
+      () =>
+        service.loginWithEmail({
+          email: "test@odysseon.com",
+          password: "",
+        }),
+      /Invalid email or password/,
+    );
+  });
+
+  it("should reject email login when user does not exist", async () => {
+    const { service } = createService();
+
+    await assert.rejects(
+      () =>
+        service.loginWithEmail({
+          email: "ghost@odysseon.com",
+          password: "password",
+        }),
+      /Invalid email or password/,
+    );
+  });
+
+  it("should reject email login when password verification fails", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.userRepository.findByEmail.mock.mockImplementation(
+      async () => ({
+        id: "user_123",
+        email: "test@odysseon.com",
+        passwordHash: "stored_hash",
+      }),
+    );
+    mockedDependencies.passwordHasher.verify.mock.mockImplementation(
+      async () => false,
+    );
+
+    const { service } = createService({ mockedDependencies });
+
+    await assert.rejects(
+      () =>
+        service.loginWithEmail({
+          email: "test@odysseon.com",
+          password: "wrong_password",
+        }),
+      /Invalid email or password/,
+    );
+  });
+
+  it("should log in with Google OAuth", async () => {
+    const { service, mockedDependencies } = createService({
+      configuration: {
+        authMethods: { credentials: false, googleOAuth: true },
+      },
+    });
+
+    const result = await service.loginWithGoogle({
+      idToken: "google-id-token",
+    });
+
+    assert.equal(result.accessToken, "signed_access_token");
+    assert.ok(typeof result.refreshToken === "string");
+    assert.equal(
+      mockedDependencies.googleIdTokenVerifier.verify.mock.callCount(),
+      1,
+    );
+    assert.equal(
+      mockedDependencies.googleUserRepository.resolveGoogleUser.mock.callCount(),
+      1,
+    );
+  });
+
+  it("should reject Google login when Google auth is disabled", async () => {
+    const { service } = createService({
+      configuration: {
+        authMethods: { googleOAuth: false },
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        service.loginWithGoogle({
+          idToken: "google-id-token",
+        }),
+      /Google OAuth authentication is disabled/,
+    );
+  });
+
+  it("should reject Google login with empty ID token", async () => {
+    const { service } = createService();
+
+    await assert.rejects(
+      () =>
+        service.loginWithGoogle({
+          idToken: " ",
+        }),
+      /Google ID token is required/,
+    );
+  });
+
+  it("should reject token refresh when refresh tokens are disabled", async () => {
+    const { service } = createService({
+      configuration: {
+        refreshTokens: { enabled: false },
+      },
+    });
+
+    await assert.rejects(
+      () => service.refreshTokens("refresh-token"),
+      /Refresh tokens are disabled/,
+    );
+  });
+
+  it("should reject token refresh when token input is empty", async () => {
+    const { service } = createService();
+
+    await assert.rejects(
+      () => service.refreshTokens(" "),
+      /Invalid or expired refresh token/,
+    );
+  });
+
+  it("should reject token refresh when token does not exist", async () => {
+    const { service } = createService();
+
+    await assert.rejects(
+      () => service.refreshTokens("refresh-token"),
+      /Invalid or expired refresh token/,
+    );
+  });
+
+  it("should revoke sessions when a revoked refresh token is reused", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.refreshTokenRepository.findByHash.mock.mockImplementation(
+      async () => ({
+        id: "rt_1",
+        userId: "user_123",
+        tokenHash: "hash:refresh-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        isRevoked: true,
+      }),
+    );
+
+    const { service } = createService({ mockedDependencies });
+
+    await assert.rejects(
+      () => service.refreshTokens("refresh-token"),
+      (error: unknown) => {
+        assert.ok(error instanceof WhoamiError);
+        assert.equal(error.code, "TOKEN_REUSED");
+        return true;
+      },
+    );
+
+    assert.equal(
+      mockedDependencies.refreshTokenRepository.revokeAllForUser.mock.callCount(),
+      1,
+    );
+  });
+
+  it("should reject expired refresh tokens", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.refreshTokenRepository.findByHash.mock.mockImplementation(
+      async () => ({
+        id: "rt_1",
+        userId: "user_123",
+        tokenHash: "hash:refresh-token",
+        expiresAt: new Date(Date.now() - 60_000),
+        isRevoked: false,
+      }),
+    );
+
+    const { service } = createService({ mockedDependencies });
+
+    await assert.rejects(
+      () => service.refreshTokens("refresh-token"),
+      /Refresh token has expired/,
+    );
+  });
+
+  it("should reject refresh when the user cannot be found in any enabled repository", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.refreshTokenRepository.findByHash.mock.mockImplementation(
+      async () => ({
+        id: "rt_1",
+        userId: "missing_user",
+        tokenHash: "hash:refresh-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        isRevoked: false,
+      }),
+    );
+    mockedDependencies.userRepository.findById.mock.mockImplementation(
+      async () => null,
+    );
+    mockedDependencies.googleUserRepository.findById.mock.mockImplementation(
+      async () => null,
+    );
+
+    const { service } = createService({ mockedDependencies });
+
+    await assert.rejects(
+      () => service.refreshTokens("refresh-token"),
+      /User no longer exists/,
+    );
+  });
+
+  it("should revoke sessions when rotation fails", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.refreshTokenRepository.findByHash.mock.mockImplementation(
+      async () => ({
+        id: "rt_1",
+        userId: "user_123",
+        tokenHash: "hash:refresh-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        isRevoked: false,
+      }),
+    );
+    mockedDependencies.refreshTokenRepository.rotate.mock.mockImplementation(
+      async () => false,
+    );
+
+    const { service } = createService({ mockedDependencies });
+
+    await assert.rejects(
+      () => service.refreshTokens("refresh-token"),
+      (error: unknown) => {
+        assert.ok(error instanceof WhoamiError);
+        assert.equal(error.code, "TOKEN_REUSED");
+        return true;
+      },
+    );
+
+    assert.equal(
+      mockedDependencies.refreshTokenRepository.revokeAllForUser.mock.callCount(),
+      1,
+    );
+  });
+
+  it("should rotate refresh tokens successfully", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.refreshTokenRepository.findByHash.mock.mockImplementation(
+      async () => ({
+        id: "rt_1",
+        userId: "user_123",
+        tokenHash: "hash:refresh-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        isRevoked: false,
+      }),
+    );
+
+    const { service } = createService({ mockedDependencies });
+    const result = await service.refreshTokens("refresh-token");
+
+    assert.equal(result.accessToken, "signed_access_token");
+    assert.ok(typeof result.refreshToken === "string");
+    assert.equal(
+      mockedDependencies.refreshTokenRepository.rotate.mock.callCount(),
+      1,
+    );
+  });
+
+  it("should refresh using the Google user repository when credentials auth is unavailable", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.refreshTokenRepository.findByHash.mock.mockImplementation(
+      async () => ({
+        id: "rt_1",
+        userId: "google_user_123",
+        tokenHash: "hash:refresh-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        isRevoked: false,
+      }),
+    );
+    mockedDependencies.googleUserRepository.findById.mock.mockImplementation(
+      async (id: string) => ({ id }),
+    );
+
+    const { service } = createService({
+      mockedDependencies,
+      configuration: {
+        authMethods: {
+          credentials: false,
+          googleOAuth: true,
         },
-      );
+      },
+      omit: {
+        userRepository: true,
+        passwordHasher: true,
+      },
     });
+
+    const result = await service.refreshTokens("refresh-token");
+    assert.equal(result.accessToken, "signed_access_token");
+  });
+
+  it("should verify access tokens through the configured signer", async () => {
+    const mockedDependencies = createMockedDependencies();
+    mockedDependencies.tokenSigner.verify.mock.mockImplementation(async () => ({
+      sub: "verified_user",
+      iss: "whoami-tests",
+    }));
+
+    const { service } = createService({ mockedDependencies });
+    const payload = await service.verifyAccessToken("access-token");
+
+    assert.deepEqual(payload, {
+      sub: "verified_user",
+      iss: "whoami-tests",
+    });
+    assert.equal(mockedDependencies.tokenSigner.verify.mock.callCount(), 1);
   });
 });

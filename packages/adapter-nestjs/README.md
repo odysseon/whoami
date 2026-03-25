@@ -11,9 +11,11 @@ Out of the box, the module gives you:
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
+- `POST /auth/google`
+- `GET /auth/status`
 - `GET /auth/me`
 
-The `GET /auth/me` route uses the built-in bearer-token extractor and confirms identity from the access token. The guaranteed baseline is `sub`. Any richer user-loading logic remains the responsibility of the consumer app.
+The `GET /auth/me` route uses the built-in bearer-token extractor and confirms identity from the access token. The guaranteed baseline is `sub`. `GET /auth/status` exposes which auth methods and token strategy are enabled. Any richer user-loading logic remains the responsibility of the consumer app.
 
 Default security adapters wired by `WhoamiModule`:
 
@@ -21,10 +23,11 @@ Default security adapters wired by `WhoamiModule`:
 - `@odysseon/whoami-adapter-jose` (access token signer)
 - `@odysseon/whoami-adapter-webcrypto` (refresh token hasher)
 
-Required repository implementations:
+Supported optional integrations:
 
-- `IEmailUserRepository` (throwing if one does not exist)
-- `IRefreshTokenRepository` (for refresh token storage + rotation)
+- `IEmailUserRepository` for credentials auth
+- `IGoogleUserRepository` plus `IGoogleIdTokenVerifier` for Google OAuth
+- `IRefreshTokenRepository` for refresh-token rotation when refresh tokens are enabled
 
 ## Installation
 
@@ -33,30 +36,6 @@ npm install @odysseon/whoami-core @odysseon/whoami-adapter-nestjs @odysseon/whoa
 ```
 
 ## Usage
-
-```ts
-import { Module } from "@nestjs/common";
-import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
-import { PrismaUserRepository } from "./user.repository"; // your implementation
-import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
-
-@Module({
-  imports: [
-    WhoamiModule.register({
-      userRepository: PrismaUserRepository,
-      refreshTokenRepository: PrismaRefreshTokenRepository,
-      tokenSignerOptions: {
-        secret: process.env.JWT_SECRET!,
-        issuer: "your-app",
-        audience: "your-app-users",
-      },
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-### Default HTTP surface
 
 ```ts
 import { Module } from "@nestjs/common";
@@ -71,6 +50,17 @@ import { PrismaUserRepository } from "./user.repository";
       refreshTokenRepository: PrismaRefreshTokenRepository,
       tokenSignerOptions: {
         secret: process.env.JWT_SECRET!,
+        issuer: "your-app",
+        audience: "your-app-users",
+      },
+      configuration: {
+        authMethods: {
+          credentials: true,
+          googleOAuth: false,
+        },
+        refreshTokens: {
+          enabled: true,
+        },
       },
     }),
   ],
@@ -78,7 +68,30 @@ import { PrismaUserRepository } from "./user.repository";
 export class AppModule {}
 ```
 
+### Default HTTP surface
+
 That is enough to expose a working controller at `/auth`.
+
+For Google-only auth without refresh tokens:
+
+```ts
+WhoamiModule.register({
+  googleUserRepository: YourGoogleUserRepository,
+  googleIdTokenVerifier: YourGoogleIdTokenVerifier,
+  tokenSignerOptions: {
+    secret: process.env.JWT_SECRET!,
+  },
+  configuration: {
+    authMethods: {
+      credentials: false,
+      googleOAuth: true,
+    },
+    refreshTokens: {
+      enabled: false,
+    },
+  },
+});
+```
 
 To protect your own routes, use `WhoamiAuthGuard` and `WhoamiIdentity()`:
 
@@ -104,33 +117,36 @@ export class AccountController {
 
 If your app extends the base user model or operation contracts, override the built-in controller and inject the re-exported `WhoamiService` from this package. The built-in controller intentionally stays on the base contracts only.
 
-### Async configuration (environment-driven)
-
-For configuration that depends on other providers or environment variables:
+### Async configuration
 
 ```ts
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
 import { PrismaUserRepository } from "./user.repository";
-import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     WhoamiModule.registerAsync({
-      imports: [ConfigModule], // Required for ConfigService injection
+      imports: [ConfigModule],
       userRepository: {
         useClass: PrismaUserRepository,
       },
-      refreshTokenRepository: {
-        useClass: PrismaRefreshTokenRepository,
+      configuration: {
+        useValue: {
+          authMethods: {
+            credentials: true,
+            googleOAuth: false,
+          },
+          refreshTokens: {
+            enabled: false,
+          },
+        },
       },
       tokenSignerOptions: {
         useFactory: (config: ConfigService) => ({
           secret: config.get<string>("JWT_SECRET")!,
-          issuer: config.get<string>("JWT_ISSUER", "your-app"),
-          audience: config.get<string>("JWT_AUDIENCE", "your-app-users"),
         }),
         inject: [ConfigService],
       },
@@ -140,10 +156,9 @@ import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
 export class AppModule {}
 ```
 
-**Note:** The `imports` option is required when using `inject` with tokens from other modules (e.g., ConfigModule). This ensures that the injected services are available in the dynamic module's dependency injection scope.
-
 ## Customization
 
 - Override `tokenExtractor` if your app reads access tokens somewhere other than the `Authorization: Bearer <token>` header.
+- Override `configuration` to explicitly enable or disable credentials auth, Google OAuth, and refresh tokens.
 - Set `controller: false` if you want only the providers and guard utilities, without the built-in controller.
 - Set `controller.path` to move the built-in controller away from `/auth`.

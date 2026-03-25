@@ -9,6 +9,8 @@ export function mapWhoamiError(error: WhoamiError): Error {
   switch (error.code) {
     case "USER_ALREADY_EXISTS":
       return new ConflictException(error.message);
+    case "AUTH_METHOD_DISABLED":
+      return new BadRequestException(error.message);
     case "MISSING_TOKEN":
     case "INVALID_CREDENTIALS":
     case "TOKEN_EXPIRED":
