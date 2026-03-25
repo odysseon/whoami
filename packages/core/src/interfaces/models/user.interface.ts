@@ -8,7 +8,7 @@ export interface IUser {
 
 /**
  * Capability Interface: For identities that possess an email address.
- * Used by strategies that require email verification or login.
+ * This is the "Bridge" that connects different authentication methods.
  */
 export interface IUserWithEmail extends IUser {
   email: string;
@@ -23,10 +23,11 @@ export interface IUserWithPassword extends IUserWithEmail {
 }
 
 /**
- * Capability Interface: For identities linked to a Google account.
- * Used by adapters that support Google OAuth flows.
+ * Capability Interface: For identities linked to external OAuth providers.
+ * Replaces 'IUserWithGoogle' to support Google, GitHub, Apple, etc.
  */
-export interface IUserWithGoogle extends IUser {
-  googleSub: string;
+export interface IUserWithProvider extends IUser {
+  provider: string;
+  providerId: string;
   email?: string;
 }

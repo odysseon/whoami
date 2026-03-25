@@ -1,6 +1,6 @@
 export interface IWhoamiAuthMethodsStatus {
   credentials: boolean;
-  googleOAuth: boolean;
+  oauth: boolean;
 }
 
 export interface IWhoamiAuthStatus {
