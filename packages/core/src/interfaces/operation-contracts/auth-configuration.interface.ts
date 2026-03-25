@@ -1,6 +1,6 @@
 export interface IWhoamiAuthMethodsConfiguration {
   credentials?: boolean;
-  googleOAuth?: boolean;
+  oauth?: boolean;
 }
 
 export interface IWhoamiRefreshTokensConfiguration {
