@@ -11,7 +11,7 @@ import type {
   ILogger,
   WhoamiServiceDependencies,
 } from "@odysseon/whoami-core";
-import { WhoamiService } from "@odysseon/whoami-core";
+import { WhoamiError, WhoamiService } from "@odysseon/whoami-core";
 import { JoseTokenSigner } from "@odysseon/whoami-adapter-jose";
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
 import { WebCryptoTokenHasher } from "@odysseon/whoami-adapter-webcrypto";
@@ -45,6 +45,37 @@ type AsyncProviderOptions<T> = {
   inject?: Array<string | symbol | ((...args: unknown[]) => unknown)>;
 };
 
+type OptionalInjectToken = {
+  token: string;
+  optional: true;
+};
+
+function optionalInject(token: string): OptionalInjectToken {
+  return {
+    token,
+    optional: true,
+  };
+}
+
+function cloneConfiguration(
+  configuration: IWhoamiAuthConfiguration | undefined,
+): IWhoamiAuthConfiguration | undefined {
+  if (!configuration) {
+    return undefined;
+  }
+
+  return {
+    authMethods: configuration.authMethods
+      ? { ...configuration.authMethods }
+      : undefined,
+    refreshTokens: configuration.refreshTokens
+      ? { ...configuration.refreshTokens }
+      : undefined,
+    accessTokenTtlSeconds: configuration.accessTokenTtlSeconds,
+    refreshTokenTtlSeconds: configuration.refreshTokenTtlSeconds,
+  };
+}
+
 function resolveController(
   options?: WhoamiNestControllerOptions | false,
 ): Array<Type<unknown>> {
@@ -55,79 +86,94 @@ function resolveController(
   return [createWhoamiController(options?.path ?? "auth")];
 }
 
-function provideOptionalClass<T>(
-  token: string,
-  useClass?: new (...args: unknown[]) => T,
-): Provider {
-  if (useClass) {
-    return {
-      provide: token,
-      useClass,
-    };
-  }
-
-  return {
-    provide: token,
-    useValue: undefined,
-  };
+function credentialsEnabled(configuration?: IWhoamiAuthConfiguration): boolean {
+  return configuration?.authMethods?.credentials === true;
 }
 
-function provideAsyncOptional<T>(
-  token: string,
-  options?: AsyncProviderOptions<T>,
-): Provider {
-  if (options?.useValue !== undefined) {
-    return {
-      provide: token,
-      useValue: options.useValue,
-    };
-  }
-
-  if (options?.useClass) {
-    return {
-      provide: token,
-      useClass: options.useClass,
-    };
-  }
-
-  if (options?.useFactory) {
-    return {
-      provide: token,
-      useFactory: options.useFactory,
-      inject: options.inject ?? [],
-    };
-  }
-
-  if (options?.useExisting) {
-    return {
-      provide: token,
-      useExisting: options.useExisting,
-    };
-  }
-
-  return {
-    provide: token,
-    useValue: undefined,
-  };
-}
-
-function shouldProvideCredentialsSupport(
-  options: Pick<WhoamiNestModuleOptions, "userRepository" | "configuration">,
+function refreshTokensEnabled(
+  configuration?: IWhoamiAuthConfiguration,
 ): boolean {
-  return Boolean(
-    options.userRepository || options.configuration?.authMethods?.credentials,
-  );
+  return configuration?.refreshTokens?.enabled === true;
 }
 
-function shouldProvideRefreshTokenSupport(
-  options: Pick<
-    WhoamiNestModuleOptions,
-    "refreshTokenRepository" | "configuration"
-  >,
-): boolean {
-  return Boolean(
-    options.refreshTokenRepository ||
-    options.configuration?.refreshTokens?.enabled,
+function createConfigurationProvider(
+  configuration: IWhoamiAuthConfiguration | undefined,
+): Provider[] {
+  if (!configuration) {
+    return [];
+  }
+
+  return [
+    {
+      provide: WHOAMI_CONFIGURATION,
+      useValue: cloneConfiguration(configuration),
+    },
+  ];
+}
+
+function createConfigurationAsyncProvider(
+  options?: AsyncProviderOptions<IWhoamiAuthConfiguration>,
+): Provider[] {
+  if (!options) {
+    return [];
+  }
+
+  if (options.useValue !== undefined) {
+    return [
+      {
+        provide: WHOAMI_CONFIGURATION,
+        useValue: cloneConfiguration(options.useValue),
+      },
+    ];
+  }
+
+  if (options.useClass) {
+    return [
+      {
+        provide: WHOAMI_CONFIGURATION,
+        useFactory: async (
+          configuration: IWhoamiAuthConfiguration,
+        ): Promise<IWhoamiAuthConfiguration | undefined> =>
+          cloneConfiguration(configuration),
+        inject: [options.useClass],
+      },
+      options.useClass,
+    ];
+  }
+
+  if (options.useFactory) {
+    return [
+      {
+        provide: WHOAMI_CONFIGURATION,
+        useFactory: async (
+          ...args: unknown[]
+        ): Promise<IWhoamiAuthConfiguration | undefined> =>
+          cloneConfiguration(await options.useFactory!(...args)),
+        inject: options.inject ?? [],
+      },
+    ];
+  }
+
+  if (options.useExisting) {
+    return [
+      {
+        provide: WHOAMI_CONFIGURATION,
+        useFactory: async (
+          configuration: IWhoamiAuthConfiguration,
+        ): Promise<IWhoamiAuthConfiguration | undefined> =>
+          cloneConfiguration(configuration),
+        inject: [options.useExisting],
+      },
+    ];
+  }
+
+  return [];
+}
+
+function createTokenSignerConfigurationError(): WhoamiError {
+  return new WhoamiError(
+    "INVALID_CONFIGURATION",
+    "WhoamiModule requires either tokenSigner or tokenSignerOptions.",
   );
 }
 
@@ -159,151 +205,234 @@ function createWhoamiServiceProvider(): Provider {
       return new WhoamiService(deps);
     },
     inject: [
-      WHOAMI_USER_REPOSITORY,
-      WHOAMI_GOOGLE_USER_REPOSITORY,
-      WHOAMI_REFRESH_TOKEN_REPOSITORY,
-      WHOAMI_PASSWORD_HASHER,
-      WHOAMI_TOKEN_HASHER,
+      optionalInject(WHOAMI_USER_REPOSITORY),
+      optionalInject(WHOAMI_GOOGLE_USER_REPOSITORY),
+      optionalInject(WHOAMI_REFRESH_TOKEN_REPOSITORY),
+      optionalInject(WHOAMI_PASSWORD_HASHER),
+      optionalInject(WHOAMI_TOKEN_HASHER),
       WHOAMI_TOKEN_SIGNER,
-      WHOAMI_GOOGLE_ID_TOKEN_VERIFIER,
+      optionalInject(WHOAMI_GOOGLE_ID_TOKEN_VERIFIER),
       WHOAMI_LOGGER,
-      WHOAMI_CONFIGURATION,
+      optionalInject(WHOAMI_CONFIGURATION),
     ],
   };
+}
+
+function pushIfDefined(
+  providers: Provider[],
+  provider: Provider | undefined,
+): void {
+  if (provider) {
+    providers.push(provider);
+  }
+}
+
+function syncProvider<T>(
+  token: string,
+  useClass?: new (...args: unknown[]) => T,
+): Provider | undefined {
+  if (!useClass) {
+    return undefined;
+  }
+
+  return {
+    provide: token,
+    useClass,
+  };
+}
+
+function asyncProvider<T>(
+  token: string,
+  options?: AsyncProviderOptions<T>,
+): Provider | undefined {
+  if (!options) {
+    return undefined;
+  }
+
+  if (options.useValue !== undefined) {
+    return {
+      provide: token,
+      useValue: options.useValue,
+    };
+  }
+
+  if (options.useClass) {
+    return {
+      provide: token,
+      useClass: options.useClass,
+    };
+  }
+
+  if (options.useFactory) {
+    return {
+      provide: token,
+      useFactory: options.useFactory,
+      inject: options.inject ?? [],
+    };
+  }
+
+  if (options.useExisting) {
+    return {
+      provide: token,
+      useExisting: options.useExisting,
+    };
+  }
+
+  return undefined;
+}
+
+function createExports(
+  hasConfiguration: boolean,
+): Array<string | typeof WhoamiService | typeof WhoamiAuthGuard> {
+  return hasConfiguration
+    ? [
+        WhoamiService,
+        WhoamiAuthGuard,
+        WHOAMI_TOKEN_EXTRACTOR,
+        WHOAMI_CONFIGURATION,
+      ]
+    : [WhoamiService, WhoamiAuthGuard, WHOAMI_TOKEN_EXTRACTOR];
 }
 
 @Module({})
 export class WhoamiModule {
   static register(options: WhoamiNestModuleOptions): DynamicModule {
-    const providers: Provider[] = [
-      provideOptionalClass(WHOAMI_USER_REPOSITORY, options.userRepository),
-      provideOptionalClass(
-        WHOAMI_GOOGLE_USER_REPOSITORY,
-        options.googleUserRepository,
-      ),
-      provideOptionalClass(
+    const providers: Provider[] = [];
+
+    pushIfDefined(
+      providers,
+      syncProvider(WHOAMI_USER_REPOSITORY, options.userRepository),
+    );
+    pushIfDefined(
+      providers,
+      syncProvider(WHOAMI_GOOGLE_USER_REPOSITORY, options.googleUserRepository),
+    );
+    pushIfDefined(
+      providers,
+      syncProvider(
         WHOAMI_REFRESH_TOKEN_REPOSITORY,
         options.refreshTokenRepository,
       ),
-      provideOptionalClass(
+    );
+    pushIfDefined(
+      providers,
+      syncProvider(
         WHOAMI_PASSWORD_HASHER,
-        shouldProvideCredentialsSupport(options)
+        credentialsEnabled(options.configuration)
           ? (options.passwordHasher ?? Argon2PasswordHasher)
           : undefined,
       ),
-      provideOptionalClass(
+    );
+    pushIfDefined(
+      providers,
+      syncProvider(
         WHOAMI_TOKEN_HASHER,
-        shouldProvideRefreshTokenSupport(options)
+        refreshTokensEnabled(options.configuration)
           ? (options.tokenHasher ?? WebCryptoTokenHasher)
           : undefined,
       ),
-      provideOptionalClass(
+    );
+    pushIfDefined(
+      providers,
+      syncProvider(
         WHOAMI_GOOGLE_ID_TOKEN_VERIFIER,
         options.googleIdTokenVerifier,
       ),
-      {
-        provide: WHOAMI_CONFIGURATION,
-        useValue: options.configuration,
-      },
-      {
-        provide: WHOAMI_TOKEN_SIGNER,
-        useFactory: (): ITokenSigner => {
-          if (options.tokenSigner) {
-            return new options.tokenSigner();
-          }
+    );
+    providers.push(...createConfigurationProvider(options.configuration));
+    providers.push({
+      provide: WHOAMI_TOKEN_SIGNER,
+      useFactory: (): ITokenSigner => {
+        if (options.tokenSigner) {
+          return new options.tokenSigner();
+        }
 
-          if (options.tokenSignerOptions) {
-            return new JoseTokenSigner(options.tokenSignerOptions);
-          }
+        if (options.tokenSignerOptions) {
+          return new JoseTokenSigner(options.tokenSignerOptions);
+        }
 
-          throw new Error(
-            "WhoamiModule requires either tokenSigner or tokenSignerOptions.",
-          );
-        },
+        throw createTokenSignerConfigurationError();
       },
-      {
-        provide: WHOAMI_TOKEN_EXTRACTOR,
-        useClass: options.tokenExtractor ?? BearerTokenExtractor,
+    });
+    providers.push({
+      provide: WHOAMI_TOKEN_EXTRACTOR,
+      useClass: options.tokenExtractor ?? BearerTokenExtractor,
+    });
+    providers.push({
+      provide: WHOAMI_LOGGER,
+      useFactory: (): ILogger => {
+        if (options.logger) {
+          return new options.logger();
+        }
+        return new NestLoggerAdapter("WhoamiModule");
       },
-      {
-        provide: WHOAMI_LOGGER,
-        useFactory: (): ILogger => {
-          if (options.logger) {
-            return new options.logger();
-          }
-          return new NestLoggerAdapter("WhoamiModule");
-        },
-      },
-      WhoamiAuthGuard,
-      createWhoamiServiceProvider(),
-    ];
+    });
+    providers.push(WhoamiAuthGuard);
+    providers.push(createWhoamiServiceProvider());
 
     return {
       module: WhoamiModule,
       controllers: resolveController(options.controller),
       providers,
-      exports: [
-        WhoamiService,
-        WhoamiAuthGuard,
-        WHOAMI_TOKEN_EXTRACTOR,
-        WHOAMI_CONFIGURATION,
-      ],
+      exports: createExports(Boolean(options.configuration)),
     };
   }
 
   static registerAsync(options: WhoamiNestModuleAsyncOptions): DynamicModule {
-    const providers: Provider[] = [
-      provideAsyncOptional(WHOAMI_USER_REPOSITORY, options.userRepository),
-      provideAsyncOptional(
+    const providers: Provider[] = [];
+
+    pushIfDefined(
+      providers,
+      asyncProvider(WHOAMI_USER_REPOSITORY, options.userRepository),
+    );
+    pushIfDefined(
+      providers,
+      asyncProvider(
         WHOAMI_GOOGLE_USER_REPOSITORY,
         options.googleUserRepository,
       ),
-      provideAsyncOptional(
+    );
+    pushIfDefined(
+      providers,
+      asyncProvider(
         WHOAMI_REFRESH_TOKEN_REPOSITORY,
         options.refreshTokenRepository,
       ),
-      provideAsyncOptional(WHOAMI_CONFIGURATION, options.configuration),
-      provideAsyncOptional(
+    );
+    pushIfDefined(
+      providers,
+      asyncProvider(
         WHOAMI_GOOGLE_ID_TOKEN_VERIFIER,
         options.googleIdTokenVerifier,
       ),
-    ];
+    );
+    providers.push(...createConfigurationAsyncProvider(options.configuration));
 
     if (options.passwordHasher) {
-      providers.push(
-        provideAsyncOptional(WHOAMI_PASSWORD_HASHER, options.passwordHasher),
+      pushIfDefined(
+        providers,
+        asyncProvider(WHOAMI_PASSWORD_HASHER, options.passwordHasher),
       );
     } else if (
-      options.userRepository ||
-      options.configuration?.useValue?.authMethods?.credentials
+      options.configuration?.useValue?.authMethods?.credentials === true
     ) {
       providers.push({
         provide: WHOAMI_PASSWORD_HASHER,
         useClass: Argon2PasswordHasher,
       });
-    } else {
-      providers.push({
-        provide: WHOAMI_PASSWORD_HASHER,
-        useValue: undefined,
-      });
     }
 
     if (options.tokenHasher) {
-      providers.push(
-        provideAsyncOptional(WHOAMI_TOKEN_HASHER, options.tokenHasher),
+      pushIfDefined(
+        providers,
+        asyncProvider(WHOAMI_TOKEN_HASHER, options.tokenHasher),
       );
     } else if (
-      options.refreshTokenRepository ||
-      options.configuration?.useValue?.refreshTokens?.enabled
+      options.configuration?.useValue?.refreshTokens?.enabled === true
     ) {
       providers.push({
         provide: WHOAMI_TOKEN_HASHER,
         useClass: WebCryptoTokenHasher,
-      });
-    } else {
-      providers.push({
-        provide: WHOAMI_TOKEN_HASHER,
-        useValue: undefined,
       });
     }
 
@@ -341,19 +470,17 @@ export class WhoamiModule {
     } else {
       providers.push({
         provide: WHOAMI_TOKEN_SIGNER,
-        useFactory: (): ITokenSigner => {
-          throw new Error(
-            "WhoamiModule requires either tokenSigner or tokenSignerOptions.",
-          );
+        useFactory: (): never => {
+          throw createTokenSignerConfigurationError();
         },
       });
     }
 
-    if (options.tokenExtractor) {
-      providers.push(
-        provideAsyncOptional(WHOAMI_TOKEN_EXTRACTOR, options.tokenExtractor),
-      );
-    } else {
+    pushIfDefined(
+      providers,
+      asyncProvider(WHOAMI_TOKEN_EXTRACTOR, options.tokenExtractor),
+    );
+    if (!options.tokenExtractor) {
       providers.push({
         provide: WHOAMI_TOKEN_EXTRACTOR,
         useClass: BearerTokenExtractor,
@@ -396,12 +523,7 @@ export class WhoamiModule {
       imports: options.imports,
       controllers: resolveController(options.controller),
       providers,
-      exports: [
-        WhoamiService,
-        WhoamiAuthGuard,
-        WHOAMI_TOKEN_EXTRACTOR,
-        WHOAMI_CONFIGURATION,
-      ],
+      exports: createExports(Boolean(options.configuration)),
     };
   }
 }

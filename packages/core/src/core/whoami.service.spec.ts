@@ -102,6 +102,15 @@ function createService(options?: {
 } {
   const mockedDependencies =
     options?.mockedDependencies ?? createMockedDependencies();
+  const configuration: IWhoamiAuthConfiguration = options?.configuration ?? {
+    authMethods: {
+      credentials: true,
+      googleOAuth: true,
+    },
+    refreshTokens: {
+      enabled: true,
+    },
+  };
 
   const deps: WhoamiServiceDependencies = {
     userRepository: options?.omit?.userRepository
@@ -126,7 +135,7 @@ function createService(options?: {
       : (mockedDependencies.googleIdTokenVerifier as unknown as WhoamiServiceDependencies["googleIdTokenVerifier"]),
     logger:
       mockedDependencies.logger as unknown as WhoamiServiceDependencies["logger"],
-    configuration: options?.configuration,
+    configuration,
   };
 
   return {
@@ -136,7 +145,7 @@ function createService(options?: {
 }
 
 describe("WhoamiService", () => {
-  it("should infer enabled auth methods and log their statuses", () => {
+  it("should return explicitly enabled auth methods and log their statuses", () => {
     const { service, mockedDependencies } = createService();
 
     assert.deepEqual(service.getAuthStatus(), {
@@ -149,6 +158,7 @@ describe("WhoamiService", () => {
       refreshTokenTtlSeconds: 604800,
     });
     assert.equal(mockedDependencies.logger.info.mock.callCount(), 3);
+    assert.equal(mockedDependencies.logger.warn.mock.callCount(), 0);
     assert.equal(
       mockedDependencies.logger.info.mock.calls[0].arguments[0],
       "Credentials authentication status",
@@ -197,15 +207,91 @@ describe("WhoamiService", () => {
     });
   });
 
+  it("should default to all auth methods disabled when no configuration is provided", () => {
+    const mockedDependencies = createMockedDependencies();
+    const service = new WhoamiService({
+      tokenSigner:
+        mockedDependencies.tokenSigner as unknown as WhoamiServiceDependencies["tokenSigner"],
+      logger:
+        mockedDependencies.logger as unknown as WhoamiServiceDependencies["logger"],
+    });
+
+    assert.deepEqual(service.getAuthStatus(), {
+      authMethods: {
+        credentials: false,
+        googleOAuth: false,
+      },
+      refreshTokens: false,
+      accessTokenTtlSeconds: 900,
+      refreshTokenTtlSeconds: null,
+    });
+    assert.equal(mockedDependencies.logger.warn.mock.callCount(), 1);
+  });
+
+  it("should fail fast when credential providers are supplied without explicit auth configuration", () => {
+    const mockedDependencies = createMockedDependencies();
+
+    assert.throws(
+      () =>
+        new WhoamiService({
+          userRepository:
+            mockedDependencies.userRepository as unknown as WhoamiServiceDependencies["userRepository"],
+          passwordHasher:
+            mockedDependencies.passwordHasher as unknown as WhoamiServiceDependencies["passwordHasher"],
+          tokenSigner:
+            mockedDependencies.tokenSigner as unknown as WhoamiServiceDependencies["tokenSigner"],
+          logger:
+            mockedDependencies.logger as unknown as WhoamiServiceDependencies["logger"],
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof WhoamiError);
+        assert.equal(error.code, "INVALID_CONFIGURATION");
+        assert.match(error.message, /authMethods\.credentials/);
+        return true;
+      },
+    );
+  });
+
+  it("should fail fast when refresh token providers are supplied without explicit refresh configuration", () => {
+    const mockedDependencies = createMockedDependencies();
+
+    assert.throws(
+      () =>
+        new WhoamiService({
+          tokenSigner:
+            mockedDependencies.tokenSigner as unknown as WhoamiServiceDependencies["tokenSigner"],
+          logger:
+            mockedDependencies.logger as unknown as WhoamiServiceDependencies["logger"],
+          refreshTokenRepository:
+            mockedDependencies.refreshTokenRepository as unknown as WhoamiServiceDependencies["refreshTokenRepository"],
+          tokenHasher:
+            mockedDependencies.tokenHasher as unknown as WhoamiServiceDependencies["tokenHasher"],
+        }),
+      (error: unknown) => {
+        assert.ok(error instanceof WhoamiError);
+        assert.equal(error.code, "INVALID_CONFIGURATION");
+        assert.match(error.message, /refreshTokens\.enabled/);
+        return true;
+      },
+    );
+  });
+
   it("should throw when access token TTL is invalid", () => {
     assert.throws(
       () =>
         createService({
           configuration: {
+            authMethods: {
+              credentials: false,
+              googleOAuth: false,
+            },
+            refreshTokens: {
+              enabled: false,
+            },
             accessTokenTtlSeconds: 0,
           },
         }),
-      /accessTokenTtlSeconds > 0/,
+      /accessTokenTtlSeconds/,
     );
   });
 
@@ -214,11 +300,15 @@ describe("WhoamiService", () => {
       () =>
         createService({
           configuration: {
+            authMethods: {
+              credentials: false,
+              googleOAuth: false,
+            },
             refreshTokens: { enabled: true },
             refreshTokenTtlSeconds: 0,
           },
         }),
-      /refreshTokenTtlSeconds > 0/,
+      /refreshTokenTtlSeconds/,
     );
   });
 
@@ -398,6 +488,10 @@ describe("WhoamiService", () => {
     const { service } = createService({
       mockedDependencies,
       configuration: {
+        authMethods: {
+          credentials: true,
+          googleOAuth: false,
+        },
         refreshTokens: { enabled: false },
       },
     });
@@ -417,7 +511,8 @@ describe("WhoamiService", () => {
   it("should reject email login when credentials authentication is disabled", async () => {
     const { service } = createService({
       configuration: {
-        authMethods: { credentials: false },
+        authMethods: { credentials: false, googleOAuth: false },
+        refreshTokens: { enabled: false },
       },
     });
 
@@ -486,6 +581,7 @@ describe("WhoamiService", () => {
     const { service, mockedDependencies } = createService({
       configuration: {
         authMethods: { credentials: false, googleOAuth: true },
+        refreshTokens: { enabled: true },
       },
     });
 
@@ -508,7 +604,8 @@ describe("WhoamiService", () => {
   it("should reject Google login when Google auth is disabled", async () => {
     const { service } = createService({
       configuration: {
-        authMethods: { googleOAuth: false },
+        authMethods: { credentials: false, googleOAuth: false },
+        refreshTokens: { enabled: false },
       },
     });
 
@@ -536,6 +633,10 @@ describe("WhoamiService", () => {
   it("should reject token refresh when refresh tokens are disabled", async () => {
     const { service } = createService({
       configuration: {
+        authMethods: {
+          credentials: false,
+          googleOAuth: false,
+        },
         refreshTokens: { enabled: false },
       },
     });
@@ -715,6 +816,9 @@ describe("WhoamiService", () => {
         authMethods: {
           credentials: false,
           googleOAuth: true,
+        },
+        refreshTokens: {
+          enabled: true,
         },
       },
       omit: {

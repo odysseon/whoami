@@ -41,8 +41,10 @@ export interface WhoamiServiceDependencies {
 
 export class WhoamiService {
   private readonly status: IWhoamiAuthStatus;
+  private readonly configurationState: "explicit" | "unspecified";
 
   constructor(private readonly deps: WhoamiServiceDependencies) {
+    this.configurationState = deps.configuration ? "explicit" : "unspecified";
     this.status = this.resolveStatus();
     this.validateConfiguration();
     this.logStatus();
@@ -263,33 +265,28 @@ export class WhoamiService {
     const configuration = this.deps.configuration;
     const accessTokenTtlSeconds =
       configuration?.accessTokenTtlSeconds ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS;
-    const refreshTokensEnabled =
-      configuration?.refreshTokens?.enabled ??
-      Boolean(this.deps.refreshTokenRepository && this.deps.tokenHasher);
 
     return {
       authMethods: {
-        credentials:
-          configuration?.authMethods?.credentials ??
-          Boolean(this.deps.userRepository && this.deps.passwordHasher),
-        googleOAuth:
-          configuration?.authMethods?.googleOAuth ??
-          Boolean(
-            this.deps.googleUserRepository && this.deps.googleIdTokenVerifier,
-          ),
+        credentials: configuration?.authMethods?.credentials ?? false,
+        googleOAuth: configuration?.authMethods?.googleOAuth ?? false,
       },
-      refreshTokens: refreshTokensEnabled,
+      refreshTokens: configuration?.refreshTokens?.enabled ?? false,
       accessTokenTtlSeconds,
-      refreshTokenTtlSeconds: refreshTokensEnabled
-        ? (configuration?.refreshTokenTtlSeconds ??
-          DEFAULT_REFRESH_TOKEN_TTL_SECONDS)
-        : null,
+      refreshTokenTtlSeconds:
+        (configuration?.refreshTokens?.enabled ?? false)
+          ? (configuration?.refreshTokenTtlSeconds ??
+            DEFAULT_REFRESH_TOKEN_TTL_SECONDS)
+          : null,
     };
   }
 
   private validateConfiguration(): void {
     if (this.status.accessTokenTtlSeconds <= 0) {
-      throw new Error("WhoamiService requires accessTokenTtlSeconds > 0.");
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires accessTokenTtlSeconds to be greater than 0.",
+      );
     }
 
     if (
@@ -297,10 +294,15 @@ export class WhoamiService {
       (!this.status.refreshTokenTtlSeconds ||
         this.status.refreshTokenTtlSeconds <= 0)
     ) {
-      throw new Error(
-        "WhoamiService requires refreshTokenTtlSeconds > 0 when refresh tokens are enabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires refreshTokenTtlSeconds to be greater than 0 when refresh tokens are enabled.",
       );
     }
+
+    this.ensureExplicitAuthMethodConfiguration("credentials");
+    this.ensureExplicitAuthMethodConfiguration("googleOAuth");
+    this.ensureExplicitRefreshTokenConfiguration();
 
     if (this.status.authMethods.credentials) {
       this.getEmailUserRepository();
@@ -319,6 +321,12 @@ export class WhoamiService {
   }
 
   private logStatus(): void {
+    if (this.configurationState === "unspecified") {
+      this.deps.logger.warn(
+        "Whoami configuration status",
+        "No explicit auth configuration provided; all auth methods and refresh tokens default to disabled until explicitly enabled.",
+      );
+    }
     this.deps.logger.info("Credentials authentication status", {
       enabled: this.status.authMethods.credentials,
     });
@@ -362,8 +370,9 @@ export class WhoamiService {
 
   private getEmailUserRepository(): IEmailUserRepository {
     if (!this.deps.userRepository) {
-      throw new Error(
-        "WhoamiService requires userRepository when credentials authentication is enabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires userRepository when credentials authentication is enabled.",
       );
     }
 
@@ -372,8 +381,9 @@ export class WhoamiService {
 
   private getGoogleUserRepository(): IGoogleUserRepository {
     if (!this.deps.googleUserRepository) {
-      throw new Error(
-        "WhoamiService requires googleUserRepository when Google OAuth is enabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires googleUserRepository when Google OAuth is enabled.",
       );
     }
 
@@ -382,8 +392,9 @@ export class WhoamiService {
 
   private getRefreshTokenRepository(): IRefreshTokenRepository {
     if (!this.deps.refreshTokenRepository) {
-      throw new Error(
-        "WhoamiService requires refreshTokenRepository when refresh tokens are enabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires refreshTokenRepository when refresh tokens are enabled.",
       );
     }
 
@@ -392,8 +403,9 @@ export class WhoamiService {
 
   private getPasswordHasher(): IPasswordHasher {
     if (!this.deps.passwordHasher) {
-      throw new Error(
-        "WhoamiService requires passwordHasher when credentials authentication is enabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires passwordHasher when credentials authentication is enabled.",
       );
     }
 
@@ -402,8 +414,9 @@ export class WhoamiService {
 
   private getTokenHasher(): IDeterministicTokenHasher {
     if (!this.deps.tokenHasher) {
-      throw new Error(
-        "WhoamiService requires tokenHasher when refresh tokens are enabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires tokenHasher when refresh tokens are enabled.",
       );
     }
 
@@ -412,8 +425,9 @@ export class WhoamiService {
 
   private getGoogleIdTokenVerifier(): IGoogleIdTokenVerifier {
     if (!this.deps.googleIdTokenVerifier) {
-      throw new Error(
-        "WhoamiService requires googleIdTokenVerifier when Google OAuth is enabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration requires googleIdTokenVerifier when Google OAuth is enabled.",
       );
     }
 
@@ -422,8 +436,9 @@ export class WhoamiService {
 
   private getRefreshTokenTtlSeconds(): number {
     if (this.status.refreshTokenTtlSeconds === null) {
-      throw new Error(
-        "WhoamiService refresh token TTL is unavailable when refresh tokens are disabled.",
+      throw new WhoamiError(
+        "INVALID_CONFIGURATION",
+        "Whoami configuration cannot read refresh token TTL when refresh tokens are disabled.",
       );
     }
 
@@ -474,5 +489,58 @@ export class WhoamiService {
     }
 
     return null;
+  }
+
+  private ensureExplicitAuthMethodConfiguration(
+    method: keyof IWhoamiAuthStatus["authMethods"],
+  ): void {
+    const hasProviders =
+      method === "credentials"
+        ? Boolean(this.deps.userRepository || this.deps.passwordHasher)
+        : Boolean(
+            this.deps.googleUserRepository || this.deps.googleIdTokenVerifier,
+          );
+    const explicitValue = this.deps.configuration?.authMethods?.[method];
+
+    if (explicitValue !== undefined) {
+      return;
+    }
+
+    if (!hasProviders) {
+      return;
+    }
+
+    this.deps.logger.warn("Whoami configuration ambiguity detected", {
+      authMethod: method,
+      reason: "Provider detected without explicit authMethods configuration.",
+    });
+    throw new WhoamiError(
+      "INVALID_CONFIGURATION",
+      `Whoami configuration requires authMethods.${method} to be explicitly set to true or false when related providers are supplied.`,
+    );
+  }
+
+  private ensureExplicitRefreshTokenConfiguration(): void {
+    const hasRefreshProviders = Boolean(
+      this.deps.refreshTokenRepository || this.deps.tokenHasher,
+    );
+    const explicitValue = this.deps.configuration?.refreshTokens?.enabled;
+
+    if (explicitValue !== undefined) {
+      return;
+    }
+
+    if (!hasRefreshProviders) {
+      return;
+    }
+
+    this.deps.logger.warn("Whoami configuration ambiguity detected", {
+      area: "refreshTokens",
+      reason: "Refresh token provider detected without explicit configuration.",
+    });
+    throw new WhoamiError(
+      "INVALID_CONFIGURATION",
+      "Whoami configuration requires refreshTokens.enabled to be explicitly set to true or false when refresh token providers are supplied.",
+    );
   }
 }

@@ -176,6 +176,15 @@ describe("WhoamiModule (Nest adapter)", () => {
         WhoamiModule.register({
           userRepository: InMemoryUserRepository,
           refreshTokenRepository: InMemoryRefreshTokenRepository,
+          configuration: {
+            authMethods: {
+              credentials: true,
+              googleOAuth: false,
+            },
+            refreshTokens: {
+              enabled: true,
+            },
+          },
           tokenSignerOptions: {
             secret: "super_secret_key_that_is_at_least_32_chars_long!!",
             issuer: "whoami-tests",
@@ -218,6 +227,15 @@ describe("WhoamiModule (Nest adapter)", () => {
         WhoamiModule.register({
           userRepository: InMemoryUserRepository,
           refreshTokenRepository: InMemoryRefreshTokenRepository,
+          configuration: {
+            authMethods: {
+              credentials: true,
+              googleOAuth: false,
+            },
+            refreshTokens: {
+              enabled: true,
+            },
+          },
           tokenSignerOptions: {
             secret: "super_secret_key_that_is_at_least_32_chars_long!!",
             issuer: "whoami-tests",
@@ -367,5 +385,23 @@ describe("WhoamiModule (Nest adapter)", () => {
       accessTokenTtlSeconds: 900,
       refreshTokenTtlSeconds: null,
     });
+  });
+
+  it("should fail fast when providers are supplied without explicit auth configuration", async () => {
+    await assert.rejects(
+      () =>
+        Test.createTestingModule({
+          imports: [
+            WhoamiModule.register({
+              userRepository: InMemoryUserRepository,
+              refreshTokenRepository: InMemoryRefreshTokenRepository,
+              tokenSignerOptions: {
+                secret: "super_secret_key_that_is_at_least_32_chars_long!!",
+              },
+            }),
+          ],
+        }).compile(),
+      /authMethods\.credentials/,
+    );
   });
 });
