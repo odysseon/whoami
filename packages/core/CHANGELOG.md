@@ -1,5 +1,11 @@
 # @odysseon/whoami-core
 
+## 0.5.0
+
+### Minor Changes
+
+- 5978258: Add configurable credentials and Google OAuth support to `whoami-core`, make refresh tokens optional with status reporting, and extend the NestJS adapter with matching controller routes, wiring, and service exports for override-friendly apps.
+
 ## 0.4.0
 
 ### Minor Changes
