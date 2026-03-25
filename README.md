@@ -16,6 +16,7 @@ This monorepo contains the following packages:
 - **[@odysseon/whoami-adapter-argon2](packages/adapter-argon2/)** - Argon2 password hashing adapter.
 - **[@odysseon/whoami-adapter-jose](packages/adapter-jose/)** - JOSE JWT signing and verification adapter.
 - **[@odysseon/whoami-adapter-webcrypto](packages/adapter-webcrypto/)** - WebCrypto API hashing adapter for tokens.
+- **[@odysseon/whoami-adapter-nestjs](packages/adapter-nestjs/)** - NestJS integration module for easy dependency injection.
 
 ## Installation
 
