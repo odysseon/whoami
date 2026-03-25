@@ -62,8 +62,9 @@ import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
 
 @Module({
   imports: [
-    ConfigModule,
+    ConfigModule.forRoot(),
     WhoamiModule.registerAsync({
+      imports: [ConfigModule], // Required for ConfigService injection
       userRepository: {
         useClass: PrismaUserRepository,
       },
@@ -83,3 +84,5 @@ import { PrismaRefreshTokenRepository } from "./refresh-token.repository";
 })
 export class AppModule {}
 ```
+
+**Note:** The `imports` option is required when using `inject` with tokens from other modules (e.g., ConfigModule). This ensures that the injected services are available in the dynamic module's dependency injection scope.
