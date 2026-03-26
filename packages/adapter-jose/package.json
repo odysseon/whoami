@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-adapter-jose",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Jose JWT signing adapter for Odysseon Whoami",
   "license": "ISC",
   "author": "Hammed Anuoluwapo Pelumi",

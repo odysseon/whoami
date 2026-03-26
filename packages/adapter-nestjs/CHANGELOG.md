@@ -1,5 +1,11 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 4.0.0
+
+### Major Changes
+
+- 25785d9: Add CJS support
+
 ## 3.0.0
 
 ### Patch Changes
