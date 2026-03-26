@@ -1,13 +1,16 @@
+// The Core Module
 export * from "./whoami.module.js";
-export * from "./types.js";
-export * from "./constants.js";
-export * from "./default-token-extractor.js";
-export * from "./whoami-auth.guard.js";
-export * from "./whoami-auth.types.js";
+
+// The Controller & DTOs
 export * from "./whoami.controller.js";
-export * from "./whoami.decorator.js";
-export * from "./dto/google-oauth.dto.js";
-export * from "./dto/login.dto.js";
-export * from "./dto/refresh.dto.js";
-export * from "./dto/register.dto.js";
-export { WhoamiService } from "@odysseon/whoami-core";
+export * from "./dtos/credentials.dto.js";
+
+// The Boundaries
+export * from "./filters/whoami-exception.filter.js";
+export * from "./guards/whoami-auth.guard.js";
+
+// The Decorators
+export * from "./decorators/public.decorator.js";
+export * from "./decorators/current-identity.decorator.js";
+
+export * from "./extractors/bearer-token.extractor.js";
