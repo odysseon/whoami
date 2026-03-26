@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-adapter-nestjs",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "NestJS integration adapter for Odysseon Whoami core",
   "license": "ISC",
   "author": "Hammed Anuoluwapo Pelumi",
