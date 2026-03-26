@@ -29,15 +29,31 @@
     "LICENSE"
   ],
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "publishConfig": {
     "access": "public",
     "provenance": true
   },
   "scripts": {
-    "build": "tsc -b tsconfig.build.json",
-    "lint": "eslint \"src/**/*.ts\""
+    "build": "tsup",
+    "typecheck": "tsc -b tsconfig.build.json",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "node --import tsx --test src/**/*.spec.ts",
+    "test:cov": "node --import tsx --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test src/**/*.spec.ts"
   },
   "dependencies": {
     "argon2": "^0.44.0"
