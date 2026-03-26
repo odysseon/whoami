@@ -1,5 +1,12 @@
 # @odysseon/whoami-adapter-jose
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [2a70ab2]
+  - @odysseon/whoami-core@1.0.0
+
 ## 2.0.0
 
 ### Patch Changes
