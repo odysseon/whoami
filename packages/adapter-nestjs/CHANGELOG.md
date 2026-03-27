@@ -1,5 +1,16 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 5.0.0
+
+### Major Changes
+
+- d961d66: resolve covariant types
+
+### Patch Changes
+
+- Updated dependencies [d961d66]
+  - @odysseon/whoami-core@3.0.0
+
 ## 4.0.0
 
 ### Major Changes
