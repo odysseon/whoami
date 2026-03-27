@@ -1,5 +1,5 @@
 export interface LoggerPort {
-  info(message: string, ...meta: unknown[]): void;
-  warn(message: string, ...meta: unknown[]): void;
-  error(message: string, trace?: string, ...meta: unknown[]): void;
+  info(message: unknown, ...meta: unknown[]): void;
+  warn(message: unknown, ...meta: unknown[]): void;
+  error(message: unknown, trace?: string, ...meta: unknown[]): void;
 }

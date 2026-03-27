@@ -57,7 +57,7 @@
     "@odysseon/whoami-core": "workspace:*"
   },
   "peerDependencies": {
-    "@odysseon/whoami-core": "^3.0.0"
+    "@odysseon/whoami-core": "^4.0.0"
   },
   "engines": {
     "node": ">=24.0.0"

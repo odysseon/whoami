@@ -1,9 +1,15 @@
-import { describe, it, beforeEach, mock } from "node:test";
 import { strict as assert } from "node:assert";
-import { WhoamiExceptionFilter } from "./whoami-exception.filter.js";
-import { WhoamiError, type WhoamiErrorCode } from "@odysseon/whoami-core";
+import { beforeEach, describe, it, mock } from "node:test";
+import {
+  AccountAlreadyExistsError,
+  AuthenticationError,
+  InvalidConfigurationError,
+  InvalidEmailError,
+  InvalidReceiptError,
+} from "@odysseon/whoami-core";
 import { HttpStatus } from "@nestjs/common";
 import type { ArgumentsHost } from "@nestjs/common";
+import { WhoamiExceptionFilter } from "./whoami-exception.filter.js";
 
 type MockResponse = {
   statusCode: number;
@@ -28,59 +34,62 @@ describe("WhoamiExceptionFilter", () => {
     mockResponse = {
       statusCode: 0,
       jsonData: null,
-      status: function (code: number): MockResponse {
+      status(code: number): MockResponse {
         this.statusCode = code;
         return this;
       },
-      json: function (data: Record<string, unknown>): MockResponse {
+      json(data: Record<string, unknown>): MockResponse {
         this.jsonData = data;
         return this;
       },
     };
 
     mockHost = {
-      switchToHttp: (): {
-        getResponse: () => MockResponse;
-        getRequest: () => Record<string, unknown>;
-      } => ({
+      switchToHttp: () => ({
         getResponse: (): MockResponse => mockResponse,
-        getRequest: (): Record<string, unknown> => ({ url: "/auth/login" }),
+        getRequest: (): Record<string, unknown> => ({ url: "/profile" }),
       }),
     } as unknown as ArgumentsHost;
   });
 
-  const testCases: { code: WhoamiErrorCode; expectedStatus: number }[] = [
-    { code: "INVALID_CREDENTIALS", expectedStatus: HttpStatus.UNAUTHORIZED },
-    { code: "TOKEN_MALFORMED", expectedStatus: HttpStatus.UNAUTHORIZED },
-    { code: "MISSING_TOKEN", expectedStatus: HttpStatus.UNAUTHORIZED },
-    { code: "USER_ALREADY_EXISTS", expectedStatus: HttpStatus.CONFLICT },
-    { code: "USER_NOT_FOUND", expectedStatus: HttpStatus.NOT_FOUND },
-    { code: "TOKEN_EXPIRED", expectedStatus: HttpStatus.GONE },
-    { code: "TOKEN_REUSED", expectedStatus: HttpStatus.GONE },
-    { code: "AUTH_METHOD_DISABLED", expectedStatus: HttpStatus.FORBIDDEN },
+  const testCases = [
     {
-      code: "INVALID_CONFIGURATION",
+      error: new AuthenticationError("Invalid password."),
+      expectedStatus: HttpStatus.UNAUTHORIZED,
+    },
+    {
+      error: new InvalidReceiptError("Receipt expired."),
+      expectedStatus: HttpStatus.UNAUTHORIZED,
+    },
+    {
+      error: new AccountAlreadyExistsError(),
+      expectedStatus: HttpStatus.CONFLICT,
+    },
+    {
+      error: new InvalidEmailError(),
+      expectedStatus: HttpStatus.BAD_REQUEST,
+    },
+    {
+      error: new InvalidConfigurationError("Broken config."),
       expectedStatus: HttpStatus.INTERNAL_SERVER_ERROR,
     },
-    { code: "UNSUPPORTED_AUTH_METHOD", expectedStatus: HttpStatus.BAD_REQUEST },
   ];
 
-  for (const { code, expectedStatus } of testCases) {
-    it(`should map ${code} to HTTP ${expectedStatus}`, () => {
-      const error = new WhoamiError(code, "Test message");
+  for (const { error, expectedStatus } of testCases) {
+    it(`maps ${error.name} to HTTP ${expectedStatus}`, () => {
       filter.catch(error, mockHost);
 
       assert.equal(mockResponse.statusCode, expectedStatus);
-      assert.equal(mockResponse.jsonData?.error, code);
-      assert.equal(mockResponse.jsonData?.message, "Test message");
+      assert.equal(mockResponse.jsonData?.error, error.name);
+      assert.equal(mockResponse.jsonData?.message, error.message);
+      assert.equal(mockResponse.jsonData?.path, "/profile");
       assert.ok(mockResponse.jsonData?.timestamp);
-      assert.equal(mockResponse.jsonData?.path, "/auth/login");
     });
   }
 
-  it("should log INVALID_CONFIGURATION as an error", () => {
-    const error = new WhoamiError("INVALID_CONFIGURATION", "Bad config");
-    filter.catch(error, mockHost);
+  it("logs invalid configuration errors at error level", () => {
+    filter.catch(new InvalidConfigurationError("Bad config"), mockHost);
+
     assert.equal(
       (filter["logger"].error as unknown as MockCallCount).mock.callCount(),
       1,
@@ -91,9 +100,9 @@ describe("WhoamiExceptionFilter", () => {
     );
   });
 
-  it("should log standard domain errors as warnings", () => {
-    const error = new WhoamiError("INVALID_CREDENTIALS", "Bad password");
-    filter.catch(error, mockHost);
+  it("logs other domain errors at warn level", () => {
+    filter.catch(new AuthenticationError(), mockHost);
+
     assert.equal(
       (filter["logger"].error as unknown as MockCallCount).mock.callCount(),
       0,

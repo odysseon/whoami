@@ -1,19 +1,12 @@
 # @odysseon/whoami-adapter-nestjs Examples
 
-### 1. Zero-to-working controller
-
-`WhoamiModule` uses `registerAsync` to provide dependency wiring for the pure `WhoamiService`, the default secure adapters, a built-in auth controller, a global exception filter, and a global access-token guard.
+## 1. Register the module with a receipt verifier
 
 ```ts
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
-import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
-import { JoseTokenSigner } from "@odysseon/whoami-adapter-jose";
-import { WebCryptoTokenHasher } from "@odysseon/whoami-adapter-webcrypto";
-
-import { PrismaPasswordUserRepository } from "./repositories/password-user.repository";
-import { PrismaRefreshTokenRepository } from "./repositories/refresh-token.repository";
+import { JoseReceiptCodec } from "@odysseon/whoami-adapter-jose";
 
 @Module({
   imports: [
@@ -22,21 +15,9 @@ import { PrismaRefreshTokenRepository } from "./repositories/refresh-token.repos
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        configuration: {
-          authMethods: {
-            credentials: true,
-            oauth: false,
-          },
-          refreshTokens: {
-            enabled: true,
-            refreshTokenTtlSeconds: 604800,
-          },
-        },
-        tokenSigner: new JoseTokenSigner({ secret: config.get("JWT_SECRET")! }),
-        passwordHasher: new Argon2PasswordHasher(),
-        tokenHasher: new WebCryptoTokenHasher(),
-        passwordUserRepository: new PrismaPasswordUserRepository(),
-        refreshTokenRepository: new PrismaRefreshTokenRepository(),
+        receiptVerifier: new JoseReceiptCodec({
+          secret: config.get("JWT_SECRET")!,
+        }),
       }),
     }),
   ],
@@ -44,36 +25,28 @@ import { PrismaRefreshTokenRepository } from "./repositories/refresh-token.repos
 export class AppModule {}
 ```
 
-This out-of-the-box configuration exposes:
-
-- `POST /auth/register` (Credentials)
-- `POST /auth/login` (Credentials)
-- `POST /auth/oauth` (Generic OAuth)
-- `POST /auth/refresh`
-- `GET /auth/status`
-
-### 2. Expose and Protect Your Own Routes
-
-The module binds `WhoamiAuthGuard` globally, making your application **Secure by Default**. You do not need to add `@UseGuards()` to your controllers.
-
-Use `@Public()` to bypass the global guard, and `@CurrentIdentity()` to extract the strictly-typed JWT payload.
+## 2. Protect selected routes
 
 ```ts
-import { Controller, Get } from "@nestjs/common";
-import { Public, CurrentIdentity } from "@odysseon/whoami-adapter-nestjs";
-import type { IJwtPayload } from "@odysseon/whoami-core";
+import { Controller, Get, UseGuards } from "@nestjs/common";
+import {
+  CurrentIdentity,
+  Public,
+  WhoamiAuthGuard,
+} from "@odysseon/whoami-adapter-nestjs";
+import type { Receipt } from "@odysseon/whoami-core";
 
 @Controller("account")
 export class AccountController {
-  // 🔒 Protected automatically by the global guard
+  @UseGuards(WhoamiAuthGuard)
   @Get("me")
-  me(@CurrentIdentity() identity: IJwtPayload) {
+  me(@CurrentIdentity() identity: Receipt) {
     return {
-      sub: identity.sub, // The baseline identity guarantee
+      accountId: identity.accountId.value,
+      expiresAt: identity.expiresAt,
     };
   }
 
-  // 🔓 Bypasses the global guard
   @Public()
   @Get("landing")
   landing() {
@@ -82,47 +55,14 @@ export class AccountController {
 }
 ```
 
-### 3. OAuth-Only Configuration
-
-If you do not want to manage passwords, you can configure the adapter for OAuth-only. You omit the password hasher and password repository completely.
-
-_Note: It is the responsibility of your infrastructure (e.g., Passport.js) to verify the third-party token (Google/GitHub) and forward the extracted provider ID to the generic `/auth/oauth` endpoint._
+## 3. Override token extraction
 
 ```ts
-import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
-import { JoseTokenSigner } from "@odysseon/whoami-adapter-jose";
-import { PrismaOAuthUserRepository } from "./repositories/oauth-user.repository";
+import type { AuthTokenExtractor } from "@odysseon/whoami-adapter-nestjs";
 
-@Module({
-  imports: [
-    ConfigModule.forRoot(),
-    WhoamiModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        configuration: {
-          authMethods: {
-            credentials: false, // Disabled
-            oauth: true, // Enabled
-          },
-          refreshTokens: {
-            enabled: false,
-          },
-        },
-        tokenSigner: new JoseTokenSigner({ secret: config.get("JWT_SECRET")! }),
-        oauthUserRepository: new PrismaOAuthUserRepository(),
-      }),
-    }),
-  ],
-})
-export class AppModule {}
+class CookieTokenExtractor implements AuthTokenExtractor {
+  extract(request: { cookies?: Record<string, string> }) {
+    return request.cookies?.receipt ?? null;
+  }
+}
 ```
-
-### 4. Things this package does NOT do
-
-- **DB repository implementation:** You must provide your own database adapters (e.g., Prisma, TypeORM) that satisfy the core `I...Repository` interfaces.
-- **Third-Party Token Verification:** This library manages _your_ internal session identity. Verifying a Google or GitHub ID token over the network is an infrastructure concern (best handled by `passport.js` or similar tools).
-- **Rich user hydration:** The core guarantees identity (`sub`). Loading profiles, avatars, or metadata is the responsibility of your application layer.
-- **Authorization:** Roles, permissions, and ACLs are strictly outside the scope of this package.

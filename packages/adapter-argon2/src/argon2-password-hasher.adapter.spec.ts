@@ -31,7 +31,7 @@ describe("Argon2PasswordHasher Adapter", () => {
     const password = "another_secret_password";
     const hash = await hasher.hash(password);
 
-    const isValid = await hasher.verify(hash, password);
+    const isValid = await hasher.compare(password, hash);
     assert.equal(isValid, true);
   });
 
@@ -39,14 +39,14 @@ describe("Argon2PasswordHasher Adapter", () => {
     const password = "real_password";
     const hash = await hasher.hash(password);
 
-    const isValid = await hasher.verify(hash, "wrong_password");
+    const isValid = await hasher.compare("wrong_password", hash);
     assert.equal(isValid, false);
   });
 
   it("should return false if the provided hash string is malformed", async () => {
-    const isValid = await hasher.verify(
-      "not_a_real_argon_hash_string",
+    const isValid = await hasher.compare(
       "some_password",
+      "not_a_real_argon_hash_string",
     );
     assert.equal(isValid, false);
   });
@@ -57,7 +57,7 @@ describe("Argon2PasswordHasher Adapter", () => {
       /Cannot hash an empty password/,
     );
 
-    const isVerifyValid = await hasher.verify("", "some_password");
+    const isVerifyValid = await hasher.compare("some_password", "");
     assert.equal(isVerifyValid, false);
   });
 });

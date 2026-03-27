@@ -1,24 +1,34 @@
-import { describe, it, beforeEach, mock } from "node:test";
 import { strict as assert } from "node:assert";
-import { WhoamiAuthGuard } from "./whoami-auth.guard.js";
-import type { WhoamiService, ITokenExtractor } from "@odysseon/whoami-core";
-import type { Reflector } from "@nestjs/core";
+import { beforeEach, describe, it, mock } from "node:test";
+import {
+  InvalidReceiptError,
+  Receipt,
+  VerifyReceiptUseCase,
+} from "@odysseon/whoami-core";
 import type { ExecutionContext } from "@nestjs/common";
+import type { Reflector } from "@nestjs/core";
+import type { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
+import { WhoamiAuthGuard } from "./whoami-auth.guard.js";
 
 type MockCallCount = { mock: { callCount: () => number } };
 
 describe("WhoamiAuthGuard", () => {
   let guard: WhoamiAuthGuard;
-  let mockService: Record<string, unknown>;
+  let mockVerifyReceipt: Record<string, unknown>;
   let mockReflector: Record<string, unknown>;
   let mockExtractor: Record<string, unknown>;
   let mockContext: Record<string, unknown>;
   let mockRequest: Record<string, unknown>;
 
   beforeEach(() => {
-    mockService = {
-      verifyAccessToken: mock.fn(
-        async (): Promise<{ sub: string }> => ({ sub: "user_123" }),
+    mockVerifyReceipt = {
+      execute: mock.fn(
+        async (): Promise<Receipt> =>
+          Receipt.issue(
+            "token",
+            { value: "user_123", equals: (): boolean => true } as never,
+            new Date("2026-03-27T12:00:00.000Z"),
+          ),
       ),
     };
     mockReflector = {
@@ -37,17 +47,19 @@ describe("WhoamiAuthGuard", () => {
     };
 
     guard = new WhoamiAuthGuard(
-      mockService as unknown as WhoamiService,
+      mockVerifyReceipt as unknown as VerifyReceiptUseCase,
       mockReflector as unknown as Reflector,
-      mockExtractor as unknown as ITokenExtractor,
+      mockExtractor as unknown as AuthTokenExtractor,
     );
   });
 
-  it("should allow access if route is marked as @Public", async () => {
+  it("allows access if route is marked as public", async () => {
     mockReflector.getAllAndOverride = mock.fn((): boolean => true);
+
     const result = await guard.canActivate(
       mockContext as unknown as ExecutionContext,
     );
+
     assert.equal(result, true);
     assert.equal(
       (mockExtractor.extract as unknown as MockCallCount).mock.callCount(),
@@ -55,32 +67,35 @@ describe("WhoamiAuthGuard", () => {
     );
   });
 
-  it("should throw MISSING_TOKEN if extractor returns null", async () => {
+  it("throws when the extractor returns no token", async () => {
     mockExtractor.extract = mock.fn((): null => null);
+
     await assert.rejects(
       () => guard.canActivate(mockContext as unknown as ExecutionContext),
-      /No bearer token provided/,
+      InvalidReceiptError,
     );
   });
 
-  it("should throw if core verification fails", async () => {
-    mockService.verifyAccessToken = mock.fn(async (): Promise<void> => {
-      throw new Error("TOKEN_EXPIRED");
+  it("bubbles up verification failures", async () => {
+    mockVerifyReceipt.execute = mock.fn(async (): Promise<void> => {
+      throw new InvalidReceiptError("Expired receipt.");
     });
+
     await assert.rejects(
       () => guard.canActivate(mockContext as unknown as ExecutionContext),
-      /TOKEN_EXPIRED/,
+      InvalidReceiptError,
     );
   });
 
-  it("should attach payload to request and return true on success", async () => {
+  it("attaches the verified receipt to the request", async () => {
     const result = await guard.canActivate(
       mockContext as unknown as ExecutionContext,
     );
+
     assert.equal(result, true);
     assert.equal(
-      (mockRequest as { identity: { sub: string } }).identity.sub,
-      "user_123",
+      (mockRequest as { identity: Receipt }).identity.token,
+      "token",
     );
   });
 });

@@ -3,49 +3,51 @@ import {
   Global,
   Module,
   Provider,
-  Logger,
-  InjectionToken,
-  OptionalFactoryDependency,
   type ForwardReference,
+  type InjectionToken,
+  type OptionalFactoryDependency,
   type Type,
 } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
 import {
-  WhoamiService,
-  type IWhoamiAuthConfiguration,
-  type IPasswordUserRepository,
-  type IOAuthUserRepository,
-  type IRefreshTokenRepository,
-  type ITokenSigner,
-  type IPasswordHasher,
-  type IDeterministicTokenHasher,
-  type ITokenGenerator,
-  type ITokenExtractor,
+  VerifyReceiptUseCase,
+  type ReceiptVerifier,
 } from "@odysseon/whoami-core";
-
-import { WhoamiController } from "./whoami.controller.js";
-import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
+import type { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
+import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { WHOAMI_TOKEN_EXTRACTOR } from "./guards/whoami-auth.guard.js";
 
+/**
+ * Options for configuring the NestJS receipt-auth module.
+ */
 export interface WhoamiModuleOptions {
-  configuration?: IWhoamiAuthConfiguration;
-  tokenSigner: ITokenSigner;
-  passwordUserRepository?: IPasswordUserRepository;
-  oauthUserRepository?: IOAuthUserRepository;
-  refreshTokenRepository?: IRefreshTokenRepository;
-  passwordHasher?: IPasswordHasher;
-  tokenHasher?: IDeterministicTokenHasher;
-  tokenGenerator?: ITokenGenerator;
-  tokenExtractor?: ITokenExtractor;
+  /**
+   * The receipt verifier implementation supplied by an adapter package.
+   */
+  receiptVerifier: ReceiptVerifier;
+
+  /**
+   * Optional token extractor override.
+   */
+  tokenExtractor?: AuthTokenExtractor;
 }
 
 export const WHOAMI_MODULE_OPTIONS = "WHOAMI_MODULE_OPTIONS";
 
+/**
+ * Registers receipt-auth providers for NestJS applications.
+ */
 @Global()
 @Module({})
 export class WhoamiModule {
-  static registerAsync(options: {
+  /**
+   * Registers the module asynchronously.
+   *
+   * @param options - The async registration options.
+   * @returns A dynamic NestJS module.
+   */
+  public static registerAsync(options: {
     imports?: Array<
       Type<unknown> | ForwardReference | DynamicModule | Promise<DynamicModule>
     >;
@@ -57,55 +59,28 @@ export class WhoamiModule {
     const optionsProvider: Provider = {
       provide: WHOAMI_MODULE_OPTIONS,
       useFactory: options.useFactory,
-      inject: options.inject || [],
+      inject: options.inject ?? [],
     };
 
-    const serviceProvider: Provider = {
-      provide: WhoamiService,
-      useFactory: (opts: WhoamiModuleOptions): WhoamiService => {
-        const nestLogger = new Logger("WhoamiCore");
-
-        const loggerAdapter = {
-          info: (msg: unknown, ctx?: unknown): void => {
-            nestLogger.log(msg, ctx);
-          },
-          error: (msg: unknown, ctx?: unknown): void => {
-            nestLogger.error(msg, ctx);
-          },
-          warn: (msg: unknown, ctx?: unknown): void => {
-            nestLogger.warn(msg, ctx);
-          },
-          debug: (msg: unknown, ctx?: unknown): void => {
-            nestLogger.debug(msg, ctx);
-          },
-        };
-
-        return new WhoamiService({
-          configuration: opts.configuration,
-          tokenSigner: opts.tokenSigner,
-          logger: loggerAdapter,
-          passwordUserRepository: opts.passwordUserRepository,
-          oauthUserRepository: opts.oauthUserRepository,
-          refreshTokenRepository: opts.refreshTokenRepository,
-          passwordHasher: opts.passwordHasher,
-          tokenHasher: opts.tokenHasher,
-          tokenGenerator: opts.tokenGenerator,
-        });
-      },
+    const verifyReceiptProvider: Provider = {
+      provide: VerifyReceiptUseCase,
+      useFactory: (moduleOptions: WhoamiModuleOptions): VerifyReceiptUseCase =>
+        new VerifyReceiptUseCase(moduleOptions.receiptVerifier),
       inject: [WHOAMI_MODULE_OPTIONS],
     };
 
     return {
       module: WhoamiModule,
       imports: options.imports ?? [],
-      controllers: [WhoamiController],
       providers: [
         optionsProvider,
-        serviceProvider,
+        verifyReceiptProvider,
         {
           provide: WHOAMI_TOKEN_EXTRACTOR,
-          useFactory: (opts: WhoamiModuleOptions): ITokenExtractor =>
-            opts.tokenExtractor ?? new BearerTokenExtractor(),
+          useFactory: (
+            moduleOptions: WhoamiModuleOptions,
+          ): AuthTokenExtractor =>
+            moduleOptions.tokenExtractor ?? new BearerTokenExtractor(),
           inject: [WHOAMI_MODULE_OPTIONS],
         },
         {
@@ -113,7 +88,7 @@ export class WhoamiModule {
           useClass: WhoamiExceptionFilter,
         },
       ],
-      exports: [WhoamiService],
+      exports: [VerifyReceiptUseCase, WHOAMI_TOKEN_EXTRACTOR],
     };
   }
 }

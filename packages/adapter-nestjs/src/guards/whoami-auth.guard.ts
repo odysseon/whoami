@@ -5,31 +5,41 @@ import {
   Inject,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { Request } from "express";
+import type { Request } from "express";
 import {
-  WhoamiService,
-  WhoamiError,
-  type IJwtPayload,
-  type ITokenExtractor,
+  InvalidReceiptError,
+  Receipt,
+  VerifyReceiptUseCase,
 } from "@odysseon/whoami-core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
+import type { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
 
-// We export this token so the Module can wire it up
 export const WHOAMI_TOKEN_EXTRACTOR = "WHOAMI_TOKEN_EXTRACTOR";
 
 export interface AuthenticatedRequest extends Request {
-  identity?: IJwtPayload;
+  identity?: Receipt;
 }
 
+/**
+ * Protects NestJS routes by requiring a valid receipt token.
+ */
 @Injectable()
 export class WhoamiAuthGuard implements CanActivate {
   constructor(
-    private readonly whoamiService: WhoamiService,
+    private readonly verifyReceipt: VerifyReceiptUseCase,
     private readonly reflector: Reflector,
-    @Inject(WHOAMI_TOKEN_EXTRACTOR) private readonly extractor: ITokenExtractor,
+    @Inject(WHOAMI_TOKEN_EXTRACTOR)
+    private readonly extractor: AuthTokenExtractor,
   ) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  /**
+   * Resolves the current route's authentication state.
+   *
+   * @param context - The NestJS execution context.
+   * @returns `true` when the request may proceed.
+   * @throws {InvalidReceiptError} When the token is missing or invalid.
+   */
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -40,16 +50,13 @@ export class WhoamiAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-
-    // Delegate the extraction to the injected utility!
     const token = this.extractor.extract(request);
 
     if (!token) {
-      throw new WhoamiError("MISSING_TOKEN", "No bearer token provided.");
+      throw new InvalidReceiptError("No bearer token provided.");
     }
 
-    const payload = await this.whoamiService.verifyAccessToken(token);
-    request.identity = payload;
+    request.identity = await this.verifyReceipt.execute(token);
 
     return true;
   }
