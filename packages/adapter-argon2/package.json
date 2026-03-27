@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-adapter-argon2",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "Argon2 password hashing adapter for Odysseon Whoami",
   "keywords": [
     "argon2",
@@ -57,7 +57,7 @@
     "@odysseon/whoami-core": "workspace:*"
   },
   "peerDependencies": {
-    "@odysseon/whoami-core": "^2.0.0"
+    "@odysseon/whoami-core": "^3.0.0"
   },
   "engines": {
     "node": ">=24.0.0"

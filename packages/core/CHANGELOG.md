@@ -1,5 +1,11 @@
 # @odysseon/whoami-core
 
+## 3.0.0
+
+### Major Changes
+
+- d961d66: resolve covariant types
+
 ## 2.0.0
 
 ### Major Changes
