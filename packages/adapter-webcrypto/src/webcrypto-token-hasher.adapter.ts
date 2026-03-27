@@ -1,4 +1,4 @@
-import { IDeterministicTokenHasher } from "@odysseon/whoami-core";
+import type { IDeterministicTokenHasher } from "@odysseon/whoami-core";
 
 export class WebCryptoTokenHasher implements IDeterministicTokenHasher {
   public async hash(token: string): Promise<string> {

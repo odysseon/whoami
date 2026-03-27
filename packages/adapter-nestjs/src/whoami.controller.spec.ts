@@ -84,10 +84,9 @@ describe("WhoamiController", () => {
     const dto = { refreshToken: "raw_refresh_token" };
     const res = await controller.refreshTokens(dto);
     assert.equal(res.accessToken, "refreshed_123");
-    assert.equal(
-      (mockService.refreshTokens as unknown as MockCallCount).mock.calls[0]
-        .arguments[0],
-      "raw_refresh_token",
-    );
+    const firstCall = (mockService.refreshTokens as unknown as MockCallCount)
+      .mock.calls[0];
+    assert.ok(firstCall);
+    assert.equal(firstCall.arguments[0], "raw_refresh_token");
   });
 });

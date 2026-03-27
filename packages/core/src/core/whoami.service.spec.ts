@@ -4,14 +4,18 @@
 import { describe, it, beforeEach } from "node:test";
 import { strict as assert } from "node:assert";
 import { WhoamiService } from "./whoami.service.js";
-import {
-  IUserWithEmail,
-  IUserWithProvider,
+import type {
+  UserWithEmail,
+  UserWithProvider,
 } from "../interfaces/models/user.interface.js";
+
+type TestUser = {
+  id: string;
+};
 
 describe("WhoamiService (Facade & Sub-services)", () => {
   let mockDeps: any;
-  let service: WhoamiService;
+  let service: WhoamiService<TestUser>;
 
   beforeEach(() => {
     mockDeps = {
@@ -21,7 +25,9 @@ describe("WhoamiService (Facade & Sub-services)", () => {
       },
       tokenHasher: {
         hash: async (): Promise<string> => "hashed_token",
-        verify: async (): Promise<boolean> => true,
+      },
+      tokenGenerator: {
+        generate: (): string => "refresh_token",
       },
       passwordHasher: {
         hash: async (): Promise<string> => "hashed_password",
@@ -36,7 +42,7 @@ describe("WhoamiService (Facade & Sub-services)", () => {
       passwordUserRepository: {
         findById: async (): Promise<null> => null,
         findByEmail: async (): Promise<null> => null,
-        createWithEmail: async (): Promise<IUserWithEmail> => ({
+        createWithEmail: async (): Promise<UserWithEmail<TestUser>> => ({
           id: "user_123",
           email: "test@example.com",
         }),
@@ -45,7 +51,7 @@ describe("WhoamiService (Facade & Sub-services)", () => {
       oauthUserRepository: {
         findById: async (): Promise<null> => null,
         findByProviderId: async (): Promise<null> => null,
-        createWithProvider: async (): Promise<IUserWithProvider> => ({
+        createWithProvider: async (): Promise<UserWithProvider<TestUser>> => ({
           id: "user_123",
           provider: "google",
           providerId: "g123",

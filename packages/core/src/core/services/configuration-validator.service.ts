@@ -1,6 +1,6 @@
+import { WhoamiServiceDependencies } from "src/interfaces/operation-contracts/auth-configuration.interface.js";
 import { WhoamiError } from "../../errors/whoami-error.js";
 import type { IWhoamiAuthStatus } from "../../interfaces/operation-contracts/auth-status.interface.js";
-import type { WhoamiServiceDependencies } from "../whoami.service.js";
 
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 900;
 const DEFAULT_REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;

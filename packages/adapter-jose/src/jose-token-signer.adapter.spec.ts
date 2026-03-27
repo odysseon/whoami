@@ -4,6 +4,10 @@ import { SignJWT } from "jose";
 import { JoseTokenSigner } from "./jose-token-signer.adapter.js";
 import { WhoamiError } from "@odysseon/whoami-core";
 
+function isWhoamiError(error: unknown): error is WhoamiError {
+  return error instanceof WhoamiError;
+}
+
 describe("JoseTokenSigner Adapter", () => {
   const validSecret = "super_secret_key_that_is_at_least_32_chars_long!!";
   let signer: JoseTokenSigner;
@@ -107,13 +111,22 @@ describe("JoseTokenSigner Adapter", () => {
       assert.ok(verified.exp);
     });
 
+    it("should round-trip a numeric subject without losing its type", async () => {
+      const token = await signer.sign({ sub: 12345, role: "admin" }, 3600);
+
+      const verified = await signer.verify(token);
+      assert.equal(verified.sub, 12345);
+      assert.equal(typeof verified.sub, "number");
+      assert.equal(verified["role"], "admin");
+    });
+
     it("should throw TOKEN_EXPIRED for expired tokens", async () => {
       const token = await signer.sign({ sub: "user_123" }, -1);
 
       await assert.rejects(
         () => signer.verify(token),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_EXPIRED");
           assert.equal(err.message, "The provided access token has expired.");
           return true;
@@ -128,7 +141,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(tamperedToken),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           assert.equal(
             err.message,
@@ -143,7 +156,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify("this.is.not_a_real_jwt"),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           return true;
         },
@@ -161,7 +174,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(token),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           assert.ok(err.message.includes("subject (sub) claim"));
           return true;
@@ -180,7 +193,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(token),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           assert.ok(err.message.includes("subject (sub) claim"));
           return true;
@@ -199,7 +212,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(token),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           assert.ok(err.message.includes("subject (sub) claim"));
           return true;
@@ -214,7 +227,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(invalidToken),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           return true;
         },
@@ -229,20 +242,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(invalidToken),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
-          assert.equal(err.code, "TOKEN_MALFORMED");
-          return true;
-        },
-      );
-    });
-
-    it("should handle generic errors from jose", async () => {
-      // We pass a number instead of a string to force the internal 'jose' library
-      // to throw a native TypeError, triggering your adapter's generic fallback catch.
-      await assert.rejects(
-        () => signer.verify(12345 as unknown as string),
-        (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           return true;
         },
@@ -260,7 +260,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(token),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           assert.equal(
             err.message,
@@ -280,7 +280,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(token),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_MALFORMED");
           return true;
         },
@@ -308,7 +308,7 @@ describe("JoseTokenSigner Adapter", () => {
       await assert.rejects(
         () => signer.verify(token),
         (err: unknown) => {
-          assert.ok(err instanceof WhoamiError);
+          assert.ok(isWhoamiError(err));
           assert.equal(err.code, "TOKEN_EXPIRED");
           return true;
         },

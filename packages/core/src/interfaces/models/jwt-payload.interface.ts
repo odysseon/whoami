@@ -2,7 +2,7 @@
  * The strict shape of the data encoded inside  access tokens.
  */
 export interface IJwtPayload {
-  sub: string; // Subject (The User ID)
+  sub: string | number; // Mirrors HasId["id"] while remaining explicit at adapter boundaries
   jti?: string; // JWT ID (For optional access token revocation)
   iat?: number; // Issued At
   exp?: number; // Expiration Time

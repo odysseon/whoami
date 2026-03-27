@@ -3,8 +3,10 @@ import type { IJwtPayload } from "@odysseon/whoami-core";
 
 export const CurrentIdentity = createParamDecorator(
   (data: keyof IJwtPayload | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    const identity = request.identity as IJwtPayload;
+    const request = ctx.switchToHttp().getRequest<{
+      identity?: IJwtPayload;
+    }>();
+    const { identity } = request;
 
     if (!identity) {
       // This technically shouldn't happen if the AuthGuard is active,

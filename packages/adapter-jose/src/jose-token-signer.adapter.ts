@@ -1,5 +1,82 @@
-import { IJwtPayload, ITokenSigner, WhoamiError } from "@odysseon/whoami-core";
-import { SignJWT, jwtVerify, errors } from "jose";
+import { WhoamiError } from "@odysseon/whoami-core";
+import type { IJwtPayload, ITokenSigner } from "@odysseon/whoami-core";
+import { SignJWT, jwtVerify, errors, type JWTPayload } from "jose";
+
+const SUBJECT_TYPE_CLAIM = "whoami_sub_type";
+
+type JwtSubjectType = "string" | "number";
+
+type WhoamiJwtPayload = JWTPayload & {
+  [SUBJECT_TYPE_CLAIM]?: JwtSubjectType;
+};
+
+function normalizePayload(payload: IJwtPayload): WhoamiJwtPayload {
+  if (typeof payload.sub === "string") {
+    if (payload.sub.trim().length === 0) {
+      throw new WhoamiError(
+        "TOKEN_MALFORMED",
+        "Token payload is missing a valid subject (sub) claim.",
+      );
+    }
+
+    return {
+      ...payload,
+      sub: payload.sub,
+      [SUBJECT_TYPE_CLAIM]: "string",
+    };
+  }
+
+  if (typeof payload.sub === "number" && Number.isFinite(payload.sub)) {
+    return {
+      ...payload,
+      sub: String(payload.sub),
+      [SUBJECT_TYPE_CLAIM]: "number",
+    };
+  }
+
+  throw new WhoamiError(
+    "TOKEN_MALFORMED",
+    "Token payload is missing a valid subject (sub) claim.",
+  );
+}
+
+function restorePayload(payload: WhoamiJwtPayload): IJwtPayload {
+  if (typeof payload.sub !== "string" || payload.sub.trim().length === 0) {
+    throw new WhoamiError(
+      "TOKEN_MALFORMED",
+      "Token payload is missing a valid subject (sub) claim.",
+    );
+  }
+
+  const subjectType = payload[SUBJECT_TYPE_CLAIM];
+
+  if (subjectType === "number") {
+    const numericSubject = Number(payload.sub);
+    if (!Number.isFinite(numericSubject)) {
+      throw new WhoamiError(
+        "TOKEN_MALFORMED",
+        "Token payload contains an invalid numeric subject (sub) claim.",
+      );
+    }
+
+    return {
+      ...payload,
+      sub: numericSubject,
+    };
+  }
+
+  if (subjectType !== undefined && subjectType !== "string") {
+    throw new WhoamiError(
+      "TOKEN_MALFORMED",
+      "Token payload contains an invalid subject type marker.",
+    );
+  }
+
+  return {
+    ...payload,
+    sub: payload.sub,
+  };
+}
 
 export interface JoseSignerConfig {
   /** The symmetric secret key for HS256. Must be at least 32 characters. */
@@ -27,9 +104,7 @@ export class JoseTokenSigner implements ITokenSigner {
     payload: IJwtPayload,
     expiresInSeconds: number,
   ): Promise<string> {
-    // We cast to Record<string, unknown> because jose's types expect it,
-    // but our IJwtPayload is completely compatible.
-    let jwt = new SignJWT(payload as Record<string, unknown>)
+    let jwt = new SignJWT(normalizePayload(payload))
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setIssuedAt()
       .setExpirationTime(`${expiresInSeconds}s`);
@@ -50,18 +125,7 @@ export class JoseTokenSigner implements ITokenSigner {
         issuer: this.config.issuer,
         audience: this.config.audience,
       });
-
-      // -------------------------------------------------------------
-      // The Type Firewall: Validate required claims exist at runtime
-      // -------------------------------------------------------------
-      if (typeof payload.sub !== "string" || payload.sub.trim().length === 0) {
-        throw new WhoamiError(
-          "TOKEN_MALFORMED",
-          "Token payload is missing a valid subject (sub) claim.",
-        );
-      }
-
-      return payload as unknown as IJwtPayload;
+      return restorePayload(payload);
     } catch (error) {
       // If manual WhoamiError was thrown above, just bubble it up
       if (error instanceof WhoamiError) {

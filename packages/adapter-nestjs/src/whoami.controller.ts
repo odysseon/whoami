@@ -9,8 +9,9 @@ import {
 import { WhoamiService } from "@odysseon/whoami-core";
 import type {
   IWhoamiAuthStatus,
-  IUserWithEmail,
+  UserWithEmail,
   IAuthTokens,
+  HasId,
 } from "@odysseon/whoami-core";
 import {
   EmailPasswordDto,
@@ -30,7 +31,7 @@ export class WhoamiController {
   @Post("register")
   public async registerWithEmail(
     @Body() dto: EmailPasswordDto,
-  ): Promise<IUserWithEmail> {
+  ): Promise<UserWithEmail<HasId>> {
     return await this.whoamiService.registerWithEmail(dto);
   }
 

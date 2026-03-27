@@ -1,59 +1,94 @@
 # whoami
 
-Proof of identity without the authorization bloat.
+Identity-first authentication for TypeScript applications.
 
-## Overview
+## Why Teams Pick It
 
-Whoami is a framework-agnostic, zero-dependency authentication library for JavaScript/TypeScript. It provides a modular ecosystem for secure user authentication, focusing on identity management without the overhead of authorization logic.
+- Keep authentication rules in a framework-agnostic core.
+- Compose only the adapters you need for hashing, JWTs, and framework integration.
+- Preserve strong typing across user IDs, including `string` and `number` identifiers.
 
-Built with strict Hexagonal Architecture (Ports and Adapters), it separates core business logic from infrastructure concerns, making it adaptable to any environment—from Node.js servers to edge runtimes like Cloudflare Workers.
+## Architecture At A Glance
 
-## Packages
-
-This monorepo contains the following packages:
-
-- **[@odysseon/whoami-core](packages/core/)** - The framework-agnostic core engine for identity and authentication.
-- **[@odysseon/whoami-adapter-argon2](packages/adapter-argon2/)** - Argon2 password hashing adapter.
-- **[@odysseon/whoami-adapter-jose](packages/adapter-jose/)** - JOSE JWT signing and verification adapter.
-- **[@odysseon/whoami-adapter-webcrypto](packages/adapter-webcrypto/)** - WebCrypto API hashing adapter for refresh tokens.
-- **[@odysseon/whoami-adapter-nestjs](packages/adapter-nestjs/)** - NestJS integration module for seamless dependency injection and secure-by-default routing.
-
-## Installation
-
-Install the core package and choose your adapters:
-
-```bash
-npm install @odysseon/whoami-core
-# Plus adapters as needed
+```mermaid
+graph TD
+    App["Application"] --> Core["Whoami Core"]
+    Core --> Ports["Ports"]
+    Ports --> Repos["Repositories"]
+    Ports --> Security["Security Adapters"]
+    Ports --> Utilities["Framework Utilities"]
+    Security --> Argon2["Argon2"]
+    Security --> Jose["JOSE"]
+    Security --> WebCrypto["WebCrypto"]
+    Utilities --> Nest["NestJS Adapter"]
 ```
 
-## Quick Start (Core)
+## Quick Links
+
+| Area | Purpose |
+| --- | --- |
+| [packages/](packages/README.md) | Package map for the monorepo |
+| [packages/core/](packages/core/README.md) | Core authentication engine |
+| [docs/architecture.md](docs/architecture.md) | Architecture overview |
+| [docs/type-model.md](docs/type-model.md) | ID and token typing rules |
+
+## Package Map
+
+- `@odysseon/whoami-core`: the domain facade, contracts, and orchestration logic.
+- `@odysseon/whoami-adapter-argon2`: password hashing adapter.
+- `@odysseon/whoami-adapter-jose`: JWT signing and verification adapter.
+- `@odysseon/whoami-adapter-webcrypto`: deterministic token hashing adapter.
+- `@odysseon/whoami-adapter-nestjs`: NestJS module, controller, guard, and exception filter.
+
+## Quick Start
+
+```bash
+pnpm install
+pnpm test
+```
 
 ```ts
-import { WhoamiService } from "@odysseon/whoami-core";
+import { WhoamiService, type UserWithEmail } from "@odysseon/whoami-core";
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
 import { JoseTokenSigner } from "@odysseon/whoami-adapter-jose";
 import { WebCryptoTokenHasher } from "@odysseon/whoami-adapter-webcrypto";
 
-// Configure your service using strictly typed dependencies
-const authService = new WhoamiService({
+type AppUser = {
+  id: number;
+  email: string;
+};
+
+const whoami = new WhoamiService<AppUser>({
   configuration: {
-    authMethods: { credentials: true, oauth: true },
-    refreshTokens: { enabled: true, refreshTokenTtlSeconds: 604800 },
+    authMethods: { credentials: true },
+    refreshTokens: { enabled: true },
   },
+  logger: console,
+  tokenSigner: new JoseTokenSigner({
+    secret: "replace-this-with-a-long-secret-of-at-least-32-characters",
+  }),
   passwordHasher: new Argon2PasswordHasher(),
-  tokenSigner: new JoseTokenSigner({ secret: "your-secret" }),
   tokenHasher: new WebCryptoTokenHasher(),
-  passwordUserRepository: myPasswordRepo,
-  oauthUserRepository: myOAuthRepo,
-  refreshTokenRepository: myRefreshRepo,
+  tokenGenerator: {
+    generate: () => crypto.randomUUID(),
+  },
+  passwordUserRepository: myPasswordRepository,
+  refreshTokenRepository: myRefreshTokenRepository,
 });
+
+const user: UserWithEmail<AppUser> = await whoami.registerWithEmail({
+  email: "user@example.com",
+  password: "correct horse battery staple",
+});
+```
+
+## Development
+
+```bash
+pnpm -r exec tsc --noEmit
+pnpm test
 ```
 
 ## License
 
 [ISC](LICENSE)
-
-```
-
-```
