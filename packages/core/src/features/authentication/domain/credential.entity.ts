@@ -1,15 +1,26 @@
-import { AccountId } from "src/shared/domain/value-objects/account-id.vo.js";
-import { CredentialId } from "src/shared/domain/value-objects/credential-id.vo.js";
+import { WrongCredentialTypeError } from "../../../shared/domain/errors/auth.error.js";
+import { AccountId } from "../../../shared/domain/value-objects/account-id.vo.js";
+import { CredentialId } from "../../../shared/domain/value-objects/credential-id.vo.js";
 import { CredentialProof } from "./types.js";
-import { WrongCredentialTypeError } from "src/shared/domain/errors/auth.error.js";
 
+/**
+ * Represents an authentication credential bound to an account.
+ */
 export class Credential {
   private constructor(
     public readonly id: CredentialId,
     public readonly accountId: AccountId,
-    private _proof: CredentialProof,
+    private readonly proof: CredentialProof,
   ) {}
 
+  /**
+   * Rehydrates a credential from persisted state.
+   *
+   * @param id - The credential identifier.
+   * @param accountId - The owning account identifier.
+   * @param proof - The persisted proof payload.
+   * @returns A credential instance.
+   */
   public static loadExisting(
     id: CredentialId,
     accountId: AccountId,
@@ -18,35 +29,39 @@ export class Credential {
     return new Credential(id, accountId, proof);
   }
 
-  // --- BUSINESS BEHAVIOR ---
-
   /**
-   * Safely extracts the password hash.
-   * Throws a pure DomainError if called on a Magic Link credential.
+   * Returns the stored password hash for password credentials.
+   *
+   * @returns The stored password hash.
+   * @throws {WrongCredentialTypeError} When the credential is not password-based.
    */
   public getPasswordHash(): string {
-    if (this._proof.kind !== "password") {
-      throw new WrongCredentialTypeError("password", this._proof.kind);
+    if (this.proof.kind !== "password") {
+      throw new WrongCredentialTypeError("password", this.proof.kind);
     }
-    return this._proof.hash;
+
+    return this.proof.hash;
   }
 
   /**
-   * Evaluates if a magic link is valid based on a strictly provided current time.
-   * Time is an input, making this 100% reliably testable.
+   * Verifies a magic-link token against the stored proof and expiry.
+   *
+   * @param currentTime - The current time used for expiry evaluation.
+   * @param providedToken - The token presented by the client.
+   * @returns `true` when the token matches and has not expired.
+   * @throws {WrongCredentialTypeError} When the credential is not magic-link based.
    */
   public isMagicLinkValid(currentTime: Date, providedToken: string): boolean {
-    if (this._proof.kind !== "magic_link") {
-      throw new WrongCredentialTypeError("magic_link", this._proof.kind);
+    if (this.proof.kind !== "magic_link") {
+      throw new WrongCredentialTypeError("magic_link", this.proof.kind);
     }
 
-    if (!this._proof.expiresAt || isNaN(this._proof.expiresAt.getTime())) {
+    if (!this.proof.expiresAt || Number.isNaN(this.proof.expiresAt.getTime())) {
       return false;
     }
 
-    const isNotExpired =
-      currentTime.getTime() < this._proof.expiresAt.getTime();
-    const isTokenMatch = this._proof.token === providedToken;
+    const isNotExpired = currentTime.getTime() < this.proof.expiresAt.getTime();
+    const isTokenMatch = this.proof.token === providedToken;
 
     return isNotExpired && isTokenMatch;
   }

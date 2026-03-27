@@ -21,6 +21,9 @@ import { OAuthAuthenticator } from "./services/oauth-authenticator.service.js";
  * Main authentication service that orchestrates all authentication operations.
  * Provides a unified interface for email/password and OAuth authentication flows.
  *
+ * @deprecated Use the feature-first API exported from `packages/core/src/features` instead.
+ * The `WhoamiService` facade and its related legacy contracts are scheduled for removal in `v4.0.0`.
+ *
  * @typeParam TEntity - The user entity type that must satisfy the `HasId` constraint.
  *                      This allows the service to work with any user entity type
  *                      while maintaining type safety throughout the authentication flow.

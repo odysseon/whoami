@@ -1,5 +1,10 @@
 # @odysseon/whoami-core
 
+> [!WARNING]
+> `WhoamiService` and its legacy configuration contracts are deprecated.
+> They are scheduled for removal in `v4.0.0`.
+> New work should use the feature-first API exported from `@odysseon/whoami-core`.
+
 ```mermaid
 graph TD
     Service["WhoamiService"] --> Config["ConfigurationValidator"]
@@ -20,10 +25,17 @@ This package is responsible for enforcing authentication rules and exposing the 
 
 ## Purpose And Content
 
-- `WhoamiService` exposes a single facade for registration, login, refresh, and verification.
+- The feature-first API exposes focused use cases, entities, and ports for `accounts`, `authentication`, and `receipts`.
+- `WhoamiService` remains available as a deprecated legacy facade for registration, login, refresh, and verification.
 - Service classes split credential auth, OAuth auth, configuration validation, and token orchestration into focused units.
 - Interface modules define repository, security, and utility ports without importing infrastructure code.
 - Error types keep the domain vocabulary explicit and framework-agnostic.
+
+## Migration Notice
+
+- Prefer `RegisterAccountUseCase`, `VerifyPasswordUseCase`, `VerifyMagicLinkUseCase`, and `IssueReceiptUseCase` for new integrations.
+- Keep existing `WhoamiService` integrations only as a compatibility bridge while migrating.
+- Plan to remove `WhoamiService` and `WhoamiServiceDependencies` before `v4.0.0`.
 
 ## Type Guarantees
 

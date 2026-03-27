@@ -11,3 +11,9 @@ export class AuthenticationError extends DomainError {
     super(message);
   }
 }
+
+export class InvalidReceiptError extends DomainError {
+  constructor(message: string) {
+    super(message);
+  }
+}

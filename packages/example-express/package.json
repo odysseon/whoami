@@ -1,0 +1,28 @@
+{
+  "name": "@odysseon/whoami-example-express",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Simple Express app that consumes @odysseon/whoami-core",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "lint": "eslint \"src/**/*.ts\"",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "node --import tsx --test src/**/*.spec.ts"
+  },
+  "dependencies": {
+    "@odysseon/whoami-core": "workspace:*",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
