@@ -1,33 +1,42 @@
 /**
- * The absolute root of an identity.
- * The only universal truth of a user is that they have a unique identifier.
+ * Base constraint requiring an object to have an `id` property.
+ * The id can be either a string or a number.
  */
-export interface IUser {
-  id: string;
-}
+export type HasId = { id: string | number };
 
 /**
- * Capability Interface: For identities that possess an email address.
- * This is the "Bridge" that connects different authentication methods.
+ * Extends a base type that has an `id` property with an `email` field.
+ *
+ * @typeParam T - The base type that must satisfy the `HasId` constraint
+ * @returns A type that combines all properties of `T` with an `email` string property
  */
-export interface IUserWithEmail extends IUser {
+export type UserWithEmail<T extends HasId> = T & {
   email: string;
-}
+};
 
 /**
- * Capability Interface: For identities that authenticate via a traditional secret.
- * Used exclusively by local/credential strategies.
+ * Extends a user type with password authentication capabilities.
+ * Combines `UserWithEmail` with a password hash field.
+ *
+ * @typeParam T - The base type that must satisfy the `HasId` constraint
+ * @returns A type that includes all properties from `T`, plus `email` and `passwordHash`
  */
-export interface IUserWithPassword extends IUserWithEmail {
+export type UserWithPassword<T extends HasId> = UserWithEmail<T> & {
   passwordHash: string;
-}
+};
 
 /**
- * Capability Interface: For identities linked to external OAuth providers.
- * Replaces 'IUserWithGoogle' to support Google, GitHub, Apple, etc.
+ * Extends a base type with third-party provider authentication details.
+ *
+ * @typeParam T - The base type that must satisfy the `HasId` constraint
+ * @returns A type that combines all properties of `T` with provider information
+ *
+ * @remarks
+ * The `email` field is optional when using provider authentication,
+ * as some providers may not share the user's email address.
  */
-export interface IUserWithProvider extends IUser {
+export type UserWithProvider<T extends HasId> = T & {
   provider: string;
   providerId: string;
   email?: string;
-}
+};

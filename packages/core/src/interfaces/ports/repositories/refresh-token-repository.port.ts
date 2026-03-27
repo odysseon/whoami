@@ -1,13 +1,18 @@
+import type { HasId } from "../../models/user.interface.js";
 import type {
   IRefreshToken,
   IStoreRefreshToken,
 } from "../../models/refresh-token.interface.js";
 
-export interface IRefreshTokenRepository {
+export interface IRefreshTokenRepository<
+  TId extends HasId["id"] = HasId["id"],
+> {
   /**
    * Persists a new refresh token to the database.
    */
-  store(token: IStoreRefreshToken): Promise<void>;
+  store(
+    token: Omit<IStoreRefreshToken, "userId"> & { userId: TId },
+  ): Promise<void>;
 
   /**
    * Retrieves a token by its deterministic hash without altering its state.
@@ -21,7 +26,10 @@ export interface IRefreshTokenRepository {
    * AND insert the new token data in a SINGLE database transaction.
    * * @returns true if the rotation succeeded, false if the old token was no longer valid/available (indicating a race condition or token reuse).
    */
-  rotate(oldTokenHash: string, newData: IStoreRefreshToken): Promise<boolean>;
+  rotate(
+    oldTokenHash: string,
+    newData: Omit<IStoreRefreshToken, "userId"> & { userId: TId },
+  ): Promise<boolean>;
 
-  revokeAllForUser(userId: string): Promise<void>;
+  revokeAllForUser(userId: TId): Promise<void>;
 }

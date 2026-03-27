@@ -2,29 +2,26 @@
 export * from "./errors/whoami-error.js";
 
 // Identity Models
-export type * from "./interfaces/models/user.interface.js";
-export type * from "./interfaces/models/refresh-token.interface.js";
-export type * from "./interfaces/models/jwt-payload.interface.js";
+export * from "./interfaces/models/user.interface.js";
+export * from "./interfaces/models/refresh-token.interface.js";
+export * from "./interfaces/models/jwt-payload.interface.js";
 
-// Security Ports
-export type * from "./interfaces/ports/security/password-hasher.port.js";
-export type * from "./interfaces/ports/security/deterministic-token-hasher.port.js";
-export type * from "./interfaces/ports/security/token-signer.port.js";
+export * from "./interfaces/ports/security/index.js";
 
 // Repository Ports
-export type * from "./interfaces/ports/repositories/user-repository.port.js";
-export type * from "./interfaces/ports/repositories/refresh-token-repository.port.js";
+export * from "./interfaces/ports/repositories/user-repository.port.js";
+export * from "./interfaces/ports/repositories/refresh-token-repository.port.js";
 
 // Utility Ports
-export type * from "./interfaces/ports/utilities/token-extractor.port.js";
-export type * from "./interfaces/ports/utilities/logger.port.js";
+export * from "./interfaces/ports/utilities/token-extractor.port.js";
+export * from "./interfaces/ports/utilities/logger.port.js";
 
 // Operation Contracts
-export type * from "./interfaces/operation-contracts/auth-tokens.interface.js";
-export type * from "./interfaces/operation-contracts/auth-configuration.interface.js";
-export type * from "./interfaces/operation-contracts/auth-status.interface.js";
-export type * from "./interfaces/operation-contracts/credentials.interface.js";
+export * from "./interfaces/operation-contracts/auth-tokens.interface.js";
+export * from "./interfaces/operation-contracts/auth-configuration.interface.js";
+export * from "./interfaces/operation-contracts/auth-status.interface.js";
+export * from "./interfaces/operation-contracts/credentials.interface.js";
 
 // Core Service
 export { WhoamiService } from "./core/whoami.service.js";
-export type { WhoamiServiceDependencies } from "./core/whoami.service.js";
+export type { WhoamiServiceDependencies } from "./interfaces/operation-contracts/auth-configuration.interface.js";

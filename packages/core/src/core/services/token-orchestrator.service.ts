@@ -2,18 +2,19 @@ import { WhoamiError } from "../../errors/whoami-error.js";
 import type { IAuthTokens } from "../../interfaces/operation-contracts/auth-tokens.interface.js";
 import type { IJwtPayload } from "../../interfaces/models/jwt-payload.interface.js";
 import type { IWhoamiAuthStatus } from "../../interfaces/operation-contracts/auth-status.interface.js";
-import type { WhoamiServiceDependencies } from "../whoami.service.js";
-import type { IUser } from "../../interfaces/models/user.interface.js";
-import { IDeterministicTokenHasher } from "../../interfaces/ports/security/deterministic-token-hasher.port.js";
-import { IRefreshTokenRepository } from "../../interfaces/ports/repositories/refresh-token-repository.port.js";
+import type { IDeterministicTokenHasher } from "../../interfaces/ports/security/deterministic-token-hasher.port.js";
+import type { IRefreshTokenRepository } from "../../interfaces/ports/repositories/refresh-token-repository.port.js";
+import type { WhoamiServiceDependencies } from "../../interfaces/operation-contracts/auth-configuration.interface.js";
+import type { ITokenGenerator } from "../../interfaces/ports/security/token-generator.port.js";
+import type { HasId } from "../../interfaces/models/user.interface.js";
 
-export class TokenOrchestrator {
+export class TokenOrchestrator<TEntity extends HasId> {
   constructor(
-    private readonly deps: WhoamiServiceDependencies,
+    private readonly deps: WhoamiServiceDependencies<TEntity>,
     private readonly status: IWhoamiAuthStatus,
   ) {}
 
-  public async issueTokens(userId: string): Promise<IAuthTokens> {
+  public async issueTokens(userId: TEntity["id"]): Promise<IAuthTokens> {
     const accessToken = await this.deps.tokenSigner.sign(
       { sub: userId },
       this.status.accessTokenTtlSeconds,
@@ -23,10 +24,14 @@ export class TokenOrchestrator {
       return { accessToken };
     }
 
-    const rawRefreshToken = crypto.randomUUID();
-    const tokenHasher = this.getDeps().tokenHasher;
-    const repo = this.getDeps().refreshTokenRepository;
+    // FIX: Using strictly injected dependencies instead of global state
+    const {
+      tokenGenerator,
+      tokenHasher,
+      refreshTokenRepository: repo,
+    } = this.getDeps();
 
+    const rawRefreshToken = tokenGenerator.generate();
     const hashedRefreshToken = await tokenHasher.hash(rawRefreshToken);
     const expiresAt = new Date(
       Date.now() + this.status.refreshTokenTtlSeconds! * 1000,
@@ -44,14 +49,19 @@ export class TokenOrchestrator {
 
   public async refreshTokens(
     rawToken: string,
-    findUserById: (id: string) => Promise<IUser | null>,
+    findUserById: (id: TEntity["id"]) => Promise<TEntity | null>,
   ): Promise<IAuthTokens> {
     if (!this.status.refreshTokens)
       throw new WhoamiError("AUTH_METHOD_DISABLED", "Refresh tokens disabled.");
     if (!rawToken?.trim())
       throw new WhoamiError("INVALID_CREDENTIALS", "Invalid token.");
 
-    const { tokenHasher, refreshTokenRepository: repo } = this.getDeps();
+    const {
+      tokenHasher,
+      refreshTokenRepository: repo,
+      tokenGenerator,
+    } = this.getDeps();
+
     const oldHash = await tokenHasher.hash(rawToken);
     const record = await repo.findByHash(oldHash);
 
@@ -70,7 +80,8 @@ export class TokenOrchestrator {
       { sub: user.id },
       this.status.accessTokenTtlSeconds,
     );
-    const newRaw = crypto.randomUUID();
+
+    const newRaw = tokenGenerator.generate();
     const newHash = await tokenHasher.hash(newRaw);
     const expiresAt = new Date(
       Date.now() + this.status.refreshTokenTtlSeconds! * 1000,
@@ -97,9 +108,14 @@ export class TokenOrchestrator {
 
   private getDeps(): {
     tokenHasher: IDeterministicTokenHasher;
-    refreshTokenRepository: IRefreshTokenRepository;
+    refreshTokenRepository: IRefreshTokenRepository<TEntity["id"]>;
+    tokenGenerator: ITokenGenerator;
   } {
-    if (!this.deps.tokenHasher || !this.deps.refreshTokenRepository) {
+    if (
+      !this.deps.tokenHasher ||
+      !this.deps.refreshTokenRepository ||
+      !this.deps.tokenGenerator
+    ) {
       throw new WhoamiError(
         "INVALID_CONFIGURATION",
         "Missing refresh token dependencies.",
@@ -108,6 +124,7 @@ export class TokenOrchestrator {
     return {
       tokenHasher: this.deps.tokenHasher,
       refreshTokenRepository: this.deps.refreshTokenRepository,
+      tokenGenerator: this.deps.tokenGenerator,
     };
   }
 }

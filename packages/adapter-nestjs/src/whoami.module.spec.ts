@@ -3,16 +3,21 @@ import { strict as assert } from "node:assert";
 import { WhoamiModule } from "./whoami.module.js";
 import { WhoamiService } from "@odysseon/whoami-core";
 import type { Provider } from "@nestjs/common";
+import type { WhoamiModuleOptions } from "./whoami.module.js";
+
+function createModuleOptions(): WhoamiModuleOptions {
+  return {
+    tokenSigner: {
+      sign: async (): Promise<string> => "token",
+      verify: async (): Promise<{ sub: string }> => ({ sub: "123" }),
+    },
+  };
+}
 
 describe("WhoamiModule", () => {
   it("should return a valid dynamic module structure", () => {
     const dynamicModule = WhoamiModule.registerAsync({
-      useFactory: (): Record<string, unknown> => ({
-        tokenSigner: {
-          sign: async (): Promise<string> => "token",
-          verify: async (): Promise<{ sub: string }> => ({ sub: "123" }),
-        },
-      }),
+      useFactory: createModuleOptions,
     });
 
     assert.equal(dynamicModule.module, WhoamiModule);
@@ -23,12 +28,7 @@ describe("WhoamiModule", () => {
 
   it("should successfully execute the factory and instantiate the pure core service", async () => {
     const dynamicModule = WhoamiModule.registerAsync({
-      useFactory: (): Record<string, unknown> => ({
-        tokenSigner: {
-          sign: async (): Promise<string> => "token",
-          verify: async (): Promise<{ sub: string }> => ({ sub: "123" }),
-        },
-      }),
+      useFactory: createModuleOptions,
     });
 
     const serviceProvider = dynamicModule.providers?.find(
@@ -39,12 +39,7 @@ describe("WhoamiModule", () => {
     assert.ok(serviceProvider);
     assert.ok(typeof serviceProvider.useFactory === "function");
 
-    const mockOptions = {
-      tokenSigner: {
-        sign: async (): Promise<string> => "token",
-        verify: async (): Promise<{ sub: string }> => ({ sub: "123" }),
-      },
-    };
+    const mockOptions = createModuleOptions();
 
     const serviceInstance = serviceProvider.useFactory(mockOptions);
     assert.ok(serviceInstance instanceof WhoamiService);

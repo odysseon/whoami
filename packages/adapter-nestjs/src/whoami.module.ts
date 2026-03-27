@@ -6,6 +6,8 @@ import {
   Logger,
   InjectionToken,
   OptionalFactoryDependency,
+  type ForwardReference,
+  type Type,
 } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
 import {
@@ -17,6 +19,7 @@ import {
   type ITokenSigner,
   type IPasswordHasher,
   type IDeterministicTokenHasher,
+  type ITokenGenerator,
   type ITokenExtractor,
 } from "@odysseon/whoami-core";
 
@@ -33,6 +36,7 @@ export interface WhoamiModuleOptions {
   refreshTokenRepository?: IRefreshTokenRepository;
   passwordHasher?: IPasswordHasher;
   tokenHasher?: IDeterministicTokenHasher;
+  tokenGenerator?: ITokenGenerator;
   tokenExtractor?: ITokenExtractor;
 }
 
@@ -42,7 +46,9 @@ export const WHOAMI_MODULE_OPTIONS = "WHOAMI_MODULE_OPTIONS";
 @Module({})
 export class WhoamiModule {
   static registerAsync(options: {
-    imports?: unknown[];
+    imports?: Array<
+      Type<unknown> | ForwardReference | DynamicModule | Promise<DynamicModule>
+    >;
     inject?: Array<InjectionToken | OptionalFactoryDependency>;
     useFactory: (
       ...args: unknown[]
@@ -83,6 +89,7 @@ export class WhoamiModule {
           refreshTokenRepository: opts.refreshTokenRepository,
           passwordHasher: opts.passwordHasher,
           tokenHasher: opts.tokenHasher,
+          tokenGenerator: opts.tokenGenerator,
         });
       },
       inject: [WHOAMI_MODULE_OPTIONS],
@@ -90,9 +97,7 @@ export class WhoamiModule {
 
     return {
       module: WhoamiModule,
-      imports:
-        (options.imports as Array<import("@nestjs/common").DynamicModule>) ||
-        [],
+      imports: options.imports ?? [],
       controllers: [WhoamiController],
       providers: [
         optionsProvider,
