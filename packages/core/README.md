@@ -1,52 +1,43 @@
 # @odysseon/whoami-core
 
-The framework-agnostic, zero-dependency core engine for identity and authentication.
-Authorization is project-specific, so it is strictly not a concern of this library.
-
-## Overview
-
-This package provides the central orchestration layer (Facade) for the Odysseon Whoami identity system. It defines the strict interfaces (ports) and domain logic required to manage identities, sessions, and tokens without taking on framework or adapter dependencies.
-
-By design, this core package has zero cryptographic or database dependencies. It uses the Ports and Adapters pattern so it can run anywhere JavaScript runs.
-
-The core supports:
-
-- **Credentials Auth** (Email/Password)
-- **Generic OAuth** (Google, GitHub, Apple, etc., via unified contracts)
-- **Refresh Tokens** (Atomic rotation and reuse detection)
-- **Auth Status Reporting** via `WhoamiService.getAuthStatus()`
-
-Every capability is driven by interfaces and configuration only. Consumer apps can enable credentials auth, OAuth, both, or neither.
-
-### Strict Configuration
-
-Default behavior is incredibly strict:
-
-- Auth methods are disabled unless `configuration.authMethods.credentials` or `configuration.authMethods.oauth` are explicitly set to `true`.
-- Refresh tokens are disabled unless `configuration.refreshTokens.enabled` is explicitly `true`.
-- If dependencies (like a `passwordUserRepository`) are supplied but the corresponding configuration flag is missing or false, the service fails fast with `INVALID_CONFIGURATION`.
-
-## Installation
-
-```bash
-npm install @odysseon/whoami-core
+```mermaid
+graph TD
+    Service["WhoamiService"] --> Config["ConfigurationValidator"]
+    Service --> Creds["CredentialAuthenticator"]
+    Service --> OAuth["OAuthAuthenticator"]
+    Service --> Tokens["TokenOrchestrator"]
+    Creds --> PasswordRepo["IPasswordUserRepository"]
+    OAuth --> OAuthRepo["IOAuthUserRepository"]
+    Tokens --> Signer["ITokenSigner"]
+    Tokens --> TokenHasher["IDeterministicTokenHasher"]
+    Tokens --> TokenGenerator["ITokenGenerator"]
+    Tokens --> RefreshRepo["IRefreshTokenRepository"]
 ```
 
-## The Modular Ecosystem
+## Delegated Responsibility
 
-Because the core is mathematically pure, you must inject adapters that satisfy its security requirements to perform password hashing, token signing, or persistence.
+This package is responsible for enforcing authentication rules and exposing the contracts that adapters must implement.
 
-You can write your own adapters by implementing the `I...` ports, or use the official `@odysseon` ecosystem:
+## Purpose And Content
 
-- `@odysseon/whoami-adapter-argon2` - Industry-standard password hashing
-- `@odysseon/whoami-adapter-jose` - Secure JWT generation and verification
-- `@odysseon/whoami-adapter-webcrypto` - Deterministic refresh-token hashing
+- `WhoamiService` exposes a single facade for registration, login, refresh, and verification.
+- Service classes split credential auth, OAuth auth, configuration validation, and token orchestration into focused units.
+- Interface modules define repository, security, and utility ports without importing infrastructure code.
+- Error types keep the domain vocabulary explicit and framework-agnostic.
+
+## Type Guarantees
+
+- `HasId["id"]` supports both `string` and `number`.
+- Repository and refresh-token contracts preserve `TEntity["id"]` instead of downgrading to `string`.
+- The core leaves JWT serialization details to the token signer adapter, but the domain payload still models `sub` as `string | number`.
+
+## Local Flow
+
+- Validate configuration.
+- Route the request to the credential or OAuth authenticator.
+- Issue or refresh tokens through the token orchestrator.
+- Delegate persistence and cryptography through injected ports.
 
 ## License
 
 [ISC](LICENSE)
-
-```
-
----
-```
