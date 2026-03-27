@@ -1,20 +1,7 @@
-import { AccountId, Brand } from "src/shared/domain/types.js";
-
-export type CredentialId = Brand<string, "CredentialId">;
-
-export type PasswordProof = { kind: "password"; hash: string };
-export type MagicLinkProof = {
-  kind: "magic_link";
-  token: string;
-  expiresAt: Date;
-};
-export type OAuthProof = {
-  kind: "oauth";
-  provider: "github" | "google";
-  providerId: string;
-};
-
-export type CredentialProof = PasswordProof | MagicLinkProof | OAuthProof;
+import { AccountId } from "src/shared/domain/value-objects/account-id.vo.js";
+import { CredentialId } from "src/shared/domain/value-objects/credential-id.vo.js";
+import { CredentialProof } from "./types.js";
+import { WrongCredentialTypeError } from "src/shared/domain/errors/auth.error.js";
 
 export class Credential {
   private constructor(
@@ -31,20 +18,36 @@ export class Credential {
     return new Credential(id, accountId, proof);
   }
 
+  // --- BUSINESS BEHAVIOR ---
+
+  /**
+   * Safely extracts the password hash.
+   * Throws a pure DomainError if called on a Magic Link credential.
+   */
   public getPasswordHash(): string {
     if (this._proof.kind !== "password") {
-      throw new Error("This credential is not a password type.");
+      throw new WrongCredentialTypeError("password", this._proof.kind);
     }
     return this._proof.hash;
   }
 
+  /**
+   * Evaluates if a magic link is valid based on a strictly provided current time.
+   * Time is an input, making this 100% reliably testable.
+   */
   public isMagicLinkValid(currentTime: Date, providedToken: string): boolean {
     if (this._proof.kind !== "magic_link") {
-      throw new Error("This credential is not a magic link.");
+      throw new WrongCredentialTypeError("magic_link", this._proof.kind);
     }
-    return (
-      this._proof.token === providedToken &&
-      currentTime <= this._proof.expiresAt
-    );
+
+    if (!this._proof.expiresAt || isNaN(this._proof.expiresAt.getTime())) {
+      return false;
+    }
+
+    const isNotExpired =
+      currentTime.getTime() < this._proof.expiresAt.getTime();
+    const isTokenMatch = this._proof.token === providedToken;
+
+    return isNotExpired && isTokenMatch;
   }
 }

@@ -1,4 +1,7 @@
-import { AccountId, EmailAddress } from "src/shared/domain/types.js";
+import {
+  AccountId,
+  EmailAddress,
+} from "../../../shared/domain/value-objects/index.js";
 
 export class Account {
   private constructor(
