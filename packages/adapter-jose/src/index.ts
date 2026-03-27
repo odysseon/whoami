@@ -1,2 +1,2 @@
-export { JoseTokenSigner } from "./jose-token-signer.adapter.js";
-export type { JoseSignerConfig } from "./jose-token-signer.adapter.js";
+export { JoseReceiptCodec } from "./jose-receipt-codec.adapter.js";
+export type { JoseReceiptCodecConfig } from "./jose-receipt-codec.adapter.js";

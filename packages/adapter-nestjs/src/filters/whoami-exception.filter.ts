@@ -1,62 +1,73 @@
 import {
-  ExceptionFilter,
-  Catch,
   ArgumentsHost,
+  Catch,
+  ExceptionFilter,
   HttpStatus,
   Logger,
 } from "@nestjs/common";
-import { Response } from "express";
-import { WhoamiError } from "@odysseon/whoami-core";
+import {
+  AccountAlreadyExistsError,
+  AuthenticationError,
+  DomainError,
+  InvalidConfigurationError,
+  InvalidEmailError,
+  InvalidReceiptError,
+} from "@odysseon/whoami-core";
+import type { Response } from "express";
 
-@Catch(WhoamiError)
+/**
+ * Maps domain errors from the feature-first core API into HTTP responses.
+ */
+@Catch(DomainError)
 export class WhoamiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger("WhoamiCore");
 
-  catch(exception: WhoamiError, host: ArgumentsHost): void {
+  /**
+   * Translates a domain error into an HTTP response.
+   *
+   * @param exception - The captured domain error.
+   * @param host - The NestJS host context.
+   */
+  public catch(exception: DomainError, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const status = this.mapErrorCodeToHttpStatus(exception.code);
+    const status = this.mapDomainErrorToHttpStatus(exception);
 
-    if (exception.code === "INVALID_CONFIGURATION") {
-      this.logger.error(`[Configuration Guard] ${exception.message}`);
+    if (exception instanceof InvalidConfigurationError) {
+      this.logger.error(`[${exception.name}] ${exception.message}`);
     } else {
-      this.logger.warn(`[${exception.code}] ${exception.message}`);
+      this.logger.warn(`[${exception.name}] ${exception.message}`);
     }
 
     response.status(status).json({
       statusCode: status,
       message: exception.message,
-      error: exception.code,
+      error: exception.name,
       timestamp: new Date().toISOString(),
       path: ctx.getRequest().url,
     });
   }
 
-  private mapErrorCodeToHttpStatus(code: string): number {
-    switch (code) {
-      case "INVALID_CREDENTIALS":
-      case "TOKEN_MALFORMED":
-      case "MISSING_TOKEN":
-        return HttpStatus.UNAUTHORIZED;
-
-      case "USER_ALREADY_EXISTS":
-        return HttpStatus.CONFLICT;
-
-      case "USER_NOT_FOUND":
-        return HttpStatus.NOT_FOUND;
-
-      case "TOKEN_EXPIRED":
-      case "TOKEN_REUSED":
-        return HttpStatus.GONE;
-
-      case "AUTH_METHOD_DISABLED":
-        return HttpStatus.FORBIDDEN;
-
-      case "INVALID_CONFIGURATION":
-        return HttpStatus.INTERNAL_SERVER_ERROR;
-
-      default:
-        return HttpStatus.BAD_REQUEST;
+  private mapDomainErrorToHttpStatus(error: DomainError): number {
+    if (error instanceof AccountAlreadyExistsError) {
+      return HttpStatus.CONFLICT;
     }
+
+    if (
+      error instanceof AuthenticationError ||
+      error instanceof InvalidReceiptError
+    ) {
+      return HttpStatus.UNAUTHORIZED;
+    }
+
+    if (error instanceof InvalidEmailError) {
+      return HttpStatus.BAD_REQUEST;
+    }
+
+    if (error instanceof InvalidConfigurationError) {
+      return HttpStatus.INTERNAL_SERVER_ERROR;
+    }
+
+    return HttpStatus.BAD_REQUEST;
   }
 }

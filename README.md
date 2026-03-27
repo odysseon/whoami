@@ -2,10 +2,6 @@
 
 Identity-first authentication for TypeScript applications.
 
-> [!WARNING]
-> The legacy `WhoamiService` facade in `@odysseon/whoami-core` is deprecated and scheduled for removal in `v4.0.0`.
-> New integrations should use the feature-first API and the Express example in [packages/example-express/](packages/example-express/README.md).
-
 ## Why Teams Pick It
 
 - Keep authentication rules in a framework-agnostic core.
@@ -38,11 +34,11 @@ graph TD
 
 ## Package Map
 
-- `@odysseon/whoami-core`: the domain facade, contracts, and orchestration logic.
+- `@odysseon/whoami-core`: feature-first domain and application building blocks.
 - `@odysseon/whoami-adapter-argon2`: password hashing adapter.
-- `@odysseon/whoami-adapter-jose`: JWT signing and verification adapter.
-- `@odysseon/whoami-adapter-webcrypto`: deterministic token hashing adapter.
-- `@odysseon/whoami-adapter-nestjs`: NestJS module, controller, guard, and exception filter.
+- `@odysseon/whoami-adapter-jose`: receipt signing and verification adapter.
+- `@odysseon/whoami-adapter-webcrypto`: deterministic string hashing adapter.
+- `@odysseon/whoami-adapter-nestjs`: NestJS receipt-auth module, guard, decorator, and exception filter.
 
 ## Quick Start
 
@@ -54,47 +50,12 @@ pnpm test
 Feature-first example:
 
 ```ts
-import { RegisterAccountUseCase } from "@odysseon/whoami-core";
+import {
+  IssueReceiptUseCase,
+  RegisterAccountUseCase,
+  VerifyPasswordUseCase,
+} from "@odysseon/whoami-core";
 ```
-
-Legacy facade example:
-
-```ts
-import { WhoamiService, type UserWithEmail } from "@odysseon/whoami-core";
-import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
-import { JoseTokenSigner } from "@odysseon/whoami-adapter-jose";
-import { WebCryptoTokenHasher } from "@odysseon/whoami-adapter-webcrypto";
-
-type AppUser = {
-  id: number;
-  email: string;
-};
-
-const whoami = new WhoamiService<AppUser>({
-  configuration: {
-    authMethods: { credentials: true },
-    refreshTokens: { enabled: true },
-  },
-  logger: console,
-  tokenSigner: new JoseTokenSigner({
-    secret: "replace-this-with-a-long-secret-of-at-least-32-characters",
-  }),
-  passwordHasher: new Argon2PasswordHasher(),
-  tokenHasher: new WebCryptoTokenHasher(),
-  tokenGenerator: {
-    generate: () => crypto.randomUUID(),
-  },
-  passwordUserRepository: myPasswordRepository,
-  refreshTokenRepository: myRefreshTokenRepository,
-});
-
-const user: UserWithEmail<AppUser> = await whoami.registerWithEmail({
-  email: "user@example.com",
-  password: "correct horse battery staple",
-});
-```
-
-`WhoamiService` remains supported for migration, but it is deprecated and targeted for removal in `v4.0.0`.
 
 ## Development
 

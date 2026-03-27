@@ -1,3 +1,0 @@
-# Models
-
-Domain model interfaces.
