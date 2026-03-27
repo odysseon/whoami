@@ -1,13 +1,18 @@
 import {
+  AuthenticationError,
+  WrongCredentialTypeError,
+} from "../../../shared/domain/errors/auth.error.js";
+import type { LoggerPort } from "../../../shared/domain/ports/logger.port.js";
+import {
   AccountId,
   EmailAddress,
-} from "src/shared/domain/value-objects/index.js";
-import { CredentialStore } from "../domain/ports/credential-store.port.js";
-import { PasswordHasher } from "../domain/ports/password-hasher.port.js";
-import { AuthenticationError } from "src/shared/domain/errors/auth.error.js";
-import { WrongCredentialTypeError } from "src/shared/domain/errors/auth.error.js";
-import { LoggerPort } from "src/shared/domain/ports/logger.port.js";
+} from "../../../shared/domain/value-objects/index.js";
+import type { CredentialStore } from "../domain/ports/credential-store.port.js";
+import type { PasswordHasher } from "../domain/ports/password-hasher.port.js";
 
+/**
+ * Verifies password-based credentials and resolves the authenticated account id.
+ */
 export class VerifyPasswordUseCase {
   constructor(
     private readonly credentialStore: CredentialStore,
@@ -15,18 +20,27 @@ export class VerifyPasswordUseCase {
     private readonly logger: LoggerPort,
   ) {}
 
+  /**
+   * Verifies a password for the supplied email address.
+   *
+   * @param rawEmail - The email address associated with the credential.
+   * @param plainTextPassword - The password presented by the client.
+   * @returns The authenticated account identifier.
+   * @throws {AuthenticationError} When the credential does not exist or is invalid.
+   */
   public async execute(
     rawEmail: string,
     plainTextPassword: string,
   ): Promise<AccountId> {
     const email = new EmailAddress(rawEmail);
-
     const credential = await this.credentialStore.findByEmail(email);
+
     if (!credential) {
       throw new AuthenticationError();
     }
 
     let storedHash: string;
+
     try {
       storedHash = credential.getPasswordHash();
     } catch (error) {
@@ -36,10 +50,12 @@ export class VerifyPasswordUseCase {
         );
         throw new AuthenticationError();
       }
+
       throw error;
     }
 
     const isMatch = await this.hasher.compare(plainTextPassword, storedHash);
+
     if (!isMatch) {
       throw new AuthenticationError();
     }

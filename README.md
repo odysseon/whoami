@@ -2,6 +2,10 @@
 
 Identity-first authentication for TypeScript applications.
 
+> [!WARNING]
+> The legacy `WhoamiService` facade in `@odysseon/whoami-core` is deprecated and scheduled for removal in `v4.0.0`.
+> New integrations should use the feature-first API and the Express example in [packages/example-express/](packages/example-express/README.md).
+
 ## Why Teams Pick It
 
 - Keep authentication rules in a framework-agnostic core.
@@ -47,6 +51,14 @@ pnpm install
 pnpm test
 ```
 
+Feature-first example:
+
+```ts
+import { RegisterAccountUseCase } from "@odysseon/whoami-core";
+```
+
+Legacy facade example:
+
 ```ts
 import { WhoamiService, type UserWithEmail } from "@odysseon/whoami-core";
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
@@ -81,6 +93,8 @@ const user: UserWithEmail<AppUser> = await whoami.registerWithEmail({
   password: "correct horse battery staple",
 });
 ```
+
+`WhoamiService` remains supported for migration, but it is deprecated and targeted for removal in `v4.0.0`.
 
 ## Development
 

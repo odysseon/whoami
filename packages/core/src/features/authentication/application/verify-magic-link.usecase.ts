@@ -1,34 +1,44 @@
-import { AccountId } from "src/shared/domain/value-objects/account-id.vo.js";
-import { CredentialStore } from "../domain/ports/credential-store.port.js";
-import { EmailAddress } from "src/shared/domain/value-objects/email-address.vo.js";
 import {
   AuthenticationError,
   WrongCredentialTypeError,
-} from "src/shared/domain/errors/auth.error.js";
-import { LoggerPort } from "src/shared/domain/ports/logger.port.js";
+} from "../../../shared/domain/errors/auth.error.js";
+import type { LoggerPort } from "../../../shared/domain/ports/logger.port.js";
+import { AccountId } from "../../../shared/domain/value-objects/account-id.vo.js";
+import { EmailAddress } from "../../../shared/domain/value-objects/email-address.vo.js";
+import type { CredentialStore } from "../domain/ports/credential-store.port.js";
 
+/**
+ * Verifies a magic-link credential and resolves the authenticated account id.
+ */
 export class VerifyMagicLinkUseCase {
   constructor(
     private readonly credentialStore: CredentialStore,
     private readonly logger: LoggerPort,
   ) {}
 
+  /**
+   * Verifies a magic-link token for the supplied email address.
+   *
+   * @param rawEmail - The email address associated with the credential.
+   * @param token - The token presented by the client.
+   * @param currentTime - The current clock value used for expiry checks.
+   * @returns The authenticated account identifier.
+   * @throws {AuthenticationError} When the credential does not exist or is invalid.
+   */
   public async execute(
     rawEmail: string,
     token: string,
     currentTime: Date,
   ): Promise<AccountId> {
-    // 1. Validate primitive
     const email = new EmailAddress(rawEmail);
-
-    // 2. Fetch via Port
     const credential = await this.credentialStore.findByEmail(email);
+
     if (!credential) {
       throw new AuthenticationError("Invalid or expired magic link.");
     }
 
-    // 3. The LSP Guardian & Cross-Auth Trap
     let isValid: boolean;
+
     try {
       isValid = credential.isMagicLinkValid(currentTime, token);
     } catch (error) {
@@ -36,9 +46,9 @@ export class VerifyMagicLinkUseCase {
         this.logger.warn(
           `Cross-auth anomaly on account ${credential.accountId.value}: ${error.message}`,
         );
-        // Mask the true error from the outside world
         throw new AuthenticationError("Invalid or expired magic link.");
       }
+
       throw error;
     }
 
@@ -46,7 +56,6 @@ export class VerifyMagicLinkUseCase {
       throw new AuthenticationError("Invalid or expired magic link.");
     }
 
-    // 4. Success!
     return credential.accountId;
   }
 }

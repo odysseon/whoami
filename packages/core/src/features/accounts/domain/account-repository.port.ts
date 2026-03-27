@@ -1,14 +1,33 @@
 import {
   AccountId,
   EmailAddress,
-} from "src/shared/domain/value-objects/index.js";
+} from "../../../shared/domain/value-objects/index.js";
 import { Account } from "./account.entity.js";
 
+/**
+ * Persists and retrieves account aggregates.
+ */
 export interface AccountRepository {
-  // Command: Persist the pure domain entity
+  /**
+   * Stores an account aggregate.
+   *
+   * @param account - The account to persist.
+   */
   save(account: Account): Promise<void>;
 
-  // Queries: Lookup using our strictly validated Value Objects
+  /**
+   * Finds an account by its identifier.
+   *
+   * @param id - The account identifier.
+   * @returns The matching account, or `null` when no account exists.
+   */
   findById(id: AccountId): Promise<Account | null>;
+
+  /**
+   * Finds an account by its email address.
+   *
+   * @param email - The normalized email address.
+   * @returns The matching account, or `null` when no account exists.
+   */
   findByEmail(email: EmailAddress): Promise<Account | null>;
 }

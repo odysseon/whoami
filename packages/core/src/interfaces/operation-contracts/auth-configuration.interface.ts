@@ -26,6 +26,12 @@ export interface IWhoamiAuthConfiguration {
   refreshTokenTtlSeconds?: number;
 }
 
+/**
+ * Dependencies consumed by the legacy `WhoamiService` facade.
+ *
+ * @deprecated Use feature-specific ports and use cases from the feature-first API instead.
+ * This interface is scheduled for removal in `v4.0.0`.
+ */
 export interface WhoamiServiceDependencies<TEntity extends HasId = HasId> {
   tokenSigner: ITokenSigner;
   logger: ILogger;
