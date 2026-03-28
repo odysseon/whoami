@@ -65,4 +65,17 @@ export class Credential {
 
     return isNotExpired && isTokenMatch;
   }
+
+  /**
+   * Evaluates if the provided OAuth data matches the stored credential.
+   */
+  public verifyOAuth(provider: string, providerId: string): boolean {
+    if (this.proof.kind !== "oauth") {
+      throw new WrongCredentialTypeError("oauth", this.proof.kind);
+    }
+
+    return (
+      this.proof.provider === provider && this.proof.providerId === providerId
+    );
+  }
 }

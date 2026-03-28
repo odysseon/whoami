@@ -16,6 +16,15 @@ export type MagicLinkProof = {
 };
 
 /**
+ *  OAuth credential proof.
+ */
+export type OAuthProof = {
+  kind: "oauth";
+  provider: string;
+  providerId: string;
+};
+
+/**
  * Supported credential proof variants.
  */
-export type CredentialProof = PasswordProof | MagicLinkProof;
+export type CredentialProof = PasswordProof | MagicLinkProof | OAuthProof;
