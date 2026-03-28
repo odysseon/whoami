@@ -67,6 +67,26 @@ export class Credential {
   }
 
   /**
+   * Factory for minting a BRAND NEW OAuth credential.
+   */
+  public static createOAuth(
+    id: CredentialId,
+    accountId: AccountId,
+    provider: string,
+    providerId: string,
+  ): Credential {
+    if (!provider || !providerId) {
+      throw new Error("OAuth provider and providerId cannot be empty.");
+    }
+
+    return new Credential(id, accountId, {
+      kind: "oauth",
+      provider,
+      providerId,
+    });
+  }
+
+  /**
    * Evaluates if the provided OAuth data matches the stored credential.
    */
   public verifyOAuth(provider: string, providerId: string): boolean {
