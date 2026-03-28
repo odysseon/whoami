@@ -1,8 +1,6 @@
+import { InvalidReceiptError } from "../../../shared/index.js";
 import { AccountId } from "../../../shared/domain/value-objects/account-id.vo.js";
 
-/**
- * Represents a signed receipt token and its expiry metadata.
- */
 export class Receipt {
   private constructor(
     public readonly token: string,
@@ -11,6 +9,7 @@ export class Receipt {
   ) {}
 
   /**
+   * Factory for minting a BRAND NEW receipt token.
    * Creates a receipt from a signed token and explicit expiry time.
    *
    * @param token - The signed token.
@@ -23,6 +22,26 @@ export class Receipt {
     accountId: AccountId,
     expiresAt: Date,
   ): Receipt {
-    return new Receipt(token, accountId, new Date(expiresAt.getTime()));
+    if (!token || token.trim() === "") {
+      throw new InvalidReceiptError("Token payload cannot be empty.");
+    }
+
+    if (!expiresAt || expiresAt <= new Date()) {
+      throw new InvalidReceiptError("Expiration date cannot be in the past.");
+    }
+
+    return new Receipt(token, accountId, expiresAt);
+  }
+
+  /**
+   * Factory for rehydrating an EXISTING receipt token (e.g., during verification).
+   * Bypasses the "creation" business rules since the token already exists.
+   */
+  public static loadExisting(
+    token: string,
+    accountId: AccountId,
+    expiresAt: Date,
+  ): Receipt {
+    return new Receipt(token, accountId, expiresAt);
   }
 }

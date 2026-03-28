@@ -5,6 +5,7 @@ import type { PasswordHasher } from "@odysseon/whoami-core";
  * Argon2-based password hasher for password credentials.
  */
 export class Argon2PasswordHasher implements PasswordHasher {
+  constructor(private readonly options?: argon2.Options) {}
   /**
    * Hashes a plain-text password.
    *
@@ -16,7 +17,7 @@ export class Argon2PasswordHasher implements PasswordHasher {
       throw new Error("Cannot hash an empty password.");
     }
 
-    return await argon2.hash(plainText);
+    return await argon2.hash(plainText, this.options);
   }
 
   /**

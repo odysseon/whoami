@@ -22,4 +22,15 @@ export class Account {
   public static create(id: AccountId, email: EmailAddress): Account {
     return new Account(id, email);
   }
+
+  /**
+   * Reconstructs an existing account aggregate from persisted data.
+   *
+   * @param id - The account identifier.
+   * @param email - The normalized account email address.
+   * @returns An account instance representing the existing data.
+   */
+  public static loadExisting(id: AccountId, email: EmailAddress): Account {
+    return new Account(id, email);
+  }
 }
