@@ -1,10 +1,12 @@
+import { InvalidEmailError } from "../errors/validation.error.js";
+
 export class EmailAddress {
   public readonly value: string;
 
   constructor(raw: string) {
     const trimmed = raw.trim();
     if (!trimmed || !trimmed.includes("@")) {
-      throw new Error("Invalid email format");
+      throw new InvalidEmailError();
     }
     this.value = trimmed.toLowerCase();
   }

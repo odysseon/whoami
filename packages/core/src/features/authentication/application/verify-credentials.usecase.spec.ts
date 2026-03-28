@@ -97,11 +97,11 @@ describe("Authentication feature use cases", () => {
       },
     );
 
-    const result = await useCase.execute(
-      "user@example.com",
-      "magic-token",
-      new Date("2026-03-27T10:00:00.000Z"),
-    );
+    const result = await useCase.execute({
+      rawEmail: "user@example.com",
+      token: "magic-token",
+      currentTime: new Date("2026-03-27T10:00:00.000Z"),
+    });
 
     assert.equal(result.value, accountId.value);
   });

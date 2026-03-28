@@ -1,6 +1,13 @@
 import { InvalidReceiptError } from "../../../shared/index.js";
 import { AccountId } from "../../../shared/domain/value-objects/account-id.vo.js";
 
+export interface ReceiptIssuanceInput {
+  token: string;
+  accountId: AccountId;
+  expiresAt: Date;
+  now: Date;
+}
+
 export class Receipt {
   private constructor(
     public readonly token: string,
@@ -15,22 +22,19 @@ export class Receipt {
    * @param token - The signed token.
    * @param accountId - The account bound to the token.
    * @param expiresAt - The exact token expiry time.
+   * @param now - The current time used to validate expiry (defaults to current time).
    * @returns A receipt instance.
    */
-  public static issue(
-    token: string,
-    accountId: AccountId,
-    expiresAt: Date,
-  ): Receipt {
-    if (!token || token.trim() === "") {
+  public static issue(input: ReceiptIssuanceInput): Receipt {
+    if (!input.token || input.token.trim() === "") {
       throw new InvalidReceiptError("Token payload cannot be empty.");
     }
 
-    if (!expiresAt || expiresAt <= new Date()) {
+    if (!input.expiresAt || input.expiresAt <= input.now) {
       throw new InvalidReceiptError("Expiration date cannot be in the past.");
     }
 
-    return new Receipt(token, accountId, expiresAt);
+    return new Receipt(input.token, input.accountId, input.expiresAt);
   }
 
   /**

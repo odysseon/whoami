@@ -27,11 +27,12 @@ export class IssueReceiptUseCase {
       );
     }
 
-    const expiresAt = new Date(this.now().getTime());
+    const now = this.now();
+    const expiresAt = new Date(now.getTime());
     expiresAt.setMinutes(expiresAt.getMinutes() + this.tokenLifespanMinutes);
 
     const signedToken = await this.signer.sign(accountId, expiresAt);
 
-    return Receipt.issue(signedToken, accountId, expiresAt);
+    return Receipt.issue({ token: signedToken, accountId, expiresAt, now });
   }
 }

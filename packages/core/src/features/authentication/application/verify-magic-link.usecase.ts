@@ -7,6 +7,12 @@ import { AccountId } from "../../../shared/domain/value-objects/account-id.vo.js
 import { EmailAddress } from "../../../shared/domain/value-objects/email-address.vo.js";
 import type { CredentialStore } from "../domain/ports/credential-store.port.js";
 
+export interface VerifyMagicLinkInput {
+  rawEmail: string;
+  token: string;
+  currentTime: Date;
+}
+
 /**
  * Verifies a magic-link credential and resolves the authenticated account id.
  */
@@ -19,18 +25,12 @@ export class VerifyMagicLinkUseCase {
   /**
    * Verifies a magic-link token for the supplied email address.
    *
-   * @param rawEmail - The email address associated with the credential.
-   * @param token - The token presented by the client.
-   * @param currentTime - The current clock value used for expiry checks.
+   * @param input - The verification input containing email, token, and current time.
    * @returns The authenticated account identifier.
    * @throws {AuthenticationError} When the credential does not exist or is invalid.
    */
-  public async execute(
-    rawEmail: string,
-    token: string,
-    currentTime: Date,
-  ): Promise<AccountId> {
-    const email = new EmailAddress(rawEmail);
+  public async execute(input: VerifyMagicLinkInput): Promise<AccountId> {
+    const email = new EmailAddress(input.rawEmail);
     const credential = await this.credentialStore.findByEmail(email);
 
     if (!credential) {
@@ -40,7 +40,7 @@ export class VerifyMagicLinkUseCase {
     let isValid: boolean;
 
     try {
-      isValid = credential.isMagicLinkValid(currentTime, token);
+      isValid = credential.isMagicLinkValid(input.currentTime, input.token);
     } catch (error) {
       if (error instanceof WrongCredentialTypeError) {
         this.logger.warn(
