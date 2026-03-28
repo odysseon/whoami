@@ -47,4 +47,17 @@ describe("RegisterAccountUseCase", () => {
       AccountAlreadyExistsError,
     );
   });
+
+  it("throws InvalidEmailError for a malformed email address", async () => {
+    const useCase = new RegisterAccountUseCase(
+      {
+        save: async (): Promise<void> => undefined,
+        findByEmail: async (): Promise<null> => null,
+        findById: async (): Promise<null> => null,
+      },
+      () => "acc_3",
+    );
+
+    await assert.rejects(() => useCase.execute("not-an-email"));
+  });
 });

@@ -11,7 +11,17 @@ import {
   WrongCredentialTypeError,
 } from "../../../shared/domain/errors/auth.error.js";
 
-export class AuthenticateOAuthOrchestrator {
+export interface AuthenticateOAuthInput {
+  rawEmail: string;
+  provider: string;
+  providerId: string;
+}
+
+/**
+ * Handles the full OAuth authentication flow: auto-registers new users or
+ * verifies the OAuth credential for returning users.
+ */
+export class AuthenticateOAuthUseCase {
   constructor(
     private readonly accountRepo: AccountRepository,
     private readonly credentialStore: CredentialStore,
@@ -19,19 +29,21 @@ export class AuthenticateOAuthOrchestrator {
     private readonly logger: LoggerPort,
   ) {}
 
-  public async execute(
-    rawEmail: string,
-    provider: string,
-    providerId: string,
-  ): Promise<AccountId> {
-    const email = new EmailAddress(rawEmail);
+  /**
+   * Authenticates or auto-registers an account via OAuth.
+   *
+   * @param input - The OAuth authentication input.
+   * @returns The authenticated account identifier.
+   * @throws {AuthenticationError} When an existing credential fails verification.
+   */
+  public async execute(input: AuthenticateOAuthInput): Promise<AccountId> {
+    const email = new EmailAddress(input.rawEmail);
 
     // --- PHASE 1: THE ACCOUNT (The VIP) ---
     let account = await this.accountRepo.findByEmail(email);
 
     if (!account) {
       this.logger.info(`Auto-registering new OAuth user: ${email.value}`);
-      // Auto-Registration
       account = Account.create(new AccountId(this.generateId()), email);
       await this.accountRepo.save(account);
     }
@@ -41,35 +53,30 @@ export class AuthenticateOAuthOrchestrator {
 
     if (!credential) {
       this.logger.info(
-        `Linking new ${provider} credential to account ${account.id.value}`,
+        `Linking new ${input.provider} credential to account ${account.id.value}`,
       );
-      // Create and link the OAuth credential
       credential = Credential.createOAuth(
         new CredentialId(this.generateId()),
         account.id,
-        provider,
-        providerId,
+        input.provider,
+        input.providerId,
       );
       await this.credentialStore.save(credential);
 
-      return account.id; // Brand new setup complete
+      return account.id;
     }
 
     // --- PHASE 3: VERIFICATION (Existing Users) ---
     try {
-      const isValid = credential.verifyOAuth(provider, providerId);
+      const isValid = credential.verifyOAuth(input.provider, input.providerId);
       if (!isValid) {
         throw new AuthenticationError("OAuth provider mismatch.");
       }
     } catch (error) {
       if (error instanceof WrongCredentialTypeError) {
-        // SECURITY TRAP: The user signed up with a Password months ago,
-        // but just clicked "Sign in with Google".
         this.logger.warn(
           `Account linking anomaly on ${account.id.value}. Expected ${error.message}`,
         );
-        // We reject the login to prevent an attacker from hijacking an account
-        // if they somehow spoofed the Google email.
         throw new AuthenticationError(
           "Please log in with your original authentication method.",
         );

@@ -7,18 +7,27 @@ import {
   WrongCredentialTypeError,
 } from "../../../shared/domain/errors/auth.error.js";
 
+export interface VerifyOAuthInput {
+  rawEmail: string;
+  provider: string;
+  providerId: string;
+}
+
 export class VerifyOAuthUseCase {
   constructor(
     private readonly credentialStore: CredentialStore,
     private readonly logger: LoggerPort,
   ) {}
 
-  public async execute(
-    rawEmail: string,
-    provider: string,
-    providerId: string,
-  ): Promise<AccountId> {
-    const email = new EmailAddress(rawEmail);
+  /**
+   * Verifies an OAuth credential for the supplied email address.
+   *
+   * @param input - The verification input containing email, provider, and providerId.
+   * @returns The authenticated account identifier.
+   * @throws {AuthenticationError} When the credential does not exist or is invalid.
+   */
+  public async execute(input: VerifyOAuthInput): Promise<AccountId> {
+    const email = new EmailAddress(input.rawEmail);
 
     const credential = await this.credentialStore.findByEmail(email);
     if (!credential) {
@@ -27,7 +36,7 @@ export class VerifyOAuthUseCase {
 
     let isValid = false;
     try {
-      isValid = credential.verifyOAuth(provider, providerId);
+      isValid = credential.verifyOAuth(input.provider, input.providerId);
     } catch (error) {
       if (error instanceof WrongCredentialTypeError) {
         this.logger.warn(

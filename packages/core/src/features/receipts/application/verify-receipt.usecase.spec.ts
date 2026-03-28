@@ -7,15 +7,17 @@ import { VerifyReceiptUseCase } from "./verify-receipt.usecase.js";
 
 describe("VerifyReceiptUseCase", () => {
   it("restores a verified receipt", async () => {
-    // Create a future date dynamically
     const futureDate = new Date();
     futureDate.setHours(futureDate.getHours() + 1);
 
-    const receipt = Receipt.issue(
-      "signed-token",
-      new AccountId("acc_1"),
-      futureDate,
-    );
+    const now = new Date();
+    const receipt = Receipt.issue({
+      token: "signed-token",
+      accountId: new AccountId("acc_1"),
+      expiresAt: futureDate,
+      now: now,
+    });
+
     const useCase = new VerifyReceiptUseCase({
       verify: async (): Promise<Receipt> => receipt,
     });
@@ -24,6 +26,7 @@ describe("VerifyReceiptUseCase", () => {
 
     assert.equal(result.token, "signed-token");
     assert.equal(result.accountId.value, "acc_1");
+    assert.deepEqual(result.expiresAt, futureDate);
   });
 
   it("rejects empty receipt tokens", async () => {
@@ -34,5 +37,18 @@ describe("VerifyReceiptUseCase", () => {
     });
 
     await assert.rejects(() => useCase.execute("   "), InvalidReceiptError);
+  });
+
+  it("propagates InvalidReceiptError thrown by the verifier", async () => {
+    const useCase = new VerifyReceiptUseCase({
+      verify: async (): Promise<Receipt> => {
+        throw new InvalidReceiptError("Token signature is invalid.");
+      },
+    });
+
+    await assert.rejects(
+      () => useCase.execute("bad-token"),
+      InvalidReceiptError,
+    );
   });
 });

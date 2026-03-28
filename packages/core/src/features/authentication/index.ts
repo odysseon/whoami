@@ -1,3 +1,4 @@
+export * from "./application/authenticate-oauth.usecase.js";
 export * from "./application/verify-magic-link.usecase.js";
 export * from "./application/verify-password.usecase.js";
 export * from "./application/verify-oauth.usecase.js";
