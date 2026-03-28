@@ -6,7 +6,11 @@ import { IssueReceiptUseCase } from "./issue-receipt.usecase.js";
 
 describe("IssueReceiptUseCase", () => {
   it("uses one computed expiry for signing and the returned receipt", async () => {
-    const now = new Date("2026-03-27T10:00:00.000Z");
+    // Use a stable reference date
+    const now = new Date();
+    // Set to a fixed time to ensure consistency
+    now.setUTCHours(10, 0, 0, 0);
+
     const accountId = new AccountId("acc_1");
     let signedExpiresAt: Date | undefined;
     const useCase = new IssueReceiptUseCase(
@@ -22,6 +26,9 @@ describe("IssueReceiptUseCase", () => {
 
     const receipt = await useCase.execute(accountId);
 
+    const expectedExpiry = new Date(now.getTime());
+    expectedExpiry.setMinutes(expectedExpiry.getMinutes() + 30);
+
     assert.equal(receipt.token, "signed-token");
     assert.equal(receipt.accountId.value, "acc_1");
     assert.ok(signedExpiresAt);
@@ -29,7 +36,7 @@ describe("IssueReceiptUseCase", () => {
       receipt.expiresAt.toISOString(),
       signedExpiresAt?.toISOString(),
     );
-    assert.equal(receipt.expiresAt.toISOString(), "2026-03-27T10:30:00.000Z");
+    assert.equal(receipt.expiresAt.toISOString(), expectedExpiry.toISOString());
   });
 
   it("rejects non-positive token lifespans", async () => {

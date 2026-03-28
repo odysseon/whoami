@@ -7,10 +7,14 @@ import { VerifyReceiptUseCase } from "./verify-receipt.usecase.js";
 
 describe("VerifyReceiptUseCase", () => {
   it("restores a verified receipt", async () => {
+    // Create a future date dynamically
+    const futureDate = new Date();
+    futureDate.setHours(futureDate.getHours() + 1);
+
     const receipt = Receipt.issue(
       "signed-token",
       new AccountId("acc_1"),
-      new Date("2026-03-27T11:00:00.000Z"),
+      futureDate,
     );
     const useCase = new VerifyReceiptUseCase({
       verify: async (): Promise<Receipt> => receipt,
