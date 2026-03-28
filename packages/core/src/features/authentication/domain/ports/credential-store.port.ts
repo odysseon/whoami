@@ -12,4 +12,12 @@ export interface CredentialStore {
    * @returns The matching credential, or `null` when no credential exists.
    */
   findByEmail(email: EmailAddress): Promise<Credential | null>;
+
+  /**
+   * Finds a credential by email address.
+   *
+   * @param credential - The new credentials.
+   * @returns Nothing.
+   */
+  save(credential: Credential): Promise<void>;
 }
