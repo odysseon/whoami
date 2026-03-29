@@ -1,67 +1,117 @@
 # whoami
 
-Identity-first authentication for TypeScript applications.
+**whoami answers one question: who is making this request?**
 
-## Why Teams Pick It
+It handles identity — registration, authentication (password, OAuth, magic link), and signed receipt tokens. It does not manage profiles, roles, or application-level user data. That is intentionally your domain.
 
-- Keep authentication rules in a framework-agnostic core.
-- Compose only the adapters you need for hashing, JWTs, and framework integration.
-- Preserve strong typing across user IDs, including `string` and `number` identifiers.
+## Why this matters
 
-## Architecture At A Glance
+Most auth libraries conflate identity with user management. They force you to extend their `User` model, fight their schema, and work around their assumptions. whoami owns exactly one thing:
+
+```
+AccountId ──► "This request is from account abc-123. You can trust that."
+```
+
+Everything else — what that account can do, what profile they have, what community they belong to — lives in your application, linked by a single foreign key.
+
+## Core value
+
+- **Framework-agnostic core.** Domain logic has zero framework or I/O dependencies. Bring your own NestJS, Express, Fastify, or none.
+- **Adapter-based extensibility.** Swap hashing algorithms, JWT strategies, or frameworks by swapping one package.
+- **Typed identity primitive.** `AccountId` accepts `string | number` — no forced UUID, no silent cast.
+
+## How your entities link to Account
+
+whoami returns an `AccountId` after authentication. Your application creates its own user record linked by that ID. No base class to extend, no schema to fight.
+
+```
+whoami DB:
+  accounts  { id, email }                      ← all whoami ever stores
+
+your DB:
+  users     { id, account_id ← accountId.value, display_name, avatar, ... }
+  posts     { id, author_id  → users.id }
+  channels  { id, owner_id   → users.id }
+```
+
+See [the example apps](#examples) for how this wiring looks in practice.
+
+## Architecture at a glance
 
 ```mermaid
 graph TD
-    App["Application"] --> Core["Whoami Core"]
-    Core --> Ports["Ports"]
-    Ports --> Repos["Repositories"]
-    Ports --> Security["Security Adapters"]
-    Ports --> Utilities["Framework Utilities"]
-    Security --> Argon2["Argon2"]
-    Security --> Jose["JOSE"]
-    Security --> WebCrypto["WebCrypto"]
-    Utilities --> Nest["NestJS Adapter"]
+    subgraph "Your Application"
+        YourUser["User / Profile / Post / Channel"]
+        YourController["Your Route Handler"]
+    end
+
+    subgraph "adapter-nestjs"
+        Guard["WhoamiAuthGuard"]
+        OAuthHandler["OAuthCallbackHandler"]
+        Decorator["@CurrentIdentity()"]
+    end
+
+    subgraph "whoami-core"
+        AuthUC["AuthenticateOAuthUseCase\nVerifyPasswordUseCase\nVerifyMagicLinkUseCase"]
+        IssueUC["IssueReceiptUseCase"]
+        VerifyUC["VerifyReceiptUseCase"]
+        Receipt["Receipt { token, accountId, expiresAt }"]
+    end
+
+    YourController --> Guard
+    Guard --> VerifyUC
+    Decorator --> YourController
+    OAuthHandler --> AuthUC
+    OAuthHandler --> IssueUC
+    AuthUC --> Receipt
+    IssueUC --> Receipt
+    YourUser -. "account_id FK" .-> Receipt
 ```
 
-## Quick Links
+## Packages
 
-| Area | Purpose |
-| --- | --- |
-| [packages/](packages/README.md) | Package map for the monorepo |
-| [packages/core/](packages/core/README.md) | Core authentication engine |
-| [docs/architecture.md](docs/architecture.md) | Architecture overview |
-| [docs/type-model.md](docs/type-model.md) | ID and token typing rules |
+| Package | Purpose |
+|---|---|
+| [`@odysseon/whoami-core`](packages/core/README.md) | Domain entities, use cases, and port interfaces — the identity kernel |
+| [`@odysseon/whoami-adapter-argon2`](packages/adapter-argon2/README.md) | `PasswordHasher` implementation via argon2 |
+| [`@odysseon/whoami-adapter-jose`](packages/adapter-jose/README.md) | `ReceiptSigner` / `ReceiptVerifier` via jose (HS256 JWT) |
+| [`@odysseon/whoami-adapter-webcrypto`](packages/adapter-webcrypto/README.md) | `TokenHasher` via native Web Crypto (magic links, API keys) |
+| [`@odysseon/whoami-adapter-nestjs`](packages/adapter-nestjs/README.md) | NestJS module, OAuth handler, guard, decorator, exception filter |
 
-## Package Map
+## Examples
 
-- `@odysseon/whoami-core`: feature-first domain and application building blocks.
-- `@odysseon/whoami-adapter-argon2`: password hashing adapter.
-- `@odysseon/whoami-adapter-jose`: receipt signing and verification adapter.
-- `@odysseon/whoami-adapter-webcrypto`: deterministic string hashing adapter.
-- `@odysseon/whoami-adapter-nestjs`: NestJS receipt-auth module, guard, decorator, and exception filter.
+| Example | Framework | What it shows |
+|---|---|---|
+| [`example-nestjs`](packages/example-nestjs/README.md) | NestJS 11 | DI wiring, all auth flows, global guard, Swagger UI |
+| [`example-express`](packages/example-express/README.md) | Express 5 | Minimal wiring, all auth flows, custom auth middleware |
 
-## Quick Start
+## Quick start
 
 ```bash
 pnpm install
+
+# run the NestJS example
+pnpm --filter @odysseon/whoami-example-nestjs dev
+
+# run the Express example
+pnpm --filter @odysseon/whoami-example-express dev
+
+# run all tests
 pnpm test
 ```
 
-Feature-first example:
+## Key docs
 
-```ts
-import {
-  IssueReceiptUseCase,
-  RegisterAccountUseCase,
-  VerifyPasswordUseCase,
-} from "@odysseon/whoami-core";
-```
+| Doc | Purpose |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Zone model, dependency rules, feature structure |
+| [docs/type-model.md](docs/type-model.md) | AccountId, Receipt, CredentialProof, error types |
 
 ## Development
 
 ```bash
-pnpm -r exec tsc --noEmit
-pnpm test
+pnpm -r exec tsc --noEmit   # typecheck all packages
+pnpm test                    # test all packages
 ```
 
 ## License
