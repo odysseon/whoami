@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-adapter-argon2",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "description": "Argon2 password hashing adapter for Odysseon Whoami",
   "keywords": [
     "argon2",
