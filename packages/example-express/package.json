@@ -17,6 +17,9 @@
   },
   "dependencies": {
     "@odysseon/whoami-core": "workspace:*",
+    "@odysseon/whoami-adapter-jose": "workspace:*",
+    "@odysseon/whoami-adapter-argon2": "workspace:*",
+    "@odysseon/whoami-adapter-webcrypto": "workspace:*",
     "express": "^5.2.1"
   },
   "devDependencies": {

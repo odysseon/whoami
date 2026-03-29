@@ -1,76 +1,63 @@
 # @odysseon/whoami-adapter-nestjs
 
-NestJS receipt-auth integration package for `@odysseon/whoami-core`.
+NestJS receipt-auth integration for `@odysseon/whoami-core`.
 
 ## Overview
 
-This package provides a dynamic NestJS module (`WhoamiModule`) that bridges the feature-first core receipt API with NestJS's dependency injection and HTTP lifecycle.
+This package provides a dynamic NestJS module (`WhoamiModule`) that wires the core receipt verification API into NestJS's dependency injection and HTTP lifecycle. When registered it installs:
 
-When imported, the module registers a `VerifyReceiptUseCase`, a default `BearerTokenExtractor`, and a `WhoamiExceptionFilter`. The `WhoamiAuthGuard` can then protect routes using verified receipt tokens from the core `receipts` feature.
+- `VerifyReceiptUseCase` — verifies receipt tokens through the supplied `ReceiptVerifier`
+- `BearerTokenExtractor` — extracts `Bearer <token>` from the `Authorization` header (overridable)
+- `WhoamiExceptionFilter` — maps core `DomainError` subclasses to the correct HTTP status codes
+
+The `WhoamiAuthGuard` can then be registered globally (via `APP_GUARD`) to protect every route by default, with `@Public()` used to opt individual routes out.
 
 ## Installation
 
 ```bash
 npm install @odysseon/whoami-core @odysseon/whoami-adapter-nestjs
+# plus a receipt-verifier adapter:
 npm install @odysseon/whoami-adapter-jose
 ```
 
 ## Usage
 
-Register the module globally in your `AppModule` using `registerAsync`.
+### 1. Register `WhoamiModule` and the global guard
 
 ```ts
 import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { WhoamiModule } from "@odysseon/whoami-adapter-nestjs";
-import { JoseReceiptCodec } from "@odysseon/whoami-adapter-jose";
+import { APP_GUARD } from "@nestjs/core";
+import { WhoamiModule, WhoamiAuthGuard } from "@odysseon/whoami-adapter-nestjs";
+import { JoseReceiptVerifier } from "@odysseon/whoami-adapter-jose";
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
     WhoamiModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        receiptVerifier: new JoseReceiptCodec({
-          secret: config.get("JWT_SECRET")!,
+      useFactory: () => ({
+        receiptVerifier: new JoseReceiptVerifier({
+          secret: process.env.JWT_SECRET!,
+          issuer: "my-app",
         }),
       }),
     }),
   ],
+  providers: [{ provide: APP_GUARD, useClass: WhoamiAuthGuard }],
 })
 export class AppModule {}
 ```
 
-### Protecting and Exposing Routes
-
-To access the verified receipt identity inside a protected route, use the `WhoamiAuthGuard` together with the `@CurrentIdentity()` decorator.
+### 2. Access the verified identity inside a route
 
 ```ts
-import { Controller, Get, UseGuards } from "@nestjs/common";
-import {
-  CurrentIdentity,
-  Public,
-  WhoamiAuthGuard,
-} from "@odysseon/whoami-adapter-nestjs";
+import { Controller, Get } from "@nestjs/common";
+import { CurrentIdentity, Public } from "@odysseon/whoami-adapter-nestjs";
 import type { Receipt } from "@odysseon/whoami-core";
 
 @Controller("account")
 export class AccountController {
-  @UseGuards(WhoamiAuthGuard)
   @Get("me")
   getProfile(@CurrentIdentity() identity: Receipt) {
-    return {
-      message: "Welcome to your secure dashboard",
-      userId: identity.accountId.value,
-    };
-  }
-
-  @Get("settings")
-  @UseGuards(WhoamiAuthGuard)
-  getSettings(@CurrentIdentity("accountId") accountId: Receipt["accountId"]) {
-    const userId = String(accountId.value);
-    return this.settingsService.findByUserId(userId);
+    return { accountId: identity.accountId.value };
   }
 
   @Public()
@@ -81,7 +68,39 @@ export class AccountController {
 }
 ```
 
-### Customization
+## HTTP Status Mapping
 
-- **Token Extraction:** The module defaults to `BearerTokenExtractor`. If your app reads tokens from cookies or custom headers, implement `AuthTokenExtractor` and pass it to the `useFactory` options as `tokenExtractor`.
-- **Receipt Verification:** Supply any `ReceiptVerifier` implementation from your chosen cryptography adapter.
+`WhoamiExceptionFilter` translates core domain errors automatically:
+
+| Domain error                | HTTP status               |
+| --------------------------- | ------------------------- |
+| `AuthenticationError`       | 401 Unauthorized          |
+| `InvalidReceiptError`       | 401 Unauthorized          |
+| `AccountAlreadyExistsError` | 409 Conflict              |
+| `InvalidEmailError`         | 400 Bad Request           |
+| `InvalidConfigurationError` | 500 Internal Server Error |
+| Any other `DomainError`     | 400 Bad Request           |
+
+## Customising Token Extraction
+
+The module defaults to extracting `Bearer <token>` from the `Authorization` header. To read tokens from cookies or a custom header, implement `AuthTokenExtractor` and pass it as `tokenExtractor`:
+
+```ts
+import type { AuthTokenExtractor } from "@odysseon/whoami-adapter-nestjs";
+
+class CookieTokenExtractor implements AuthTokenExtractor {
+  extract(request: unknown): string | null {
+    const req = request as { cookies?: { token?: string } };
+    return req.cookies?.token ?? null;
+  }
+}
+
+WhoamiModule.registerAsync({
+  useFactory: () => ({
+    receiptVerifier: new JoseReceiptVerifier({
+      secret: process.env.JWT_SECRET!,
+    }),
+    tokenExtractor: new CookieTokenExtractor(),
+  }),
+});
+```

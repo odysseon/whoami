@@ -5,4 +5,5 @@ export * from "./application/verify-oauth.usecase.js";
 export * from "./domain/credential.entity.js";
 export * from "./domain/ports/credential-store.port.js";
 export * from "./domain/ports/password-hasher.port.js";
+export * from "./domain/ports/token-hasher.port.js";
 export * from "./domain/types.js";
