@@ -318,13 +318,20 @@ export const JOSE_CONFIG_TOKEN = "JOSE_CONFIG_TOKEN";
         store: InMemoryCredentialStore,
         hasher: Argon2PasswordHasher,
       ): VerifyPasswordUseCase =>
-        new VerifyPasswordUseCase(store, hasher, consoleLogger),
+        new VerifyPasswordUseCase({
+          credentialStore: store,
+          hasher,
+          logger: consoleLogger,
+        }),
       inject: [TOKENS.CREDENTIAL_STORE, Argon2PasswordHasher],
     },
     {
       provide: VerifyMagicLinkUseCase,
       useFactory: (store: InMemoryCredentialStore): VerifyMagicLinkUseCase =>
-        new VerifyMagicLinkUseCase(store, consoleLogger),
+        new VerifyMagicLinkUseCase({
+          credentialStore: store,
+          logger: consoleLogger,
+        }),
       inject: [TOKENS.CREDENTIAL_STORE],
     },
     {
@@ -334,12 +341,12 @@ export const JOSE_CONFIG_TOKEN = "JOSE_CONFIG_TOKEN";
         credStore: InMemoryCredentialStore,
         genId: () => string | number,
       ): AuthenticateOAuthUseCase =>
-        new AuthenticateOAuthUseCase(
-          accountRepo,
-          credStore,
-          genId,
-          consoleLogger,
-        ),
+        new AuthenticateOAuthUseCase({
+          accountRepository: accountRepo,
+          credentialStore: credStore,
+          generateId: genId,
+          logger: consoleLogger,
+        }),
       inject: [
         TOKENS.ACCOUNT_REPOSITORY,
         TOKENS.CREDENTIAL_STORE,
@@ -349,7 +356,7 @@ export const JOSE_CONFIG_TOKEN = "JOSE_CONFIG_TOKEN";
     {
       provide: IssueReceiptUseCase,
       useFactory: (signer: ReceiptSigner): IssueReceiptUseCase =>
-        new IssueReceiptUseCase(signer, 60),
+        new IssueReceiptUseCase({ signer, tokenLifespanMinutes: 60 }),
       inject: [JoseReceiptSigner],
     },
   ],

@@ -31,10 +31,10 @@ function makeMagicLinkCredential(accountId = "acc_1") {
 
 describe("VerifyMagicLinkUseCase", () => {
   it("returns the account id for a valid token before expiry", async () => {
-    const useCase = new VerifyMagicLinkUseCase(
-      { findByEmail: async () => makeMagicLinkCredential() },
-      noopLogger,
-    );
+    const useCase = new VerifyMagicLinkUseCase({
+      credentialStore: { findByEmail: async () => makeMagicLinkCredential() },
+      logger: noopLogger,
+    });
 
     const result = await useCase.execute({
       rawEmail: "user@example.com",
@@ -46,10 +46,10 @@ describe("VerifyMagicLinkUseCase", () => {
   });
 
   it("throws AuthenticationError when no credential is found", async () => {
-    const useCase = new VerifyMagicLinkUseCase(
-      { findByEmail: async () => null },
-      noopLogger,
-    );
+    const useCase = new VerifyMagicLinkUseCase({
+      credentialStore: { findByEmail: async () => null },
+      logger: noopLogger,
+    });
 
     await assert.rejects(
       () =>
@@ -63,10 +63,10 @@ describe("VerifyMagicLinkUseCase", () => {
   });
 
   it("throws AuthenticationError when the token has expired", async () => {
-    const useCase = new VerifyMagicLinkUseCase(
-      { findByEmail: async () => makeMagicLinkCredential() },
-      noopLogger,
-    );
+    const useCase = new VerifyMagicLinkUseCase({
+      credentialStore: { findByEmail: async () => makeMagicLinkCredential() },
+      logger: noopLogger,
+    });
 
     await assert.rejects(
       () =>
@@ -80,10 +80,10 @@ describe("VerifyMagicLinkUseCase", () => {
   });
 
   it("throws AuthenticationError when the token does not match", async () => {
-    const useCase = new VerifyMagicLinkUseCase(
-      { findByEmail: async () => makeMagicLinkCredential() },
-      noopLogger,
-    );
+    const useCase = new VerifyMagicLinkUseCase({
+      credentialStore: { findByEmail: async () => makeMagicLinkCredential() },
+      logger: noopLogger,
+    });
 
     await assert.rejects(
       () =>
@@ -104,15 +104,15 @@ describe("VerifyMagicLinkUseCase", () => {
       { kind: "password", hash: "hashed" },
     );
 
-    const useCase = new VerifyMagicLinkUseCase(
-      { findByEmail: async () => passwordCredential },
-      {
+    const useCase = new VerifyMagicLinkUseCase({
+      credentialStore: { findByEmail: async () => passwordCredential },
+      logger: {
         ...noopLogger,
-        warn: (m: unknown) => {
+        warn: (m: unknown): void => {
           warnings.push(String(m));
         },
       },
-    );
+    });
 
     await assert.rejects(
       () =>

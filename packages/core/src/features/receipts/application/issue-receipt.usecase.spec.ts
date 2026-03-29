@@ -16,7 +16,11 @@ function makeSigner(token = "signed-token") {
 
 describe("IssueReceiptUseCase", () => {
   it("issues a receipt with the correct token and expiry", async () => {
-    const useCase = new IssueReceiptUseCase(makeSigner(), 60, () => frozenNow);
+    const useCase = new IssueReceiptUseCase({
+      signer: makeSigner(),
+      tokenLifespanMinutes: 60,
+      now: () => frozenNow,
+    });
 
     const receipt = await useCase.execute(accountId);
 
@@ -30,14 +34,17 @@ describe("IssueReceiptUseCase", () => {
 
   it("passes accountId and expiresAt to the signer", async () => {
     const calls: { accountId: AccountId; expiresAt: Date }[] = [];
-    const signer = {
-      sign: async (id: AccountId, exp: Date): Promise<string> => {
-        calls.push({ accountId: id, expiresAt: exp });
-        return "token";
+    const useCase = new IssueReceiptUseCase({
+      signer: {
+        sign: async (id: AccountId, exp: Date): Promise<string> => {
+          calls.push({ accountId: id, expiresAt: exp });
+          return "token";
+        },
       },
-    };
+      tokenLifespanMinutes: 30,
+      now: () => frozenNow,
+    });
 
-    const useCase = new IssueReceiptUseCase(signer, 30, () => frozenNow);
     await useCase.execute(accountId);
 
     assert.equal(calls.length, 1);
@@ -47,8 +54,25 @@ describe("IssueReceiptUseCase", () => {
     assert.deepEqual(calls[0].expiresAt, expectedExpiry);
   });
 
+  it("defaults tokenLifespanMinutes to 60", async () => {
+    const useCase = new IssueReceiptUseCase({
+      signer: makeSigner(),
+      now: () => frozenNow,
+    });
+
+    const receipt = await useCase.execute(accountId);
+
+    const expectedExpiry = new Date(frozenNow.getTime());
+    expectedExpiry.setMinutes(expectedExpiry.getMinutes() + 60);
+    assert.deepEqual(receipt.expiresAt, expectedExpiry);
+  });
+
   it("throws InvalidConfigurationError when lifespan is zero", async () => {
-    const useCase = new IssueReceiptUseCase(makeSigner(), 0, () => frozenNow);
+    const useCase = new IssueReceiptUseCase({
+      signer: makeSigner(),
+      tokenLifespanMinutes: 0,
+      now: () => frozenNow,
+    });
     await assert.rejects(
       () => useCase.execute(accountId),
       InvalidConfigurationError,
@@ -56,7 +80,11 @@ describe("IssueReceiptUseCase", () => {
   });
 
   it("throws InvalidConfigurationError when lifespan is negative", async () => {
-    const useCase = new IssueReceiptUseCase(makeSigner(), -5, () => frozenNow);
+    const useCase = new IssueReceiptUseCase({
+      signer: makeSigner(),
+      tokenLifespanMinutes: -5,
+      now: () => frozenNow,
+    });
     await assert.rejects(
       () => useCase.execute(accountId),
       InvalidConfigurationError,

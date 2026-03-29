@@ -18,16 +18,31 @@ export interface AuthenticateOAuthInput {
 }
 
 /**
+ * Dependencies required by {@link AuthenticateOAuthUseCase}.
+ */
+export interface AuthenticateOAuthDeps {
+  accountRepository: AccountRepository;
+  credentialStore: CredentialStore;
+  generateId: () => string | number;
+  logger: LoggerPort;
+}
+
+/**
  * Handles the full OAuth authentication flow: auto-registers new users or
  * verifies the OAuth credential for returning users.
  */
 export class AuthenticateOAuthUseCase {
-  constructor(
-    private readonly accountRepo: AccountRepository,
-    private readonly credentialStore: CredentialStore,
-    private readonly generateId: () => string | number,
-    private readonly logger: LoggerPort,
-  ) {}
+  private readonly accountRepo: AccountRepository;
+  private readonly credentialStore: CredentialStore;
+  private readonly generateId: () => string | number;
+  private readonly logger: LoggerPort;
+
+  constructor(deps: AuthenticateOAuthDeps) {
+    this.accountRepo = deps.accountRepository;
+    this.credentialStore = deps.credentialStore;
+    this.generateId = deps.generateId;
+    this.logger = deps.logger;
+  }
 
   /**
    * Authenticates or auto-registers an account via OAuth.

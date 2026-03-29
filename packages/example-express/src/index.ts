@@ -38,22 +38,25 @@ const generateId = createIdGenerator();
 
 // Use cases
 const registerAccount = new RegisterAccountUseCase(accountRepo, generateId);
-const verifyPassword = new VerifyPasswordUseCase(
+const verifyPassword = new VerifyPasswordUseCase({
   credentialStore,
-  passwordHasher,
-  consoleLogger,
-);
-const verifyMagicLink = new VerifyMagicLinkUseCase(
+  hasher: passwordHasher,
+  logger: consoleLogger,
+});
+const verifyMagicLink = new VerifyMagicLinkUseCase({
   credentialStore,
-  consoleLogger,
-);
-const authenticateOAuth = new AuthenticateOAuthUseCase(
-  accountRepo,
+  logger: consoleLogger,
+});
+const authenticateOAuth = new AuthenticateOAuthUseCase({
+  accountRepository: accountRepo,
   credentialStore,
   generateId,
-  consoleLogger,
-);
-const issueReceipt = new IssueReceiptUseCase(receiptSigner, 60);
+  logger: consoleLogger,
+});
+const issueReceipt = new IssueReceiptUseCase({
+  signer: receiptSigner,
+  tokenLifespanMinutes: 60,
+});
 const verifyReceipt = new VerifyReceiptUseCase(receiptVerifier);
 
 // Create app with all dependencies

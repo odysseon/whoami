@@ -11,14 +11,27 @@ import type { CredentialStore } from "../domain/ports/credential-store.port.js";
 import type { PasswordHasher } from "../domain/ports/password-hasher.port.js";
 
 /**
+ * Dependencies required by {@link VerifyPasswordUseCase}.
+ */
+export interface VerifyPasswordDeps {
+  credentialStore: CredentialStore;
+  hasher: PasswordHasher;
+  logger: LoggerPort;
+}
+
+/**
  * Verifies password-based credentials and resolves the authenticated account id.
  */
 export class VerifyPasswordUseCase {
-  constructor(
-    private readonly credentialStore: CredentialStore,
-    private readonly hasher: PasswordHasher,
-    private readonly logger: LoggerPort,
-  ) {}
+  private readonly credentialStore: CredentialStore;
+  private readonly hasher: PasswordHasher;
+  private readonly logger: LoggerPort;
+
+  constructor(deps: VerifyPasswordDeps) {
+    this.credentialStore = deps.credentialStore;
+    this.hasher = deps.hasher;
+    this.logger = deps.logger;
+  }
 
   /**
    * Verifies a password for the supplied email address.

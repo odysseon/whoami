@@ -8,6 +8,12 @@ import { VerifyMagicLinkUseCase } from "./verify-magic-link.usecase.js";
 import { VerifyPasswordUseCase } from "./verify-password.usecase.js";
 import { Credential } from "../domain/credential.entity.js";
 
+const noopLogger = {
+  info: (): void => undefined,
+  warn: (): void => undefined,
+  error: (): void => undefined,
+};
+
 describe("Authentication feature use cases", () => {
   it("verifies password credentials", async () => {
     const accountId = new AccountId("acc_1");
@@ -16,24 +22,20 @@ describe("Authentication feature use cases", () => {
       accountId,
       { kind: "password", hash: "hashed:secret" },
     );
-    const useCase = new VerifyPasswordUseCase(
-      {
+    const useCase = new VerifyPasswordUseCase({
+      credentialStore: {
         findByEmail: async (email): Promise<Credential | null> =>
           email.equals(new EmailAddress("user@example.com"))
             ? credential
             : null,
       },
-      {
+      hasher: {
         compare: async (plainText, hash): Promise<boolean> =>
           hash === `hashed:${plainText}`,
         hash: async (plainText): Promise<string> => `hashed:${plainText}`,
       },
-      {
-        info: (): void => undefined,
-        warn: (): void => undefined,
-        error: (): void => undefined,
-      },
-    );
+      logger: noopLogger,
+    });
 
     const result = await useCase.execute("user@example.com", "secret");
 
@@ -51,22 +53,22 @@ describe("Authentication feature use cases", () => {
         expiresAt: new Date("2026-03-27T10:30:00.000Z"),
       },
     );
-    const useCase = new VerifyPasswordUseCase(
-      {
+    const useCase = new VerifyPasswordUseCase({
+      credentialStore: {
         findByEmail: async (): Promise<Credential> => credential,
       },
-      {
+      hasher: {
         compare: async (): Promise<boolean> => true,
         hash: async (plainText): Promise<string> => plainText,
       },
-      {
+      logger: {
         info: (): void => undefined,
         warn: (message): void => {
           warnings.push(message);
         },
         error: (): void => undefined,
       },
-    );
+    });
 
     await assert.rejects(
       () => useCase.execute("user@example.com", "secret"),
@@ -86,16 +88,12 @@ describe("Authentication feature use cases", () => {
         expiresAt: new Date("2026-03-27T10:30:00.000Z"),
       },
     );
-    const useCase = new VerifyMagicLinkUseCase(
-      {
+    const useCase = new VerifyMagicLinkUseCase({
+      credentialStore: {
         findByEmail: async (): Promise<Credential> => credential,
       },
-      {
-        info: (): void => undefined,
-        warn: (): void => undefined,
-        error: (): void => undefined,
-      },
-    );
+      logger: noopLogger,
+    });
 
     const result = await useCase.execute({
       rawEmail: "user@example.com",

@@ -39,23 +39,23 @@ describe("AuthenticateOAuthUseCase — new user (auto-registration)", () => {
     const savedAccounts: Account[] = [];
     const savedCredentials: Credential[] = [];
 
-    const useCase = new AuthenticateOAuthUseCase(
-      {
+    const useCase = new AuthenticateOAuthUseCase({
+      accountRepository: {
         findByEmail: async () => null,
         findById: async () => null,
         save: async (a) => {
           savedAccounts.push(a);
         },
       },
-      {
+      credentialStore: {
         findByEmail: async () => null,
         save: async (c) => {
           savedCredentials.push(c);
         },
       },
       generateId,
-      noopLogger,
-    );
+      logger: noopLogger,
+    });
 
     const result = await useCase.execute({
       rawEmail: "new@example.com",
@@ -75,21 +75,21 @@ describe("AuthenticateOAuthUseCase — existing account, new OAuth credential", 
     const existingAccount = makeAccount("acc_existing");
     const savedCredentials: Credential[] = [];
 
-    const useCase = new AuthenticateOAuthUseCase(
-      {
+    const useCase = new AuthenticateOAuthUseCase({
+      accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
         save: async () => undefined,
       },
-      {
+      credentialStore: {
         findByEmail: async () => null,
         save: async (c) => {
           savedCredentials.push(c);
         },
       },
       generateId,
-      noopLogger,
-    );
+      logger: noopLogger,
+    });
 
     const result = await useCase.execute({
       rawEmail: "user@example.com",
@@ -107,19 +107,19 @@ describe("AuthenticateOAuthUseCase — returning user with matching credential",
     const existingAccount = makeAccount("acc_1");
     const existingCredential = makeOAuthCredential("acc_1");
 
-    const useCase = new AuthenticateOAuthUseCase(
-      {
+    const useCase = new AuthenticateOAuthUseCase({
+      accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
         save: async () => undefined,
       },
-      {
+      credentialStore: {
         findByEmail: async () => existingCredential,
         save: async () => undefined,
       },
       generateId,
-      noopLogger,
-    );
+      logger: noopLogger,
+    });
 
     const result = await useCase.execute({
       rawEmail: "user@example.com",
@@ -134,19 +134,19 @@ describe("AuthenticateOAuthUseCase — returning user with matching credential",
     const existingAccount = makeAccount("acc_1");
     const existingCredential = makeOAuthCredential("acc_1");
 
-    const useCase = new AuthenticateOAuthUseCase(
-      {
+    const useCase = new AuthenticateOAuthUseCase({
+      accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
         save: async () => undefined,
       },
-      {
+      credentialStore: {
         findByEmail: async () => existingCredential,
         save: async () => undefined,
       },
       generateId,
-      noopLogger,
-    );
+      logger: noopLogger,
+    });
 
     await assert.rejects(
       () =>
@@ -170,24 +170,24 @@ describe("AuthenticateOAuthUseCase — cross-auth rejection", () => {
       { kind: "password", hash: "hashed" },
     );
 
-    const useCase = new AuthenticateOAuthUseCase(
-      {
+    const useCase = new AuthenticateOAuthUseCase({
+      accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
         save: async () => undefined,
       },
-      {
+      credentialStore: {
         findByEmail: async () => passwordCredential,
         save: async () => undefined,
       },
       generateId,
-      {
+      logger: {
         ...noopLogger,
-        warn: (m: unknown) => {
+        warn: (m: unknown): void => {
           warnings.push(String(m));
         },
       },
-    );
+    });
 
     await assert.rejects(
       () =>
@@ -204,16 +204,19 @@ describe("AuthenticateOAuthUseCase — cross-auth rejection", () => {
 
 describe("AuthenticateOAuthUseCase — invalid input", () => {
   it("throws for an invalid email address", async () => {
-    const useCase = new AuthenticateOAuthUseCase(
-      {
+    const useCase = new AuthenticateOAuthUseCase({
+      accountRepository: {
         findByEmail: async () => null,
         findById: async () => null,
         save: async () => undefined,
       },
-      { findByEmail: async () => null, save: async () => undefined },
+      credentialStore: {
+        findByEmail: async () => null,
+        save: async () => undefined,
+      },
       generateId,
-      noopLogger,
-    );
+      logger: noopLogger,
+    });
 
     await assert.rejects(() =>
       useCase.execute({
