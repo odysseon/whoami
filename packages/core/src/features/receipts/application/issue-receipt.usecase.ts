@@ -4,14 +4,39 @@ import { Receipt } from "../domain/receipt.entity.js";
 import type { ReceiptSigner } from "../domain/ports/receipt-signer.port.js";
 
 /**
+ * Configuration for {@link IssueReceiptUseCase}.
+ */
+export interface IssueReceiptConfig {
+  /**
+   * The receipt signer implementation.
+   */
+  signer: ReceiptSigner;
+
+  /**
+   * How long the receipt remains valid, in minutes. Defaults to `60`.
+   */
+  tokenLifespanMinutes?: number;
+
+  /**
+   * Clock injection — returns the current time. Defaults to `() => new Date()`.
+   * Override in tests to produce deterministic output.
+   */
+  now?: () => Date;
+}
+
+/**
  * Issues a signed receipt token for an authenticated account.
  */
 export class IssueReceiptUseCase {
-  constructor(
-    private readonly signer: ReceiptSigner,
-    private readonly tokenLifespanMinutes: number = 60,
-    private readonly now: () => Date = () => new Date(),
-  ) {}
+  private readonly signer: ReceiptSigner;
+  private readonly tokenLifespanMinutes: number;
+  private readonly now: () => Date;
+
+  constructor(config: IssueReceiptConfig) {
+    this.signer = config.signer;
+    this.tokenLifespanMinutes = config.tokenLifespanMinutes ?? 60;
+    this.now = config.now ?? ((): Date => new Date());
+  }
 
   /**
    * Issues a signed receipt using a single computed expiry value.

@@ -31,11 +31,11 @@ Pass the instance wherever `VerifyPasswordUseCase` requires a `PasswordHasher`:
 ```ts
 import { VerifyPasswordUseCase } from "@odysseon/whoami-core";
 
-const verifyPassword = new VerifyPasswordUseCase(
+const verifyPassword = new VerifyPasswordUseCase({
   credentialStore,
-  passwordHasher,
+  hasher: passwordHasher,
   logger,
-);
+});
 ```
 
 ## Options

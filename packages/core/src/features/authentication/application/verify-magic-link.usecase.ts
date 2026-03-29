@@ -14,13 +14,24 @@ export interface VerifyMagicLinkInput {
 }
 
 /**
+ * Dependencies required by {@link VerifyMagicLinkUseCase}.
+ */
+export interface VerifyMagicLinkDeps {
+  credentialStore: CredentialStore;
+  logger: LoggerPort;
+}
+
+/**
  * Verifies a magic-link credential and resolves the authenticated account id.
  */
 export class VerifyMagicLinkUseCase {
-  constructor(
-    private readonly credentialStore: CredentialStore,
-    private readonly logger: LoggerPort,
-  ) {}
+  private readonly credentialStore: CredentialStore;
+  private readonly logger: LoggerPort;
+
+  constructor(deps: VerifyMagicLinkDeps) {
+    this.credentialStore = deps.credentialStore;
+    this.logger = deps.logger;
+  }
 
   /**
    * Verifies a magic-link token for the supplied email address.

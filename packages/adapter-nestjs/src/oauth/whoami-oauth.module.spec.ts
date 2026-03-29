@@ -99,13 +99,16 @@ describe("WhoamiOAuthModule", () => {
       error: (): void => {},
     };
 
-    const authenticateOAuth = new AuthenticateOAuthUseCase(
-      opts.accountRepository,
-      opts.credentialStore,
-      opts.generateId,
+    const authenticateOAuth = new AuthenticateOAuthUseCase({
+      accountRepository: opts.accountRepository,
+      credentialStore: opts.credentialStore,
+      generateId: opts.generateId,
       logger,
-    );
-    const issueReceipt = new IssueReceiptUseCase(opts.receiptSigner, 60);
+    });
+    const issueReceipt = new IssueReceiptUseCase({
+      signer: opts.receiptSigner,
+      tokenLifespanMinutes: opts.tokenLifespanMinutes,
+    });
 
     const provider = findProvider<OAuthCallbackHandler>(
       mod.providers as Provider[],

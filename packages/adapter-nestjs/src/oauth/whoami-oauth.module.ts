@@ -105,22 +105,22 @@ export class WhoamiOAuthModule {
     const authenticateOAuthProvider: Provider = {
       provide: AuthenticateOAuthUseCase,
       useFactory: (opts: WhoamiOAuthModuleOptions): AuthenticateOAuthUseCase =>
-        new AuthenticateOAuthUseCase(
-          opts.accountRepository,
-          opts.credentialStore,
-          opts.generateId,
-          opts.logger ?? noOpLogger,
-        ),
+        new AuthenticateOAuthUseCase({
+          accountRepository: opts.accountRepository,
+          credentialStore: opts.credentialStore,
+          generateId: opts.generateId,
+          logger: opts.logger ?? noOpLogger,
+        }),
       inject: [WHOAMI_OAUTH_MODULE_OPTIONS],
     };
 
     const issueReceiptProvider: Provider = {
       provide: IssueReceiptUseCase,
       useFactory: (opts: WhoamiOAuthModuleOptions): IssueReceiptUseCase =>
-        new IssueReceiptUseCase(
-          opts.receiptSigner,
-          opts.tokenLifespanMinutes ?? 60,
-        ),
+        new IssueReceiptUseCase({
+          signer: opts.receiptSigner,
+          tokenLifespanMinutes: opts.tokenLifespanMinutes,
+        }),
       inject: [WHOAMI_OAUTH_MODULE_OPTIONS],
     };
 
