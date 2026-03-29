@@ -8,6 +8,14 @@ import {
   Post,
 } from "@nestjs/common";
 import {
+  ApiBody,
+  ApiCreatedResponse,
+  ApiConflictResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+} from "@nestjs/swagger";
+import {
   AccountRepository,
   Credential,
   CredentialId,
@@ -26,14 +34,26 @@ import { TOKENS } from "../tokens.js";
 // ---------------------------------------------------------------------------
 
 class RegisterDto {
+  @ApiProperty({ example: "ada@example.com", format: "email" })
   email!: string;
+
+  @ApiProperty({ example: "secret123", minLength: 8 })
   password!: string;
+}
+
+class AccountCreatedResponse {
+  @ApiProperty({ example: 1 })
+  accountId!: number;
+
+  @ApiProperty({ example: "ada@example.com", format: "email" })
+  email!: string;
 }
 
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
 
+@ApiTags("accounts")
 @Controller("accounts")
 export class AccountsController {
   constructor(
@@ -50,6 +70,17 @@ export class AccountsController {
    *
    * Creates a new account and stores a password credential for it.
    */
+  @ApiOperation({
+    summary: "Register a new account",
+    description:
+      "Creates an account and an Argon2 password credential. Returns `409` if the email is already registered.",
+  })
+  @ApiBody({ type: RegisterDto })
+  @ApiCreatedResponse({
+    description: "Account created",
+    type: AccountCreatedResponse,
+  })
+  @ApiConflictResponse({ description: "Email already registered" })
   @Public()
   @Post("register")
   @HttpCode(HttpStatus.CREATED)

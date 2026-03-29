@@ -8,6 +8,14 @@ import {
   Post,
 } from "@nestjs/common";
 import {
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
+import {
   AuthenticateOAuthUseCase,
   Credential,
   CredentialId,
@@ -33,39 +41,77 @@ import { AccountsModule } from "../accounts/accounts.module.js";
 import { TOKENS } from "../tokens.js";
 
 // ---------------------------------------------------------------------------
-// DTOs
+// DTOs & response shapes
 // ---------------------------------------------------------------------------
-
 class LoginPasswordDto {
+  @ApiProperty({ example: "ada@example.com", format: "email" })
   email!: string;
+
+  @ApiProperty({ example: "secret123" })
   password!: string;
 }
 
 class MagicLinkRequestDto {
+  @ApiProperty({ example: "ada@example.com", format: "email" })
   email!: string;
 }
 
 class MagicLinkVerifyDto {
+  @ApiProperty({ example: "ada@example.com", format: "email" })
   email!: string;
+
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    description: "Raw token returned by /auth/magic-link/request",
+  })
   token!: string;
 }
 
-class OAuthLoginDto {
-  email!: string;
-  provider!: string;
-  providerId!: string;
+class ReceiptTokenResponse {
+  @ApiProperty({ example: "eyJhbGciOiJIUzI1NiJ9..." })
+  token!: string;
+
+  @ApiProperty({ format: "date-time" })
+  expiresAt!: Date;
 }
 
-// ---------------------------------------------------------------------------
-// Shared DI tokens for this module
-// ---------------------------------------------------------------------------
+class MagicLinkIssuedResponse {
+  @ApiProperty({ example: "Magic link issued." })
+  message!: string;
 
-export const JOSE_CONFIG_TOKEN = "JOSE_CONFIG";
+  @ApiProperty({
+    example: "550e8400-e29b-41d4-a716-446655440000",
+    required: false,
+    description: "Demo only — never expose raw tokens in production.",
+  })
+  magicLinkToken?: string;
+
+  @ApiProperty({ format: "date-time", required: false })
+  expiresAt?: Date;
+
+  @ApiProperty({
+    example: "demo only — never expose tokens in production",
+    required: false,
+  })
+  note?: string;
+}
+
+class OAuthLoginDto {
+  @ApiProperty({ example: "ada@example.com", format: "email" })
+  email!: string;
+
+  @ApiProperty({ example: "google" })
+  provider!: string;
+
+  @ApiProperty({ example: "g-12345" })
+  providerId!: string;
+}
 
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
 
+@ApiTags("auth")
 @Controller("auth")
 export class AuthController {
   private readonly tokenHasher = new WebCryptoTokenHasher();
@@ -88,6 +134,13 @@ export class AuthController {
    *
    * Verifies a password credential and issues a receipt token.
    */
+  @ApiOperation({ summary: "Login with email + password" })
+  @ApiBody({ type: LoginPasswordDto })
+  @ApiOkResponse({
+    description: "Receipt token issued",
+    type: ReceiptTokenResponse,
+  })
+  @ApiUnauthorizedResponse({ description: "Invalid credentials" })
   @Public()
   @Post("login")
   @HttpCode(HttpStatus.OK)
@@ -108,6 +161,18 @@ export class AuthController {
    * Generates a magic-link token. In production, this would be emailed.
    * The token is returned directly here for demonstration purposes only.
    */
+  @ApiOperation({
+    summary: "Request a magic-link token",
+    description:
+      "Generates a one-time token valid for 15 minutes and stores its SHA-256 hash " +
+      "(via WebCrypto adapter). In production the raw token would be emailed; here it " +
+      "is returned in the body for demo purposes.",
+  })
+  @ApiBody({ type: MagicLinkRequestDto })
+  @ApiOkResponse({
+    description: "Magic link issued (or ambiguous response if email unknown)",
+    type: MagicLinkIssuedResponse,
+  })
   @Public()
   @Post("magic-link/request")
   @HttpCode(HttpStatus.OK)
@@ -151,6 +216,19 @@ export class AuthController {
    *
    * Verifies a magic-link token and issues a receipt token on success.
    */
+  @ApiOperation({
+    summary: "Verify a magic-link token",
+    description:
+      "Hashes the supplied token with SHA-256 (WebCrypto adapter) and compares it to the stored hash.",
+  })
+  @ApiBody({ type: MagicLinkVerifyDto })
+  @ApiOkResponse({
+    description: "Receipt token issued",
+    type: ReceiptTokenResponse,
+  })
+  @ApiUnauthorizedResponse({
+    description: "Invalid or expired magic-link token",
+  })
   @Public()
   @Post("magic-link/verify")
   @HttpCode(HttpStatus.OK)
@@ -172,6 +250,18 @@ export class AuthController {
    *
    * Auto-registers or authenticates via OAuth and issues a receipt token.
    */
+  @ApiOperation({
+    summary: "Login or auto-register via OAuth",
+    description:
+      "Auto-registers a new account on the first call for a given email. " +
+      "On subsequent calls verifies that provider + providerId match the stored credential.",
+  })
+  @ApiBody({ type: OAuthLoginDto })
+  @ApiOkResponse({
+    description: "Receipt token issued",
+    type: ReceiptTokenResponse,
+  })
+  @ApiUnauthorizedResponse({ description: "OAuth provider mismatch" })
   @Public()
   @Post("oauth")
   @HttpCode(HttpStatus.OK)
@@ -199,6 +289,7 @@ const consoleLogger: LoggerPort = {
     console.error("[whoami]", msg, trace, ...meta),
 };
 
+export const JOSE_CONFIG_TOKEN = "JOSE_CONFIG_TOKEN";
 @Module({
   imports: [AccountsModule],
   controllers: [AuthController],
