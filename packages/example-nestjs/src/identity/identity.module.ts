@@ -1,4 +1,12 @@
 import { Controller, Get, Inject, Module } from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 import { Receipt } from "@odysseon/whoami-core";
 import {
   CurrentIdentity,
@@ -13,9 +21,26 @@ import { AccountsModule } from "../accounts/accounts.module.js";
 import { TOKENS } from "../tokens.js";
 
 // ---------------------------------------------------------------------------
+// Response shape
+// ---------------------------------------------------------------------------
+
+class ProfileResponse {
+  @ApiProperty({ example: 1 })
+  accountId!: unknown;
+
+  @ApiProperty({ example: "ada@example.com", format: "email", nullable: true })
+  email!: string | null;
+
+  @ApiProperty({ format: "date-time" })
+  tokenExpiresAt!: Date;
+}
+
+// ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
 
+@ApiTags("identity")
+@ApiBearerAuth()
 @Controller("me")
 export class IdentityController {
   constructor(
@@ -30,6 +55,12 @@ export class IdentityController {
    * Protected by WhoamiAuthGuard via the global guard registered in AppModule.
    */
   @Get()
+  @ApiOperation({ summary: "Get authenticated account profile" })
+  @ApiOkResponse({
+    description: "Authenticated profile",
+    type: ProfileResponse,
+  })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid receipt token" })
   async getMe(@CurrentIdentity() identity: Receipt): Promise<{
     accountId: unknown;
     email: string | null;

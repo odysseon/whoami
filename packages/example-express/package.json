@@ -16,14 +16,18 @@
     "test": "node --import tsx --test src/**/*.spec.ts"
   },
   "dependencies": {
-    "@odysseon/whoami-core": "workspace:*",
-    "@odysseon/whoami-adapter-jose": "workspace:*",
     "@odysseon/whoami-adapter-argon2": "workspace:*",
+    "@odysseon/whoami-adapter-jose": "workspace:*",
     "@odysseon/whoami-adapter-webcrypto": "workspace:*",
-    "express": "^5.2.1"
+    "@odysseon/whoami-core": "workspace:*",
+    "express": "^5.2.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "@types/express": "^5.0.3"
+    "@types/express": "^5.0.3",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8"
   },
   "engines": {
     "node": ">=24.0.0"
