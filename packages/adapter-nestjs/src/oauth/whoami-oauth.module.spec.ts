@@ -3,17 +3,13 @@ import { describe, it } from "node:test";
 import {
   AuthenticateOAuthUseCase,
   IssueReceiptUseCase,
+  OAuthCallbackHandler,
 } from "@odysseon/whoami-core";
 import type { Provider } from "@nestjs/common";
 import {
   WhoamiOAuthModule,
   type WhoamiOAuthModuleOptions,
 } from "./whoami-oauth.module.js";
-import { OAuthCallbackHandler } from "./oauth-callback-handler.js";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeOptions(): WhoamiOAuthModuleOptions {
   return {
@@ -25,10 +21,9 @@ function makeOptions(): WhoamiOAuthModuleOptions {
     credentialStore: {
       save: async (): Promise<void> => {},
       findByEmail: async (): Promise<null> => null,
+      deleteByEmail: async (): Promise<void> => {},
     },
-    receiptSigner: {
-      sign: async (): Promise<string> => "signed.token",
-    },
+    receiptSigner: { sign: async (): Promise<string> => "token" },
     generateId: (): string => "acc_1",
     tokenLifespanMinutes: 60,
   };
@@ -43,112 +38,88 @@ function findProvider<T>(
   ) as Provider & { useFactory: (...args: unknown[]) => T };
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("WhoamiOAuthModule", () => {
   it("returns a valid dynamic module structure", () => {
     const mod = WhoamiOAuthModule.registerAsync({ useFactory: makeOptions });
-
     assert.equal(mod.module, WhoamiOAuthModule);
     assert.ok(Array.isArray(mod.providers) && mod.providers.length > 0);
     assert.ok(Array.isArray(mod.exports) && mod.exports.length > 0);
   });
 
-  it("exports OAuthCallbackHandler, AuthenticateOAuthUseCase, and IssueReceiptUseCase", () => {
+  it("exports OAuthCallbackHandler, AuthenticateOAuthUseCase, IssueReceiptUseCase", () => {
     const mod = WhoamiOAuthModule.registerAsync({ useFactory: makeOptions });
-
     assert.ok(mod.exports?.includes(OAuthCallbackHandler));
     assert.ok(mod.exports?.includes(AuthenticateOAuthUseCase));
     assert.ok(mod.exports?.includes(IssueReceiptUseCase));
   });
 
-  it("instantiates AuthenticateOAuthUseCase from module options", () => {
+  it("instantiates AuthenticateOAuthUseCase from options", () => {
     const mod = WhoamiOAuthModule.registerAsync({ useFactory: makeOptions });
-    const provider = findProvider<AuthenticateOAuthUseCase>(
+    const p = findProvider<AuthenticateOAuthUseCase>(
       mod.providers as Provider[],
       AuthenticateOAuthUseCase,
     );
-
-    assert.ok(provider);
-    assert.ok(
-      provider.useFactory(makeOptions()) instanceof AuthenticateOAuthUseCase,
-    );
+    assert.ok(p);
+    assert.ok(p.useFactory(makeOptions()) instanceof AuthenticateOAuthUseCase);
   });
 
-  it("instantiates IssueReceiptUseCase from module options", () => {
+  it("instantiates IssueReceiptUseCase from options", () => {
     const mod = WhoamiOAuthModule.registerAsync({ useFactory: makeOptions });
-    const provider = findProvider<IssueReceiptUseCase>(
+    const p = findProvider<IssueReceiptUseCase>(
       mod.providers as Provider[],
       IssueReceiptUseCase,
     );
-
-    assert.ok(provider);
-    assert.ok(
-      provider.useFactory(makeOptions()) instanceof IssueReceiptUseCase,
-    );
+    assert.ok(p);
+    assert.ok(p.useFactory(makeOptions()) instanceof IssueReceiptUseCase);
   });
 
   it("instantiates OAuthCallbackHandler from the two use cases", () => {
     const mod = WhoamiOAuthModule.registerAsync({ useFactory: makeOptions });
     const opts = makeOptions();
-    const logger = opts.logger ?? {
+    const logger = {
       info: (): void => {},
       warn: (): void => {},
       error: (): void => {},
     };
-
-    const authenticateOAuth = new AuthenticateOAuthUseCase({
+    const authenticate = new AuthenticateOAuthUseCase({
       accountRepository: opts.accountRepository,
       credentialStore: opts.credentialStore,
       generateId: opts.generateId,
       logger,
     });
-    const issueReceipt = new IssueReceiptUseCase({
+    const issue = new IssueReceiptUseCase({
       signer: opts.receiptSigner,
-      tokenLifespanMinutes: opts.tokenLifespanMinutes,
+      tokenLifespanMinutes: 60,
     });
-
-    const provider = findProvider<OAuthCallbackHandler>(
+    const p = findProvider<OAuthCallbackHandler>(
       mod.providers as Provider[],
       OAuthCallbackHandler,
     );
-
-    assert.ok(provider);
+    assert.ok(p);
     assert.ok(
-      provider.useFactory(authenticateOAuth, issueReceipt) instanceof
-        OAuthCallbackHandler,
+      p.useFactory(authenticate, issue) instanceof OAuthCallbackHandler,
     );
   });
 
-  it("defaults tokenLifespanMinutes to 60 when not provided", () => {
-    const opts: WhoamiOAuthModuleOptions = {
-      ...makeOptions(),
-      tokenLifespanMinutes: undefined,
-    };
+  it("defaults tokenLifespanMinutes to 60", () => {
+    const opts = { ...makeOptions(), tokenLifespanMinutes: undefined };
     const mod = WhoamiOAuthModule.registerAsync({ useFactory: () => opts });
-    const provider = findProvider<IssueReceiptUseCase>(
+    const p = findProvider<IssueReceiptUseCase>(
       mod.providers as Provider[],
       IssueReceiptUseCase,
     );
-
-    assert.ok(provider);
-    assert.ok(provider.useFactory(opts) instanceof IssueReceiptUseCase);
+    assert.ok(p);
+    assert.ok(p.useFactory(opts) instanceof IssueReceiptUseCase);
   });
 
-  it("applies no-op logger when none is provided", () => {
-    const opts: WhoamiOAuthModuleOptions = {
-      ...makeOptions(),
-      logger: undefined,
-    };
+  it("applies no-op logger when none provided", () => {
+    const opts = { ...makeOptions(), logger: undefined };
     const mod = WhoamiOAuthModule.registerAsync({ useFactory: () => opts });
-    const provider = findProvider<AuthenticateOAuthUseCase>(
+    const p = findProvider<AuthenticateOAuthUseCase>(
       mod.providers as Provider[],
       AuthenticateOAuthUseCase,
     );
-
-    assert.ok(provider);
-    assert.ok(provider.useFactory(opts) instanceof AuthenticateOAuthUseCase);
+    assert.ok(p);
+    assert.ok(p.useFactory(opts) instanceof AuthenticateOAuthUseCase);
   });
 });

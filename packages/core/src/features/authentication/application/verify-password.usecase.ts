@@ -19,6 +19,11 @@ export interface VerifyPasswordDeps {
   logger: LoggerPort;
 }
 
+export interface VerifyPasswordInput {
+  rawEmail: string;
+  plainTextPassword: string;
+}
+
 /**
  * Verifies password-based credentials and resolves the authenticated account id.
  */
@@ -36,15 +41,12 @@ export class VerifyPasswordUseCase {
   /**
    * Verifies a password for the supplied email address.
    *
-   * @param rawEmail - The email address associated with the credential.
-   * @param plainTextPassword - The password presented by the client.
+   * @param input - The email address and plain-text password to verify.
    * @returns The authenticated account identifier.
    * @throws {AuthenticationError} When the credential does not exist or is invalid.
    */
-  public async execute(
-    rawEmail: string,
-    plainTextPassword: string,
-  ): Promise<AccountId> {
+  public async execute(input: VerifyPasswordInput): Promise<AccountId> {
+    const { rawEmail, plainTextPassword } = input;
     const email = new EmailAddress(rawEmail);
     const credential = await this.credentialStore.findByEmail(email);
 
@@ -66,7 +68,6 @@ export class VerifyPasswordUseCase {
         );
         throw new AuthenticationError();
       }
-
       throw error;
     }
 

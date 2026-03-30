@@ -45,7 +45,10 @@ export const createAuthRouter = (
           return;
         }
 
-        const accountId = await verifyPassword.execute(email, password);
+        const accountId = await verifyPassword.execute({
+          rawEmail: email,
+          plainTextPassword: password,
+        });
         const receipt = await issueReceipt.execute(accountId);
 
         res.json({ token: receipt.token, expiresAt: receipt.expiresAt });

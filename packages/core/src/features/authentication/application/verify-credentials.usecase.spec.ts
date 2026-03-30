@@ -39,7 +39,10 @@ describe("Authentication feature use cases", () => {
       logger: noopLogger,
     });
 
-    const result = await useCase.execute("user@example.com", "secret");
+    const result = await useCase.execute({
+      rawEmail: "user@example.com",
+      plainTextPassword: "secret",
+    });
 
     assert.equal(result.value, accountId.value);
   });
@@ -75,7 +78,11 @@ describe("Authentication feature use cases", () => {
     });
 
     await assert.rejects(
-      () => useCase.execute("user@example.com", "secret"),
+      () =>
+        useCase.execute({
+          rawEmail: "user@example.com",
+          plainTextPassword: "secret",
+        }),
       AuthenticationError,
     );
     assert.equal(warnings.length, 1);
