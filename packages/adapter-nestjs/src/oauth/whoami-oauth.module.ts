@@ -10,80 +10,35 @@ import {
 import {
   AuthenticateOAuthUseCase,
   IssueReceiptUseCase,
+  OAuthCallbackHandler,
   type AccountRepository,
   type CredentialStore,
   type LoggerPort,
   type ReceiptSigner,
 } from "@odysseon/whoami-core";
-import { OAuthCallbackHandler } from "./oauth-callback-handler.js";
 
-/**
- * Options for registering the OAuth authentication flow.
- */
 export interface WhoamiOAuthModuleOptions {
-  /**
-   * Your `AccountRepository` implementation.
-   */
   accountRepository: AccountRepository;
-
-  /**
-   * Your `CredentialStore` implementation.
-   */
   credentialStore: CredentialStore;
-
-  /**
-   * The receipt signer — use `JoseReceiptSigner` from `@odysseon/whoami-adapter-jose`.
-   */
   receiptSigner: ReceiptSigner;
-
-  /**
-   * Returns a unique `string` or `number` for each call.
-   * @example () => crypto.randomUUID()
-   */
   generateId: () => string | number;
-
-  /**
-   * Receipt token lifespan in minutes. Defaults to `60`.
-   */
   tokenLifespanMinutes?: number;
-
-  /**
-   * Optional structured logger. Defaults to a no-op logger.
-   */
   logger?: LoggerPort;
 }
 
 export const WHOAMI_OAUTH_MODULE_OPTIONS = "WHOAMI_OAUTH_MODULE_OPTIONS";
 
 const noOpLogger: LoggerPort = {
-  info: () => {},
-  warn: () => {},
-  error: () => {},
+  info: (): void => {},
+  warn: (): void => {},
+  error: (): void => {},
 };
 
 /**
  * Registers all OAuth authentication providers in a single `registerAsync` call.
  *
- * Exposes `OAuthCallbackHandler` as the single entry point for OAuth callbacks —
- * call `handler.handle(profile)` and get back a signed `Receipt`.
- *
- * Use alongside `WhoamiModule` (which handles receipt verification for protected routes).
- *
- * @example
- * ```ts
- * // app.module.ts
- * WhoamiOAuthModule.registerAsync({
- *   imports: [ConfigModule, DatabaseModule],
- *   inject: [ConfigService, AccountRepositoryToken, CredentialStoreToken],
- *   useFactory: (config, accountRepository, credentialStore) => ({
- *     accountRepository,
- *     credentialStore,
- *     receiptSigner: new JoseReceiptSigner({ secret: config.get('JWT_SECRET') }),
- *     generateId: () => crypto.randomUUID(),
- *     tokenLifespanMinutes: 60,
- *   }),
- * })
- * ```
+ * `OAuthCallbackHandler` is sourced from `@odysseon/whoami-core` — framework-agnostic.
+ * This module only handles NestJS DI wiring.
  */
 @Module({})
 export class WhoamiOAuthModule {

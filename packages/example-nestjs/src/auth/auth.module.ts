@@ -147,10 +147,10 @@ export class AuthController {
   async loginPassword(
     @Body() dto: LoginPasswordDto,
   ): Promise<{ token: string; expiresAt: Date }> {
-    const accountId = await this.verifyPassword.execute(
-      dto.email,
-      dto.password,
-    );
+    const accountId = await this.verifyPassword.execute({
+      rawEmail: dto.email,
+      plainTextPassword: dto.password,
+    });
     const receipt = await this.issueReceipt.execute(accountId);
     return { token: receipt.token, expiresAt: receipt.expiresAt };
   }
