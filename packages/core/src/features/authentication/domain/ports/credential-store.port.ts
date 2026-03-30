@@ -2,7 +2,7 @@ import { EmailAddress } from "../../../../shared/domain/value-objects/index.js";
 import { Credential } from "../credential.entity.js";
 
 /**
- * Retrieves credentials associated with accounts.
+ * Retrieves and persists credentials associated with accounts.
  */
 export interface CredentialStore {
   /**
@@ -19,4 +19,14 @@ export interface CredentialStore {
    * @param credential - The credential to store.
    */
   save(credential: Credential): Promise<void>;
+
+  /**
+   * Removes the credential associated with the given email address.
+   *
+   * Used to enforce one-time use semantics — magic-link credentials are deleted
+   * immediately after successful verification so they cannot be replayed.
+   *
+   * @param email - The normalized email address whose credential should be removed.
+   */
+  deleteByEmail(email: EmailAddress): Promise<void>;
 }

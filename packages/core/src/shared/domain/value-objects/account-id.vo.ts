@@ -1,6 +1,8 @@
 import { DomainError } from "../errors/domain.error.js";
 
 export class InvalidAccountIdError extends DomainError {
+  public readonly code = "INVALID_ACCOUNT_ID" as const;
+
   constructor() {
     super("AccountId cannot be empty.");
   }

@@ -23,6 +23,9 @@ export interface VerifyMagicLinkDeps {
 
 /**
  * Verifies a magic-link credential and resolves the authenticated account id.
+ *
+ * Magic-link tokens are single-use. The credential is deleted immediately after
+ * successful verification to prevent replay attacks.
  */
 export class VerifyMagicLinkUseCase {
   private readonly credentialStore: CredentialStore;
@@ -34,7 +37,7 @@ export class VerifyMagicLinkUseCase {
   }
 
   /**
-   * Verifies a magic-link token for the supplied email address.
+   * Verifies a magic-link token and invalidates it on success so it cannot be reused.
    *
    * @param input - The verification input containing email, token, and current time.
    * @returns The authenticated account identifier.
@@ -45,6 +48,9 @@ export class VerifyMagicLinkUseCase {
     const credential = await this.credentialStore.findByEmail(email);
 
     if (!credential) {
+      this.logger.warn(
+        `Magic-link verification failed: no credential found for ${email.value}`,
+      );
       throw new AuthenticationError("Invalid or expired magic link.");
     }
 
@@ -64,8 +70,18 @@ export class VerifyMagicLinkUseCase {
     }
 
     if (!isValid) {
+      this.logger.warn(
+        `Magic-link verification failed for account ${credential.accountId.value}: token invalid or expired`,
+      );
       throw new AuthenticationError("Invalid or expired magic link.");
     }
+
+    // Single-use enforcement: remove credential so it cannot be replayed.
+    await this.credentialStore.deleteByEmail(email);
+
+    this.logger.info(
+      `Magic-link verified and invalidated for account ${credential.accountId.value}`,
+    );
 
     return credential.accountId;
   }

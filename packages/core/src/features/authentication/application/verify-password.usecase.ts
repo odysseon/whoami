@@ -49,6 +49,9 @@ export class VerifyPasswordUseCase {
     const credential = await this.credentialStore.findByEmail(email);
 
     if (!credential) {
+      this.logger.warn(
+        `Password verification failed: no credential found for ${email.value}`,
+      );
       throw new AuthenticationError();
     }
 
@@ -70,6 +73,9 @@ export class VerifyPasswordUseCase {
     const isMatch = await this.hasher.compare(plainTextPassword, storedHash);
 
     if (!isMatch) {
+      this.logger.warn(
+        `Password verification failed for account ${credential.accountId.value}: incorrect password`,
+      );
       throw new AuthenticationError();
     }
 
