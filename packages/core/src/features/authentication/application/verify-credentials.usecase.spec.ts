@@ -28,6 +28,8 @@ describe("Authentication feature use cases", () => {
           email.equals(new EmailAddress("user@example.com"))
             ? credential
             : null,
+        save: async (): Promise<void> => undefined,
+        deleteByEmail: async (): Promise<void> => undefined,
       },
       hasher: {
         compare: async (plainText, hash): Promise<boolean> =>
@@ -56,6 +58,8 @@ describe("Authentication feature use cases", () => {
     const useCase = new VerifyPasswordUseCase({
       credentialStore: {
         findByEmail: async (): Promise<Credential> => credential,
+        save: async (): Promise<void> => undefined,
+        deleteByEmail: async (): Promise<void> => undefined,
       },
       hasher: {
         compare: async (): Promise<boolean> => true,
@@ -91,6 +95,8 @@ describe("Authentication feature use cases", () => {
     const useCase = new VerifyMagicLinkUseCase({
       credentialStore: {
         findByEmail: async (): Promise<Credential> => credential,
+        save: async (): Promise<void> => undefined,
+        deleteByEmail: async (): Promise<void> => undefined,
       },
       logger: noopLogger,
     });

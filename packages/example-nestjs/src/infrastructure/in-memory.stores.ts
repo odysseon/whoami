@@ -49,6 +49,14 @@ export class InMemoryCredentialStore implements CredentialStore {
     return this.byAccountId.get(accountId) ?? null;
   }
 
+  async deleteByEmail(email: EmailAddress): Promise<void> {
+    const accountId = this.emailIndex.get(email.value);
+    if (accountId) {
+      this.byAccountId.delete(accountId);
+      this.emailIndex.delete(email.value);
+    }
+  }
+
   /**
    * Saves a credential and registers the email index in one atomic step.
    */

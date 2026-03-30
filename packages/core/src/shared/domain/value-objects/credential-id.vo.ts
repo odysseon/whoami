@@ -1,6 +1,8 @@
 import { DomainError } from "../errors/domain.error.js";
 
 export class InvalidCredentialIdError extends DomainError {
+  public readonly code = "INVALID_CREDENTIAL_ID" as const;
+
   constructor() {
     super("CredentialId cannot be empty.");
   }

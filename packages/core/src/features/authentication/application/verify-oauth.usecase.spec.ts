@@ -23,15 +23,20 @@ function makeOAuthCredential() {
   });
 }
 
+function makeStore(credential: Credential | null = null) {
+  return {
+    findByEmail: async () => credential,
+    save: async (): Promise<void> => undefined,
+    deleteByEmail: async (): Promise<void> => undefined,
+  };
+}
+
 describe("VerifyOAuthUseCase", () => {
   it("returns the account id for a valid OAuth credential", async () => {
-    const useCase = new VerifyOAuthUseCase(
-      {
-        findByEmail: async () => makeOAuthCredential(),
-        save: async () => undefined,
-      },
-      noopLogger,
-    );
+    const useCase = new VerifyOAuthUseCase({
+      credentialStore: makeStore(makeOAuthCredential()),
+      logger: noopLogger,
+    });
 
     const result = await useCase.execute({
       rawEmail: "user@example.com",
@@ -43,10 +48,10 @@ describe("VerifyOAuthUseCase", () => {
   });
 
   it("throws AuthenticationError when no credential is found", async () => {
-    const useCase = new VerifyOAuthUseCase(
-      { findByEmail: async () => null, save: async () => undefined },
-      noopLogger,
-    );
+    const useCase = new VerifyOAuthUseCase({
+      credentialStore: makeStore(null),
+      logger: noopLogger,
+    });
 
     await assert.rejects(
       () =>
@@ -60,13 +65,10 @@ describe("VerifyOAuthUseCase", () => {
   });
 
   it("throws AuthenticationError when providerId does not match", async () => {
-    const useCase = new VerifyOAuthUseCase(
-      {
-        findByEmail: async () => makeOAuthCredential(),
-        save: async () => undefined,
-      },
-      noopLogger,
-    );
+    const useCase = new VerifyOAuthUseCase({
+      credentialStore: makeStore(makeOAuthCredential()),
+      logger: noopLogger,
+    });
 
     await assert.rejects(
       () =>
@@ -84,24 +86,18 @@ describe("VerifyOAuthUseCase", () => {
     const passwordCredential = Credential.loadExisting(
       new CredentialId("cred_2"),
       accountId,
-      {
-        kind: "password",
-        hash: "hashed",
-      },
+      { kind: "password", hash: "hashed" },
     );
 
-    const useCase = new VerifyOAuthUseCase(
-      {
-        findByEmail: async () => passwordCredential,
-        save: async () => undefined,
-      },
-      {
+    const useCase = new VerifyOAuthUseCase({
+      credentialStore: makeStore(passwordCredential),
+      logger: {
         ...noopLogger,
-        warn: (m: unknown) => {
+        warn: (m: unknown): void => {
           warnings.push(String(m));
         },
       },
-    );
+    });
 
     await assert.rejects(
       () =>
@@ -115,11 +111,61 @@ describe("VerifyOAuthUseCase", () => {
     assert.equal(warnings.length, 1);
   });
 
-  it("throws InvalidEmailError for an invalid email", async () => {
-    const useCase = new VerifyOAuthUseCase(
-      { findByEmail: async () => null, save: async () => undefined },
-      noopLogger,
+  it("logs a warning when no credential is found", async () => {
+    const warnings: string[] = [];
+
+    const useCase = new VerifyOAuthUseCase({
+      credentialStore: makeStore(null),
+      logger: {
+        ...noopLogger,
+        warn: (m: unknown): void => {
+          warnings.push(String(m));
+        },
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        useCase.execute({
+          rawEmail: "user@example.com",
+          provider: "google",
+          providerId: "x",
+        }),
+      AuthenticationError,
     );
+    assert.equal(warnings.length, 1);
+  });
+
+  it("logs a warning when the provider ID does not match", async () => {
+    const warnings: string[] = [];
+
+    const useCase = new VerifyOAuthUseCase({
+      credentialStore: makeStore(makeOAuthCredential()),
+      logger: {
+        ...noopLogger,
+        warn: (m: unknown): void => {
+          warnings.push(String(m));
+        },
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        useCase.execute({
+          rawEmail: "user@example.com",
+          provider: "google",
+          providerId: "wrong",
+        }),
+      AuthenticationError,
+    );
+    assert.equal(warnings.length, 1);
+  });
+
+  it("throws InvalidEmailError for an invalid email", async () => {
+    const useCase = new VerifyOAuthUseCase({
+      credentialStore: makeStore(null),
+      logger: noopLogger,
+    });
 
     await assert.rejects(() =>
       useCase.execute({

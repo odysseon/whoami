@@ -26,12 +26,16 @@ function makeOAuthCredential(accountId = "acc_1") {
   return Credential.loadExisting(
     new CredentialId("cred_1"),
     new AccountId(accountId),
-    {
-      kind: "oauth",
-      provider: "google",
-      providerId: "google_123",
-    },
+    { kind: "oauth", provider: "google", providerId: "google_123" },
   );
+}
+
+function makeCredentialStore(credential: Credential | null = null) {
+  return {
+    findByEmail: async () => credential,
+    save: async (): Promise<void> => undefined,
+    deleteByEmail: async (): Promise<void> => undefined,
+  };
 }
 
 describe("AuthenticateOAuthUseCase — new user (auto-registration)", () => {
@@ -43,15 +47,16 @@ describe("AuthenticateOAuthUseCase — new user (auto-registration)", () => {
       accountRepository: {
         findByEmail: async () => null,
         findById: async () => null,
-        save: async (a) => {
+        save: async (a): Promise<void> => {
           savedAccounts.push(a);
         },
       },
       credentialStore: {
         findByEmail: async () => null,
-        save: async (c) => {
+        save: async (c): Promise<void> => {
           savedCredentials.push(c);
         },
+        deleteByEmail: async (): Promise<void> => undefined,
       },
       generateId,
       logger: noopLogger,
@@ -79,13 +84,14 @@ describe("AuthenticateOAuthUseCase — existing account, new OAuth credential", 
       accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
-        save: async () => undefined,
+        save: async (): Promise<void> => undefined,
       },
       credentialStore: {
         findByEmail: async () => null,
-        save: async (c) => {
+        save: async (c): Promise<void> => {
           savedCredentials.push(c);
         },
+        deleteByEmail: async (): Promise<void> => undefined,
       },
       generateId,
       logger: noopLogger,
@@ -105,18 +111,14 @@ describe("AuthenticateOAuthUseCase — existing account, new OAuth credential", 
 describe("AuthenticateOAuthUseCase — returning user with matching credential", () => {
   it("verifies the OAuth credential and returns the account id", async () => {
     const existingAccount = makeAccount("acc_1");
-    const existingCredential = makeOAuthCredential("acc_1");
 
     const useCase = new AuthenticateOAuthUseCase({
       accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
-        save: async () => undefined,
+        save: async (): Promise<void> => undefined,
       },
-      credentialStore: {
-        findByEmail: async () => existingCredential,
-        save: async () => undefined,
-      },
+      credentialStore: makeCredentialStore(makeOAuthCredential("acc_1")),
       generateId,
       logger: noopLogger,
     });
@@ -132,18 +134,14 @@ describe("AuthenticateOAuthUseCase — returning user with matching credential",
 
   it("throws AuthenticationError when the providerId does not match", async () => {
     const existingAccount = makeAccount("acc_1");
-    const existingCredential = makeOAuthCredential("acc_1");
 
     const useCase = new AuthenticateOAuthUseCase({
       accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
-        save: async () => undefined,
+        save: async (): Promise<void> => undefined,
       },
-      credentialStore: {
-        findByEmail: async () => existingCredential,
-        save: async () => undefined,
-      },
+      credentialStore: makeCredentialStore(makeOAuthCredential("acc_1")),
       generateId,
       logger: noopLogger,
     });
@@ -174,12 +172,9 @@ describe("AuthenticateOAuthUseCase — cross-auth rejection", () => {
       accountRepository: {
         findByEmail: async () => existingAccount,
         findById: async () => null,
-        save: async () => undefined,
+        save: async (): Promise<void> => undefined,
       },
-      credentialStore: {
-        findByEmail: async () => passwordCredential,
-        save: async () => undefined,
-      },
+      credentialStore: makeCredentialStore(passwordCredential),
       generateId,
       logger: {
         ...noopLogger,
@@ -208,12 +203,9 @@ describe("AuthenticateOAuthUseCase — invalid input", () => {
       accountRepository: {
         findByEmail: async () => null,
         findById: async () => null,
-        save: async () => undefined,
+        save: async (): Promise<void> => undefined,
       },
-      credentialStore: {
-        findByEmail: async () => null,
-        save: async () => undefined,
-      },
+      credentialStore: makeCredentialStore(null),
       generateId,
       logger: noopLogger,
     });

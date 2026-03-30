@@ -42,6 +42,14 @@ export class InMemoryCredentialStore implements CredentialStore {
     return null;
   }
 
+  async deleteByEmail(email: EmailAddress): Promise<void> {
+    const accountId = this.emailIndex.get(email.value);
+    if (accountId) {
+      this.store.delete(accountId);
+      this.emailIndex.delete(email.value);
+    }
+  }
+
   async saveWithEmail(
     credential: Credential,
     email: EmailAddress,
