@@ -22,20 +22,6 @@ export class Credential {
   }
 
   /**
-   * Rehydrates a credential from persisted state.
-   *
-   * @param id - The credential identifier.
-   * @param props - The persisted credential data.
-   * @returns A credential instance.
-   */
-  public static loadExisting(
-    id: CredentialId,
-    props: { accountId: AccountId; proof: CredentialProof },
-  ): Credential {
-    return new Credential(id, props.accountId, props.proof);
-  }
-
-  /**
    * Returns the stored password hash for password credentials.
    *
    * @returns The stored password hash.
