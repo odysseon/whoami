@@ -86,8 +86,8 @@ export const createAuthRouter = (
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
         const credentialId = new CredentialId(generateId());
-        const credential = Credential.loadExisting(credentialId, account.id, {
-          kind: "magic_link",
+        const credential = Credential.createMagicLink(credentialId, {
+          accountId: account.id,
           token: hashedToken,
           expiresAt,
         });

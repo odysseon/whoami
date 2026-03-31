@@ -64,7 +64,7 @@ export class InMemoryCredentialStore implements CredentialStore {
     credential: Credential,
     email: EmailAddress,
   ): Promise<void> {
+    this.byAccountId.set(String(credential.accountId.value), credential);
     this.emailIndex.set(email.value, String(credential.accountId.value));
-    await this.save(credential);
   }
 }

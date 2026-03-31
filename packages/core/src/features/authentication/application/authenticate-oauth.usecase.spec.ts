@@ -23,11 +23,10 @@ function makeAccount(id = "acc_1", email = "user@example.com") {
 }
 
 function makeOAuthCredential(accountId = "acc_1") {
-  return Credential.loadExisting(
-    new CredentialId("cred_1"),
-    new AccountId(accountId),
-    { kind: "oauth", provider: "google", providerId: "google_123" },
-  );
+  return Credential.loadExisting(new CredentialId("cred_1"), {
+    accountId: new AccountId(accountId),
+    proof: { kind: "oauth", provider: "google", providerId: "google_123" },
+  });
 }
 
 function makeCredentialStore(credential: Credential | null = null) {
@@ -164,8 +163,10 @@ describe("AuthenticateOAuthUseCase — cross-auth rejection", () => {
     const existingAccount = makeAccount("acc_1");
     const passwordCredential = Credential.loadExisting(
       new CredentialId("cred_pw"),
-      new AccountId("acc_1"),
-      { kind: "password", hash: "hashed" },
+      {
+        accountId: new AccountId("acc_1"),
+        proof: { kind: "password", hash: "hashed" },
+      },
     );
 
     const useCase = new AuthenticateOAuthUseCase({

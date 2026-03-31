@@ -12,10 +12,16 @@ export interface PasswordLoginInput {
  * Framework-agnostic — no NestJS or Express dependencies.
  */
 export class PasswordCallbackHandler {
+  private readonly verifyPassword: VerifyPasswordUseCase;
+  private readonly issueReceipt: IssueReceiptUseCase;
+
   constructor(
-    private readonly verifyPassword: VerifyPasswordUseCase,
-    private readonly issueReceipt: IssueReceiptUseCase,
-  ) {}
+    verifyPassword: VerifyPasswordUseCase,
+    issueReceipt: IssueReceiptUseCase,
+  ) {
+    this.verifyPassword = verifyPassword;
+    this.issueReceipt = issueReceipt;
+  }
 
   public async handle(input: PasswordLoginInput): Promise<Receipt> {
     const accountId = await this.verifyPassword.execute({

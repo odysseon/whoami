@@ -129,7 +129,7 @@ export class AuthModule {}
 
 ```ts
 // auth.controller.ts
-import { OAuthCallbackHandler } from "@odysseon/whoami-adapter-nestjs";
+import { OAuthCallbackHandler } from "@odysseon/whoami-core";
 
 @Controller("auth")
 export class AuthController {

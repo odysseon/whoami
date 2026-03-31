@@ -25,6 +25,8 @@ export interface CredentialStore {
    *
    * Used to enforce one-time use semantics — magic-link credentials are deleted
    * immediately after successful verification so they cannot be replayed.
+   * Implementations should perform this operation atomically, or within a
+   * transaction / compare-and-delete flow, when backed by a concurrent store.
    *
    * @param email - The normalized email address whose credential should be removed.
    */

@@ -7,26 +7,32 @@ import { CredentialProof } from "./types.js";
  * Represents an authentication credential bound to an account.
  */
 export class Credential {
+  public readonly id: CredentialId;
+  public readonly accountId: AccountId;
+  private readonly proof: CredentialProof;
+
   private constructor(
-    public readonly id: CredentialId,
-    public readonly accountId: AccountId,
-    private readonly proof: CredentialProof,
-  ) {}
+    id: CredentialId,
+    accountId: AccountId,
+    proof: CredentialProof,
+  ) {
+    this.id = id;
+    this.accountId = accountId;
+    this.proof = proof;
+  }
 
   /**
    * Rehydrates a credential from persisted state.
    *
    * @param id - The credential identifier.
-   * @param accountId - The owning account identifier.
-   * @param proof - The persisted proof payload.
+   * @param props - The persisted credential data.
    * @returns A credential instance.
    */
   public static loadExisting(
     id: CredentialId,
-    accountId: AccountId,
-    proof: CredentialProof,
+    props: { accountId: AccountId; proof: CredentialProof },
   ): Credential {
-    return new Credential(id, accountId, proof);
+    return new Credential(id, props.accountId, props.proof);
   }
 
   /**
@@ -69,20 +75,62 @@ export class Credential {
   /**
    * Factory for minting a BRAND NEW OAuth credential.
    */
+  public static createPassword(
+    id: CredentialId,
+    props: { accountId: AccountId; hash: string },
+  ): Credential {
+    if (!props.hash) {
+      throw new Error("Password hash cannot be empty.");
+    }
+
+    return new Credential(id, props.accountId, {
+      kind: "password",
+      hash: props.hash,
+    });
+  }
+
+  public static createMagicLink(
+    id: CredentialId,
+    props: {
+      accountId: AccountId;
+      token: string;
+      expiresAt: Date;
+    },
+  ): Credential {
+    if (!props.token) {
+      throw new Error("Magic link token cannot be empty.");
+    }
+
+    if (
+      !(props.expiresAt instanceof Date) ||
+      Number.isNaN(props.expiresAt.getTime())
+    ) {
+      throw new Error("Magic link expiresAt must be a valid Date.");
+    }
+
+    return new Credential(id, props.accountId, {
+      kind: "magic_link",
+      token: props.token,
+      expiresAt: props.expiresAt,
+    });
+  }
+
   public static createOAuth(
     id: CredentialId,
-    accountId: AccountId,
-    provider: string,
-    providerId: string,
+    props: {
+      accountId: AccountId;
+      provider: string;
+      providerId: string;
+    },
   ): Credential {
-    if (!provider || !providerId) {
+    if (!props.provider || !props.providerId) {
       throw new Error("OAuth provider and providerId cannot be empty.");
     }
 
-    return new Credential(id, accountId, {
+    return new Credential(id, props.accountId, {
       kind: "oauth",
-      provider,
-      providerId,
+      provider: props.provider,
+      providerId: props.providerId,
     });
   }
 

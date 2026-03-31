@@ -59,15 +59,15 @@ Manages the `Receipt` aggregate. `IssueReceiptUseCase` signs a receipt for an au
 
 ## Ports Summary
 
-| Port                | Feature        | Purpose                                                      |
-| ------------------- | -------------- | ------------------------------------------------------------ |
-| `AccountRepository` | accounts       | Persist and retrieve accounts                                |
-| `CredentialStore`   | authentication | Persist and retrieve credentials                             |
-| `PasswordHasher`    | authentication | Hash and verify passwords                                    |
-| `TokenHasher`       | authentication | Deterministically hash opaque tokens (magic links, API keys) |
-| `ReceiptSigner`     | receipts       | Sign a receipt JWT                                           |
-| `ReceiptVerifier`   | receipts       | Verify and decode a receipt JWT                              |
-| `LoggerPort`        | shared         | Framework-agnostic structured logging                        |
+| Port                | Feature        | Purpose                                                                                      |
+| ------------------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `AccountRepository` | accounts       | Persist and retrieve accounts                                                                |
+| `CredentialStore`   | authentication | Persist and retrieve credentials. `deleteByEmail` must be atomic for single-use magic links. |
+| `PasswordHasher`    | authentication | Hash and verify passwords                                                                    |
+| `TokenHasher`       | authentication | Deterministically hash opaque tokens (magic links, API keys)                                 |
+| `ReceiptSigner`     | receipts       | Sign a receipt JWT                                                                           |
+| `ReceiptVerifier`   | receipts       | Verify and decode a receipt JWT                                                              |
+| `LoggerPort`        | shared         | Framework-agnostic structured logging                                                        |
 
 ## License
 

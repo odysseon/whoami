@@ -8,10 +8,16 @@ import type { AccountRepository } from "../domain/account-repository.port.js";
  * Registers a new account after enforcing email uniqueness.
  */
 export class RegisterAccountUseCase {
+  private readonly accountRepo: AccountRepository;
+  private readonly generateId: () => string | number;
+
   constructor(
-    private readonly accountRepo: AccountRepository,
-    private readonly generateId: () => string | number,
-  ) {}
+    accountRepo: AccountRepository,
+    generateId: () => string | number,
+  ) {
+    this.accountRepo = accountRepo;
+    this.generateId = generateId;
+  }
 
   /**
    * Creates and persists a new account for the supplied email address.

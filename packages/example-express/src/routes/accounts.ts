@@ -37,8 +37,8 @@ export const createAccountsRouter = (
 
         const hash = await passwordHasher.hash(password);
         const credentialId = new CredentialId(generateId());
-        const credential = Credential.loadExisting(credentialId, account.id, {
-          kind: "password",
+        const credential = Credential.createPassword(credentialId, {
+          accountId: account.id,
           hash,
         });
         await credentialStore.saveWithEmail(credential, account.email);

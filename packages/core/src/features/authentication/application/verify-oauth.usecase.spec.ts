@@ -16,10 +16,13 @@ const noopLogger = {
 const accountId = new AccountId("acc_1");
 
 function makeOAuthCredential() {
-  return Credential.loadExisting(new CredentialId("cred_1"), accountId, {
-    kind: "oauth",
-    provider: "google",
-    providerId: "google_123",
+  return Credential.loadExisting(new CredentialId("cred_1"), {
+    accountId,
+    proof: {
+      kind: "oauth",
+      provider: "google",
+      providerId: "google_123",
+    },
   });
 }
 
@@ -85,8 +88,10 @@ describe("VerifyOAuthUseCase", () => {
     const warnings: string[] = [];
     const passwordCredential = Credential.loadExisting(
       new CredentialId("cred_2"),
-      accountId,
-      { kind: "password", hash: "hashed" },
+      {
+        accountId,
+        proof: { kind: "password", hash: "hashed" },
+      },
     );
 
     const useCase = new VerifyOAuthUseCase({

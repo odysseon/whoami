@@ -19,11 +19,10 @@ const EXPIRY = new Date("2026-03-27T10:30:00.000Z");
 const AFTER_EXPIRY = new Date("2026-03-27T11:00:00.000Z");
 
 function makeMagicLinkCredential(accountId = "acc_1") {
-  return Credential.loadExisting(
-    new CredentialId("cred_1"),
-    new AccountId(accountId),
-    { kind: "magic_link", token: "magic-token", expiresAt: EXPIRY },
-  );
+  return Credential.loadExisting(new CredentialId("cred_1"), {
+    accountId: new AccountId(accountId),
+    proof: { kind: "magic_link", token: "magic-token", expiresAt: EXPIRY },
+  });
 }
 
 function makeStore(credential: Credential | null = null) {
@@ -183,8 +182,10 @@ describe("VerifyMagicLinkUseCase", () => {
     const warnings: string[] = [];
     const passwordCredential = Credential.loadExisting(
       new CredentialId("cred_pw"),
-      new AccountId("acc_1"),
-      { kind: "password", hash: "hashed" },
+      {
+        accountId: new AccountId("acc_1"),
+        proof: { kind: "password", hash: "hashed" },
+      },
     );
 
     const useCase = new VerifyMagicLinkUseCase({

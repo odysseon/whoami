@@ -196,10 +196,13 @@ export class AuthController {
     const hashedToken = await this.tokenHasher.hash(rawToken);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    const credential = Credential.loadExisting(
+    const credential = Credential.createMagicLink(
       new CredentialId(this.generateId()),
-      account.id,
-      { kind: "magic_link", token: hashedToken, expiresAt },
+      {
+        accountId: account.id,
+        token: hashedToken,
+        expiresAt,
+      },
     );
     await this.credentialStore.saveWithEmail(credential, account.email);
 

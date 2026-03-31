@@ -91,8 +91,8 @@ export class AccountsController {
 
     const hash = await this.argon2.hash(dto.password);
     const credentialId = new CredentialId(this.generateId());
-    const credential = Credential.loadExisting(credentialId, account.id, {
-      kind: "password",
+    const credential = Credential.createPassword(credentialId, {
+      accountId: account.id,
       hash,
     });
 

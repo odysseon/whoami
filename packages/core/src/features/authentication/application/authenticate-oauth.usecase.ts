@@ -70,12 +70,11 @@ export class AuthenticateOAuthUseCase {
       this.logger.info(
         `Linking new ${input.provider} credential to account ${account.id.value}`,
       );
-      credential = Credential.createOAuth(
-        new CredentialId(this.generateId()),
-        account.id,
-        input.provider,
-        input.providerId,
-      );
+      credential = Credential.createOAuth(new CredentialId(this.generateId()), {
+        accountId: account.id,
+        provider: input.provider,
+        providerId: input.providerId,
+      });
       await this.credentialStore.save(credential);
 
       return account.id;
