@@ -5,12 +5,9 @@ import {
   type NextFunction,
 } from "express";
 import type { InMemoryAccountRepository } from "../infrastructure/in-memory-repositories.js";
+import type { Receipt } from "@odysseon/whoami-core";
 
-interface Identity {
-  accountId: { value: number };
-  token: string;
-  expiresAt: Date;
-}
+export type Identity = Receipt;
 
 interface AuthenticatedRequest extends Request {
   identity?: Identity;

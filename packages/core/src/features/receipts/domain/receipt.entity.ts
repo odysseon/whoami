@@ -9,11 +9,15 @@ export interface ReceiptIssuanceInput {
 }
 
 export class Receipt {
-  private constructor(
-    public readonly token: string,
-    public readonly accountId: AccountId,
-    public readonly expiresAt: Date,
-  ) {}
+  public readonly token: string;
+  public readonly accountId: AccountId;
+  public readonly expiresAt: Date;
+
+  private constructor(token: string, accountId: AccountId, expiresAt: Date) {
+    this.token = token;
+    this.accountId = accountId;
+    this.expiresAt = expiresAt;
+  }
 
   /**
    * Factory for minting a BRAND NEW receipt token.
@@ -43,9 +47,8 @@ export class Receipt {
    */
   public static loadExisting(
     token: string,
-    accountId: AccountId,
-    expiresAt: Date,
+    props: { accountId: AccountId; expiresAt: Date },
   ): Receipt {
-    return new Receipt(token, accountId, expiresAt);
+    return new Receipt(token, props.accountId, props.expiresAt);
   }
 }

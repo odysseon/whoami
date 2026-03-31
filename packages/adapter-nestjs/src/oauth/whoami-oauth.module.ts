@@ -74,7 +74,7 @@ export class WhoamiOAuthModule {
       useFactory: (opts: WhoamiOAuthModuleOptions): IssueReceiptUseCase =>
         new IssueReceiptUseCase({
           signer: opts.receiptSigner,
-          tokenLifespanMinutes: opts.tokenLifespanMinutes,
+          tokenLifespanMinutes: opts.tokenLifespanMinutes ?? 60,
         }),
       inject: [WHOAMI_OAUTH_MODULE_OPTIONS],
     };

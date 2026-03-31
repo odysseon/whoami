@@ -33,11 +33,8 @@ export class AppModule {}
 ```ts
 import { Module, Controller, Get, UseGuards } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import {
-  WhoamiOAuthModule,
-  OAuthCallbackHandler,
-  Public,
-} from "@odysseon/whoami-adapter-nestjs";
+import { WhoamiOAuthModule, Public } from "@odysseon/whoami-adapter-nestjs";
+import { OAuthCallbackHandler } from "@odysseon/whoami-core";
 import { JoseReceiptSigner } from "@odysseon/whoami-adapter-jose";
 
 @Controller("auth")

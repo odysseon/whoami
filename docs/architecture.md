@@ -90,14 +90,16 @@ graph TD
     VerifyUC --> Receipt
 ```
 
+> Note: `OAuthCallbackHandler` is part of `@odysseon/whoami-core`; adapter packages wire it into Nest DI but do not own the implementation. `CredentialStore.deleteByEmail` should be implemented atomically to prevent magic-link replay.
+
 ## Zone rules
 
-| Zone | May depend on | May not depend on |
-|---|---|---|
-| 0 — Domain | Nothing | Zones 1, 2, 3 |
-| 1 — Application | Zone 0 | Zones 2, 3 |
-| 2 — Adapters | Zones 0, 1 | Zone 3 |
-| 3 — Infrastructure | Any | — |
+| Zone               | May depend on | May not depend on |
+| ------------------ | ------------- | ----------------- |
+| 0 — Domain         | Nothing       | Zones 1, 2, 3     |
+| 1 — Application    | Zone 0        | Zones 2, 3        |
+| 2 — Adapters       | Zones 0, 1    | Zone 3            |
+| 3 — Infrastructure | Any           | —                 |
 
 ## Feature structure
 

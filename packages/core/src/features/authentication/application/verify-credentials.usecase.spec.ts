@@ -17,11 +17,10 @@ const noopLogger = {
 describe("Authentication feature use cases", () => {
   it("verifies password credentials", async () => {
     const accountId = new AccountId("acc_1");
-    const credential = Credential.loadExisting(
-      new CredentialId("cred_1"),
+    const credential = Credential.loadExisting(new CredentialId("cred_1"), {
       accountId,
-      { kind: "password", hash: "hashed:secret" },
-    );
+      proof: { kind: "password", hash: "hashed:secret" },
+    });
     const useCase = new VerifyPasswordUseCase({
       credentialStore: {
         findByEmail: async (email): Promise<Credential | null> =>
@@ -49,15 +48,14 @@ describe("Authentication feature use cases", () => {
 
   it("masks cross-auth password mismatches as authentication failures", async () => {
     const warnings: string[] = [];
-    const credential = Credential.loadExisting(
-      new CredentialId("cred_2"),
-      new AccountId("acc_2"),
-      {
+    const credential = Credential.loadExisting(new CredentialId("cred_2"), {
+      accountId: new AccountId("acc_2"),
+      proof: {
         kind: "magic_link",
         token: "token",
         expiresAt: new Date("2026-03-27T10:30:00.000Z"),
       },
-    );
+    });
     const useCase = new VerifyPasswordUseCase({
       credentialStore: {
         findByEmail: async (): Promise<Credential> => credential,
@@ -90,15 +88,14 @@ describe("Authentication feature use cases", () => {
 
   it("verifies magic-link credentials", async () => {
     const accountId = new AccountId("acc_3");
-    const credential = Credential.loadExisting(
-      new CredentialId("cred_3"),
+    const credential = Credential.loadExisting(new CredentialId("cred_3"), {
       accountId,
-      {
+      proof: {
         kind: "magic_link",
         token: "magic-token",
         expiresAt: new Date("2026-03-27T10:30:00.000Z"),
       },
-    );
+    });
     const useCase = new VerifyMagicLinkUseCase({
       credentialStore: {
         findByEmail: async (): Promise<Credential> => credential,

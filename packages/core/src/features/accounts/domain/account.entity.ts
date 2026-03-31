@@ -7,10 +7,13 @@ import {
  * Represents a registered account.
  */
 export class Account {
-  private constructor(
-    public readonly id: AccountId,
-    public readonly email: EmailAddress,
-  ) {}
+  public readonly id: AccountId;
+  public readonly email: EmailAddress;
+
+  private constructor(id: AccountId, email: EmailAddress) {
+    this.id = id;
+    this.email = email;
+  }
 
   /**
    * Creates a new account aggregate.

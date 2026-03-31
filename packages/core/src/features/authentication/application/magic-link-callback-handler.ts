@@ -14,10 +14,16 @@ export interface MagicLinkLoginInput {
  * Framework-agnostic — no NestJS or Express dependencies.
  */
 export class MagicLinkCallbackHandler {
+  private readonly verifyMagicLink: VerifyMagicLinkUseCase;
+  private readonly issueReceipt: IssueReceiptUseCase;
+
   constructor(
-    private readonly verifyMagicLink: VerifyMagicLinkUseCase,
-    private readonly issueReceipt: IssueReceiptUseCase,
-  ) {}
+    verifyMagicLink: VerifyMagicLinkUseCase,
+    issueReceipt: IssueReceiptUseCase,
+  ) {
+    this.verifyMagicLink = verifyMagicLink;
+    this.issueReceipt = issueReceipt;
+  }
 
   public async handle(input: MagicLinkLoginInput): Promise<Receipt> {
     const accountId = await this.verifyMagicLink.execute({

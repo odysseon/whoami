@@ -6,7 +6,11 @@ import type { ReceiptVerifier } from "../domain/ports/receipt-verifier.port.js";
  * Verifies a signed receipt token and restores its receipt metadata.
  */
 export class VerifyReceiptUseCase {
-  constructor(private readonly verifier: ReceiptVerifier) {}
+  private readonly verifier: ReceiptVerifier;
+
+  constructor(verifier: ReceiptVerifier) {
+    this.verifier = verifier;
+  }
 
   /**
    * Verifies a signed receipt token.

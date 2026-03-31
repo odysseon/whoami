@@ -16,10 +16,16 @@ export interface OAuthProfile {
  * Framework-agnostic — no NestJS or Express dependencies.
  */
 export class OAuthCallbackHandler {
+  private readonly authenticateOAuth: AuthenticateOAuthUseCase;
+  private readonly issueReceipt: IssueReceiptUseCase;
+
   constructor(
-    private readonly authenticateOAuth: AuthenticateOAuthUseCase,
-    private readonly issueReceipt: IssueReceiptUseCase,
-  ) {}
+    authenticateOAuth: AuthenticateOAuthUseCase,
+    issueReceipt: IssueReceiptUseCase,
+  ) {
+    this.authenticateOAuth = authenticateOAuth;
+    this.issueReceipt = issueReceipt;
+  }
 
   public async handle(profile: OAuthProfile): Promise<Receipt> {
     const accountId = await this.authenticateOAuth.execute({

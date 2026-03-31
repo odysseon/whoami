@@ -77,6 +77,7 @@ export class VerifyMagicLinkUseCase {
     }
 
     // Single-use enforcement: remove credential so it cannot be replayed.
+    // The underlying store must make this deletion atomic for concurrent flows.
     await this.credentialStore.deleteByEmail(email);
 
     this.logger.info(

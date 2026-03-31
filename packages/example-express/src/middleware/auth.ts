@@ -1,11 +1,11 @@
 import type { Request, Response, NextFunction } from "express";
-import { DomainError, type VerifyReceiptUseCase } from "@odysseon/whoami-core";
+import {
+  DomainError,
+  type Receipt,
+  type VerifyReceiptUseCase,
+} from "@odysseon/whoami-core";
 
-export interface Identity {
-  accountId: { value: number };
-  token: string;
-  expiresAt: Date;
-}
+export type Identity = Receipt;
 
 export interface AuthenticatedRequest extends Request {
   identity?: Identity;
