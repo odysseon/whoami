@@ -1,30 +1,42 @@
 {
   "compilerOptions": {
+    /* Module System - Node.js Native ESM */
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ESNext",
+    "lib": [
+      "ESNext"
+    ],
+    /* Output Settings */
     "declaration": true,
     "declarationMap": true,
+    "sourceMap": true,
     "removeComments": true,
+    "incremental": true,
+    /* Decorators  */
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "sourceMap": true,
-    "incremental": true,
-    "skipLibCheck": true,
+    /* The Essentials*/
     "strict": true,
-    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "noUncheckedSideEffectImports": true,
-    "allowUnreachableCode": false,
-    "noPropertyAccessFromIndexSignature": true,
-    "erasableSyntaxOnly": true,
-    "noImplicitAny": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "exactOptionalPropertyTypes": true
+    "strictPropertyInitialization": true,
+    /* Monorepo & Performance */
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
   }
 }
