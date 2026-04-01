@@ -10,16 +10,12 @@ import {
   PasswordManager,
   RegisterWithPasswordUseCase,
 } from "./features/credentials/index.js";
-import {
-  IssueReceiptUseCase,
-  VerifyReceiptUseCase,
-} from "./features/receipts/index.js";
+import { IssueReceiptUseCase } from "./features/receipts/index.js";
 import { LoggerPort } from "./shared/index.js";
 
 export interface AuthConfig {
   hashManager: PasswordManager;
   tokenSigner: IssueReceiptUseCase;
-  tokenVerifier: VerifyReceiptUseCase;
   passwordStore: PasswordCredentialStore;
   accountRepo: AccountRepository;
   logger: LoggerPort;
@@ -37,18 +33,29 @@ type LoginArgs = {
 };
 
 export function createAuth(config: AuthConfig): AuthMethods {
+  const registerUseCase = new RegisterWithPasswordUseCase({
+    accountRepo: config.accountRepo,
+    passwordStore: config.passwordStore,
+    generateId: config.generateId,
+    hashPassword: config.hashManager.hash.bind(config.hashManager),
+  });
+
+  const verifyPasswordUseCase = new VerifyPasswordUseCase({
+    passwordManager: config.hashManager,
+    logger: config.logger,
+  });
+
+  const authenticateUseCase = new AuthenticateWithPasswordUseCase({
+    passwordStore: config.passwordStore,
+    verifyPassword: verifyPasswordUseCase,
+    issueReceipt: config.tokenSigner,
+  });
+
   // --- Registration ---
   const registerWithPassword = async (
     input: RegisterArgs,
   ): Promise<AuthResult> => {
-    const useCase = new RegisterWithPasswordUseCase({
-      accountRepo: config.accountRepo,
-      passwordStore: config.passwordStore,
-      generateId: config.generateId,
-      hashPassword: config.hashManager.hash.bind(config.hashManager),
-    });
-
-    const account = await useCase.execute({
+    const account = await registerUseCase.execute({
       email: input.email,
       password: input.password,
     });
@@ -62,16 +69,7 @@ export function createAuth(config: AuthConfig): AuthMethods {
   const authenticateWithPassword = async (
     input: LoginArgs,
   ): Promise<AuthResult> => {
-    const authUseCase = new AuthenticateWithPasswordUseCase({
-      passwordStore: config.passwordStore,
-      verifyPassword: new VerifyPasswordUseCase({
-        passwordManager: config.hashManager,
-        logger: config.logger,
-      }),
-      issueReceipt: config.tokenSigner,
-    });
-
-    return await authUseCase.execute({
+    return await authenticateUseCase.execute({
       email: input.email,
       password: input.password,
     });

@@ -4,19 +4,26 @@ import { EmailAddress } from "../../../shared/domain/value-objects/email-address
 import { Account } from "../domain/account.entity.js";
 import type { AccountRepository } from "../domain/account-repository.port.js";
 
+export interface RegisterAccountDeps {
+  accountRepo: AccountRepository;
+  generateId: () => string | number;
+}
+
 /**
- * Registers a new account after enforcing email uniqueness.
+ * Registers a bare account without any credential.
+ *
+ * Use this for flows that create the account separately from the credential,
+ * such as OAuth or magic-link registration. For password-based registration,
+ * use {@link RegisterWithPasswordUseCase} instead — it creates both the account
+ * and the password credential atomically.
  */
 export class RegisterAccountUseCase {
   private readonly accountRepo: AccountRepository;
   private readonly generateId: () => string | number;
 
-  constructor(
-    accountRepo: AccountRepository,
-    generateId: () => string | number,
-  ) {
-    this.accountRepo = accountRepo;
-    this.generateId = generateId;
+  constructor(deps: RegisterAccountDeps) {
+    this.accountRepo = deps.accountRepo;
+    this.generateId = deps.generateId;
   }
 
   /**
