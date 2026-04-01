@@ -14,7 +14,7 @@ graph TD
 
     Auth --> CredentialEntity["Credential entity"]
     Auth --> CredentialStore["CredentialStore port"]
-    Auth --> PasswordHasher["PasswordHasher port"]
+    Auth --> PasswordManager["PasswordManager port"]
     Auth --> TokenHasher["TokenHasher port"]
     Auth --> VerifyPasswordUC["VerifyPasswordUseCase"]
     Auth --> VerifyMagicLinkUC["VerifyMagicLinkUseCase"]
@@ -44,7 +44,7 @@ Manages the `Account` aggregate. `RegisterAccountUseCase` enforces email uniquen
 
 ### `authentication`
 
-Manages `Credential` aggregates for all supported proof kinds: `password`, `magic_link`, and `oauth`. Each use case accepts injected ports (`CredentialStore`, `PasswordHasher`, `TokenHasher`, `LoggerPort`) and returns an `AccountId` on success.
+Manages `Credential` aggregates for all supported proof kinds: `password`, `magic_link`, and `oauth`. Each use case accepts injected ports (`CredentialStore`, `PasswordManager`, `TokenHasher`, `LoggerPort`) and returns an `AccountId` on success.
 
 | Use case                   | Proof kind                       |
 | -------------------------- | -------------------------------- |
@@ -63,7 +63,7 @@ Manages the `Receipt` aggregate. `IssueReceiptUseCase` signs a receipt for an au
 | ------------------- | -------------- | -------------------------------------------------------------------------------------------- |
 | `AccountRepository` | accounts       | Persist and retrieve accounts                                                                |
 | `CredentialStore`   | authentication | Persist and retrieve credentials. `deleteByEmail` must be atomic for single-use magic links. |
-| `PasswordHasher`    | authentication | Hash and verify passwords                                                                    |
+| `PasswordManager`   | authentication | Hash and verify passwords                                                                    |
 | `TokenHasher`       | authentication | Deterministically hash opaque tokens (magic links, API keys)                                 |
 | `ReceiptSigner`     | receipts       | Sign a receipt JWT                                                                           |
 | `ReceiptVerifier`   | receipts       | Verify and decode a receipt JWT                                                              |

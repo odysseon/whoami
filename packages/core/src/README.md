@@ -13,7 +13,7 @@ src/
 │   │   ├── application/    VerifyPasswordUseCase, VerifyMagicLinkUseCase,
 │   │   │                   VerifyOAuthUseCase, AuthenticateOAuthUseCase
 │   │   ├── domain/         Credential entity, CredentialStore port,
-│   │   │                   PasswordHasher port, TokenHasher port, types
+│   │   │                   PasswordManager port, TokenHasher port, types
 │   │   └── index.ts
 │   └── receipts/
 │       ├── application/    IssueReceiptUseCase, VerifyReceiptUseCase
