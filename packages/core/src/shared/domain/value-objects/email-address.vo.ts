@@ -5,7 +5,14 @@ export class EmailAddress {
 
   constructor(raw: string) {
     const trimmed = raw.trim();
-    if (!trimmed || !trimmed.includes("@")) {
+    const atIndex = trimmed.indexOf("@");
+    const isValid =
+      trimmed.length > 0 &&
+      atIndex > 0 &&
+      atIndex === trimmed.lastIndexOf("@") &&
+      atIndex < trimmed.length - 1 &&
+      trimmed.slice(atIndex + 1).includes(".");
+    if (!isValid) {
       throw new InvalidEmailError();
     }
     this.value = trimmed.toLowerCase();

@@ -15,7 +15,7 @@ export type DomainErrorCode =
   | "INVALID_CREDENTIAL_ID";
 
 export abstract class DomainError extends Error {
-  public readonly code?: DomainErrorCode;
+  public abstract readonly code: DomainErrorCode;
 
   constructor(message: string) {
     super(message);

@@ -42,13 +42,6 @@ export class VerifyPasswordUseCase {
   public async execute(input: VerifyPasswordInput): Promise<AccountId> {
     const { credential, plainTextPassword } = input;
 
-    if (!credential.passwordHash) {
-      this.logger.warn(
-        `Wrong credential type for account ${credential.accountId.value}`,
-      );
-      throw new AuthenticationError();
-    }
-
     let storedHash: string;
 
     try {
