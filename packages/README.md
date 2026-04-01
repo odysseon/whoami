@@ -22,7 +22,7 @@ This directory groups the independently publishable packages and runnable exampl
 ## Purpose And Content
 
 - `core` defines the authentication domain, contracts, and orchestration use cases.
-- `adapter-argon2` implements the `PasswordHasher` port using Argon2.
+- `adapter-argon2` implements the `PasswordManager` port using Argon2.
 - `adapter-jose` implements the `ReceiptSigner` and `ReceiptVerifier` ports using the JOSE library.
 - `adapter-webcrypto` implements the `TokenHasher` port using the native Web Crypto API.
 - `adapter-nestjs` implements the NestJS integration layer (`WhoamiModule`, `WhoamiAuthGuard`, `WhoamiExceptionFilter`).

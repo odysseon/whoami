@@ -7,7 +7,7 @@
 - 7facf91: Ship the feature-first core API for accounts, authentication, and receipts, add feature-layer tests, and include an Express example app that consumes the public core exports.
 
   Remove the legacy facade and interface surface from `@odysseon/whoami-core`, and migrate all first-party adapters to the new contracts:
-  - `@odysseon/whoami-adapter-argon2` now implements `PasswordHasher`
+  - `@odysseon/whoami-adapter-argon2` now implements `PasswordManager`
   - `@odysseon/whoami-adapter-jose` now provides receipt signing and verification
   - `@odysseon/whoami-adapter-webcrypto` now implements `DeterministicStringHasher`
   - `@odysseon/whoami-adapter-nestjs` now centers on receipt verification, route protection, and domain error translation
@@ -48,8 +48,8 @@
 - c7731b5: **Package Refactoring:** Extracted `WebCryptoTokenHasher` from core into a dedicated adapter package.
 
   **Removed from `@odysseon/whoami-core`:**
-  - `src/adapters/security/webcrypto-token-hasher.adapter.ts`
-  - `src/adapters/security/webcrypto-token-hasher.adapter.spec.ts`
+  - `src/adapters/security/webcrypto-token-passwordManager.adapter.ts`
+  - `src/adapters/security/webcrypto-token-passwordManager.adapter.spec.ts`
   - Export of `WebCryptoTokenHasher` from core's `index.ts`
 
   **Moved to:** `@odysseon/whoami-adapter-webcrypto` (new package)
@@ -68,7 +68,7 @@
 
 ### Minor Changes
 
-- ee6fcb0: Added Argon2PasswordHasher adapter utilizing native argon2 for secure, salted password hashing.
+- ee6fcb0: Added Argon2PasswordManager adapter utilizing native argon2 for secure, salted password hashing.
 - 6d15ddb: Refactor: Removed all Node-dependent cryptographic adapters (Argon2 and Jose) from the core package to ensure it is completely framework-agnostic and edge-compatible.
 
 ## 0.2.0
