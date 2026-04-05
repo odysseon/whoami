@@ -1,13 +1,15 @@
-import { AuthenticationError, EmailAddress } from "../../shared/index.js";
-import { VerifyPasswordUseCase } from "../credentials/application/verify-password.usecase.js";
-import { PasswordCredentialStore } from "../credentials/index.js";
-import { IssueReceiptUseCase } from "../receipts/index.js";
-import { AuthResult } from "./types.js";
+import { EmailAddress, LoggerPort } from "../../shared/index.js";
+import {
+  PasswordCredentialStore,
+  PasswordManager,
+} from "../credentials/index.js";
+import { IssueReceiptUseCase, Receipt } from "../receipts/index.js";
 
 export interface AuthenticateWithPasswordDeps {
   passwordStore: PasswordCredentialStore;
-  verifyPassword: VerifyPasswordUseCase;
   issueReceipt: IssueReceiptUseCase;
+  logger: LoggerPort;
+  passwordManager: PasswordManager;
 }
 
 export interface AuthenticateWithPasswordInput {
@@ -19,39 +21,32 @@ export interface AuthenticateWithPasswordInput {
  * Orchestrates password-based authentication.
  */
 export class AuthenticateWithPasswordUseCase {
-  private readonly passwordStore: PasswordCredentialStore;
-  private readonly verifyPassword: VerifyPasswordUseCase;
-  private readonly issueReceipt: IssueReceiptUseCase;
+  private readonly deps: AuthenticateWithPasswordDeps;
 
   constructor(deps: AuthenticateWithPasswordDeps) {
-    this.passwordStore = deps.passwordStore;
-    this.verifyPassword = deps.verifyPassword;
-    this.issueReceipt = deps.issueReceipt;
+    this.deps = deps;
   }
 
-  public async execute(
-    input: AuthenticateWithPasswordInput,
-  ): Promise<AuthResult> {
-    const email = new EmailAddress(input.email);
-    // --- Fetch credential once ---
-    const credential = await this.passwordStore.findByEmail(email);
+  async execute(input: { email: string; password: string }): Promise<Receipt> {
+    const credential = await this.deps.passwordStore.findByEmail(
+      new EmailAddress(input.email),
+    );
 
     if (!credential) {
-      throw new AuthenticationError("Invalid credentials");
+      this.deps.logger.warn("Invalid credentials: email not found");
+      throw new Error("Invalid credentials");
     }
 
-    // --- Verify password using the fetched credential ---
-    await this.verifyPassword.execute({
-      credential,
-      plainTextPassword: input.password,
-    });
+    const isValid = await this.deps.passwordManager.compare(
+      input.password,
+      credential.passwordHash,
+    );
 
-    // --- Issue token / receipt ---
-    const receipt = await this.issueReceipt.execute(credential.accountId);
+    if (!isValid) {
+      this.deps.logger.warn("Invalid credentials: wrong password");
+      throw new Error("Invalid credentials");
+    }
 
-    return {
-      accountId: credential.accountId,
-      token: receipt.token,
-    };
+    return await this.deps.issueReceipt.execute(credential.accountId);
   }
 }

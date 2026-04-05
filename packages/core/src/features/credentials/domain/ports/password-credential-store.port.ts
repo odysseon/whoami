@@ -1,5 +1,6 @@
 import { CredentialId } from "../../../../shared/domain/value-objects/credential-id.vo.js";
 import { EmailAddress } from "../../../../shared/domain/value-objects/email-address.vo.js";
+import { AccountId } from "../../../../shared/index.js";
 import { Credential } from "../credential.entity.js";
 
 /**
@@ -30,4 +31,11 @@ export interface PasswordCredentialStore {
    * @param credentialId - The identifier of the credential to remove.
    */
   delete(credentialId: CredentialId): Promise<void>;
+
+  /**
+   * Convenience: delete password for a given account
+   */
+  deleteByAccountId(accountId: AccountId): Promise<void>;
+  findByAccountId(accountId: AccountId): Promise<Credential | null>;
+  existsForAccount(accountId: AccountId): Promise<boolean>;
 }
