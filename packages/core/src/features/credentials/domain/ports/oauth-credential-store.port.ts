@@ -42,4 +42,9 @@ export interface OAuthCredentialStore {
    * @returns An array of OAuth credentials associated with the account.
    */
   findAllByAccountId(accountId: AccountId): Promise<Credential[]>;
+  deleteAllForAccount(accountId: AccountId): Promise<void>;
+
+  deleteByProvider(accountId: AccountId, provider: string): Promise<void>;
+
+  existsForAccount(accountId: AccountId): Promise<boolean>;
 }
