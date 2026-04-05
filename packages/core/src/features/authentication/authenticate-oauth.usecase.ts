@@ -9,34 +9,55 @@ import type { LoggerPort } from "../../shared/domain/ports/logger.port.js";
 import { AuthenticationError } from "../../shared/domain/errors/auth.error.js";
 import { IssueReceiptUseCase, Receipt } from "../receipts/index.js";
 
+/**
+ * Input for {@link AuthenticateOAuthUseCase.execute}.
+ * @public
+ */
 export interface AuthenticateOAuthInput {
+  /** OAuth provider name (e.g. `"google"`, `"github"`). */
   provider: string;
+  /** The stable user identifier returned by the OAuth provider (`sub` claim). */
   providerId: string;
+  /** Email address returned by the OAuth provider. */
   email: string;
 }
 
+/**
+ * Dependencies for {@link AuthenticateOAuthUseCase}.
+ * @public
+ */
 export interface AuthenticateOAuthDeps {
+  /** Persistence port for account aggregates. */
   accountRepository: AccountRepository;
+  /** Persistence port for OAuth credentials. */
   oauthCredentialStore: OAuthCredentialStore;
+  /** Use-case that mints a signed receipt on success. */
   issueReceipt: IssueReceiptUseCase;
-  generateId: () => string | number;
+  /**
+   * Deterministic ID generator — must return a non-empty string on every call.
+   * Called twice when auto-registering: once for account ID, once for credential ID.
+   * Inject `crypto.randomUUID` or any UUID v4 factory.
+   */
+  generateId: () => string;
+  /** Structured logger. */
   logger: LoggerPort;
 }
 
 /**
- * Handles OAuth authentication with security-first approach:
- * 1. Fast path: Existing OAuth credential -> authenticate
- * 2. Auto-registration: No account exists -> create new
- * 3. Existing account without OAuth -> error (must link via settings)
+ * Authenticates a user via OAuth with a security-first three-phase flow:
  *
- * This prevents account takeover by requiring explicit linking
- * through the LinkOAuthToAccountUseCase which requires authentication.
+ * 1. **Fast path** — An OAuth credential already exists → authenticate immediately.
+ * 2. **Conflict guard** — An account exists with this email but no OAuth credential →
+ *    reject to prevent account takeover (user must link via settings).
+ * 3. **Auto-registration** — No account exists → create account + credential, then authenticate.
+ *
+ * @public
  */
 export class AuthenticateOAuthUseCase {
   private readonly accountRepo: AccountRepository;
   private readonly oauthStore: OAuthCredentialStore;
   private readonly issueReceipt: IssueReceiptUseCase;
-  private readonly generateId: () => string | number;
+  private readonly generateId: () => string;
   private readonly logger: LoggerPort;
 
   constructor(deps: AuthenticateOAuthDeps) {
@@ -47,43 +68,46 @@ export class AuthenticateOAuthUseCase {
     this.logger = deps.logger;
   }
 
+  /**
+   * Runs the OAuth authentication flow and returns a signed receipt.
+   *
+   * @param input - {@link AuthenticateOAuthInput}
+   * @returns A signed {@link Receipt} for the authenticated account.
+   * @throws {InvalidEmailError} When the email address is malformed.
+   * @throws {AuthenticationError} When an account exists with this email but
+   *         the OAuth credential is not yet linked.
+   */
   public async execute(input: AuthenticateOAuthInput): Promise<Receipt> {
     const email = new EmailAddress(input.email);
 
-    // --- PHASE 1: FAST PATH - Existing OAuth User ---
+    // PHASE 1: fast path — existing OAuth credential
     const existingCredential = await this.oauthStore.findByProvider(
       input.provider,
       input.providerId,
     );
-
     if (existingCredential) {
-      this.logger.warn(
-        `Existing OAuth credential found for provider ${input.provider}, account ${existingCredential.accountId.value}`,
+      this.logger.info(
+        `OAuth fast-path: existing credential for provider ${input.provider}, ` +
+          `accountId ${existingCredential.accountId.value}`,
       );
       return await this.issueReceipt.execute(existingCredential.accountId);
     }
 
-    // --- PHASE 2: CHECK FOR EXISTING ACCOUNT ---
+    // PHASE 2: conflict guard — account exists without this OAuth credential
     const existingAccount = await this.accountRepo.findByEmail(email);
-
     if (existingAccount) {
-      // Security: Account exists but doesn't have this OAuth credential
-      // Cannot auto-link without authentication
       this.logger.warn(
-        `OAuth login attempt for existing account ${existingAccount.id.value} without linked OAuth credential. ` +
-          `Provider: ${input.provider}, Email: ${email.value}`,
+        `OAuth login attempt for existing account ${existingAccount.id.value} ` +
+          `without linked ${input.provider} credential. Email: ${email.value}`,
       );
-
       throw new AuthenticationError(
         "An account already exists with this email. " +
           "Please log in with your password and link your OAuth account in settings.",
       );
     }
 
-    // --- PHASE 3: AUTO-REGISTRATION - Create New Account ---
-    this.logger.info(
-      `Auto-registering new account for OAuth user: ${email.value}`,
-    );
+    // PHASE 3: auto-registration
+    this.logger.info(`Auto-registering new OAuth account for ${email.value}`);
 
     const account = Account.create(new AccountId(this.generateId()), email);
     await this.accountRepo.save(account);
@@ -94,10 +118,8 @@ export class AuthenticateOAuthUseCase {
       provider: input.provider,
       providerId: input.providerId,
     });
-
     await this.oauthStore.save(credential);
 
-    const receipt = this.issueReceipt.execute(account.id);
-    return await receipt;
+    return await this.issueReceipt.execute(account.id);
   }
 }

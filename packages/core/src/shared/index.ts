@@ -1,3 +1,10 @@
+/**
+ * Shared domain primitives — errors, ports, and value objects.
+ *
+ * Everything in this barrel is safe to import from any layer of the codebase.
+ *
+ * @module
+ */
 export * from "./domain/errors/domain.error.js";
 export * from "./domain/errors/account.error.js";
 export * from "./domain/errors/auth.error.js";

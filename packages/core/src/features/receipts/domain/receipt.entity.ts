@@ -1,16 +1,43 @@
-import { InvalidReceiptError } from "../../../shared/index.js";
+import { InvalidReceiptError } from "../../../shared/domain/errors/auth.error.js";
 import { AccountId } from "../../../shared/domain/value-objects/account-id.vo.js";
 
+/**
+ * Input for {@link Receipt.issue}.
+ * @public
+ */
 export interface ReceiptIssuanceInput {
+  /** The signed token string produced by the {@link ReceiptSigner}. */
   token: string;
+  /** The account this receipt is bound to. */
   accountId: AccountId;
+  /** The UTC timestamp after which the receipt is invalid. */
   expiresAt: Date;
+  /**
+   * The current time, injected for deterministic validation.
+   * Must be earlier than `expiresAt` for the receipt to be valid.
+   */
   now: Date;
 }
 
+/**
+ * A signed, time-bounded proof of successful authentication.
+ *
+ * Receipts are immutable value-objects returned to callers after every
+ * successful authentication flow.  They wrap a signed token (e.g. a JWT)
+ * together with its expiry metadata so callers never need to decode the token
+ * themselves.
+ *
+ * Use {@link Receipt.issue} to mint a brand-new receipt, and
+ * {@link Receipt.loadExisting} to rehydrate one during verification.
+ *
+ * @public
+ */
 export class Receipt {
+  /** The opaque signed token string (e.g. a JWT). */
   public readonly token: string;
+  /** The account this receipt is bound to. */
   public readonly accountId: AccountId;
+  /** The UTC timestamp after which the receipt must be rejected. */
   public readonly expiresAt: Date;
 
   private constructor(token: string, accountId: AccountId, expiresAt: Date) {
@@ -20,30 +47,34 @@ export class Receipt {
   }
 
   /**
-   * Factory for minting a BRAND NEW receipt token.
-   * Creates a receipt from a signed token and explicit expiry time.
+   * Mints a brand-new receipt from a freshly signed token.
    *
-   * @param token - The signed token.
-   * @param accountId - The account bound to the token.
-   * @param expiresAt - The exact token expiry time.
-   * @param now - The current time used to validate expiry (defaults to current time).
-   * @returns A receipt instance.
+   * Validates that the token is non-empty and that the expiry lies strictly
+   * in the future relative to `input.now`.
+   *
+   * @param input - {@link ReceiptIssuanceInput}
+   * @returns A new {@link Receipt}.
+   * @throws {InvalidReceiptError} When the token is empty or `expiresAt` is not in the future.
    */
   public static issue(input: ReceiptIssuanceInput): Receipt {
     if (!input.token || input.token.trim() === "") {
       throw new InvalidReceiptError("Token payload cannot be empty.");
     }
-
     if (!input.expiresAt || input.expiresAt <= input.now) {
-      throw new InvalidReceiptError("Expiration date cannot be in the past.");
+      throw new InvalidReceiptError("Expiration date must be in the future.");
     }
-
     return new Receipt(input.token, input.accountId, input.expiresAt);
   }
 
   /**
-   * Factory for rehydrating an EXISTING receipt token (e.g., during verification).
-   * Bypasses the "creation" business rules since the token already exists.
+   * Rehydrates an existing receipt during token verification.
+   *
+   * Bypasses issuance business rules — use **only** when reconstructing a
+   * receipt from a token that has already been cryptographically verified.
+   *
+   * @param token   - The signed token string.
+   * @param props   - The account ID and expiry restored from the verified token.
+   * @returns The rehydrated {@link Receipt}.
    */
   public static loadExisting(
     token: string,
