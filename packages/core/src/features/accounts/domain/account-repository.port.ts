@@ -5,29 +5,37 @@ import {
 import { Account } from "./account.entity.js";
 
 /**
- * Persists and retrieves account aggregates.
+ * Persistence port for account aggregates.
+ *
+ * Implement this interface in your infrastructure layer to plug in any storage
+ * backend (PostgreSQL, MongoDB, in-memory, etc.).
+ *
+ * @public
  */
 export interface AccountRepository {
   /**
-   * Stores an account aggregate.
+   * Persists an account aggregate.
+   *
+   * On conflict (duplicate ID), implementations should either upsert or throw —
+   * document the chosen behaviour clearly in your adapter.
    *
    * @param account - The account to persist.
    */
   save(account: Account): Promise<void>;
 
   /**
-   * Finds an account by its identifier.
+   * Finds an account by its unique identifier.
    *
-   * @param id - The account identifier.
-   * @returns The matching account, or `null` when no account exists.
+   * @param id - The {@link AccountId} to look up.
+   * @returns The matching account, or `null` when no account exists with that ID.
    */
   findById(id: AccountId): Promise<Account | null>;
 
   /**
    * Finds an account by its email address.
    *
-   * @param email - The normalized email address.
-   * @returns The matching account, or `null` when no account exists.
+   * @param email - The normalized {@link EmailAddress} to look up.
+   * @returns The matching account, or `null` when no account exists with that email.
    */
   findByEmail(email: EmailAddress): Promise<Account | null>;
 }

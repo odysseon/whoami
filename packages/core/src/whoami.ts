@@ -7,56 +7,107 @@ import { LinkOAuthToAccountUseCase } from "./features/credentials/application/li
 import { RegisterWithPasswordUseCase } from "./features/credentials/application/register-password.usecase.js";
 import { Receipt } from "./features/receipts/index.js";
 import { AccountId } from "./shared/index.js";
+import {
+  CannotRemoveLastCredentialError,
+  OAuthProviderNotFoundError,
+  UnsupportedAuthMethodError,
+} from "./shared/domain/errors/auth.error.js";
 import { AuthConfig, AuthMethod, AuthMethods } from "./types.js";
 
-// --- Plugin Types ---
+/**
+ * A handler that removes a specific auth method for a given account.
+ * @internal
+ */
+type RemoveHandler = (
+  accountId: AccountId,
+  options?: { provider?: string },
+) => Promise<void>;
+
+/**
+ * A plugin that attaches optional auth-method behaviour to the {@link AuthMethods} surface.
+ * @internal
+ */
 type AuthPlugin = (
   methods: AuthMethods,
   config: AuthConfig,
   removeHandlers: Partial<Record<AuthMethod, RemoveHandler>>,
 ) => void;
 
-type RemoveHandler = (
-  accountId: AccountId,
-  options?: { provider?: string },
-) => Promise<void>;
-
-// --- Core Factory ---
+/**
+ * Assembles an {@link AuthMethods} instance from the supplied {@link AuthConfig}.
+ *
+ * Only the sections present in `config` are activated:
+ * - `config.password` → enables password registration, login, and management.
+ * - `config.oauth`    → enables OAuth login, linking, and management.
+ *
+ * @example
+ * ```ts
+ * const auth = createAuth({
+ *   accountRepo,
+ *   tokenSigner: issueReceiptUseCase,
+ *   verifyReceipt: verifyReceiptUseCase,
+ *   logger: console,
+ *   generateId: () => crypto.randomUUID(),
+ *   password: { hashManager, passwordStore },
+ *   oauth: { oauthStore },
+ * });
+ *
+ * const receipt = await auth.registerWithPassword!({ email, password });
+ * ```
+ *
+ * @param config - {@link AuthConfig}
+ * @returns The assembled {@link AuthMethods} API surface.
+ *
+ * @public
+ */
 export function createAuth(config: AuthConfig): AuthMethods {
   const removeHandlers: Partial<Record<AuthMethod, RemoveHandler>> = {};
 
   const methods: AuthMethods = {
-    getAccountAuthMethods: async (accountId: AccountId) => {
+    /**
+     * Returns the active authentication methods for the given account.
+     * Queries whichever stores are configured.
+     */
+    getAccountAuthMethods: async (
+      accountId: AccountId,
+    ): Promise<AuthMethod[]> => {
       const result: AuthMethod[] = [];
 
       if (config.password) {
-        const hasPassword =
+        const has =
           await config.password.passwordStore.existsForAccount(accountId);
-        if (hasPassword) result.push("password");
+        if (has) result.push("password");
       }
 
       if (config.oauth) {
-        const hasOAuth =
-          await config.oauth.oauthStore.existsForAccount(accountId);
-        if (hasOAuth) result.push("oauth");
+        const has = await config.oauth.oauthStore.existsForAccount(accountId);
+        if (has) result.push("oauth");
       }
 
       return result;
     },
 
-    removeAuthMethod: async (accountId, method, options) => {
+    /**
+     * Removes the specified authentication method.
+     *
+     * @throws {UnsupportedAuthMethodError} When no handler is registered for `method`.
+     * @throws {CannotRemoveLastCredentialError} When removal would lock the account.
+     * @throws {OAuthProviderNotFoundError} When the specified OAuth provider is not linked.
+     */
+    removeAuthMethod: async (
+      accountId: AccountId,
+      method: AuthMethod,
+      options?: { provider?: string },
+    ): Promise<void> => {
       const handler = removeHandlers[method];
-
       if (!handler) {
-        throw new Error(`No handler for auth method: ${method}`);
+        throw new UnsupportedAuthMethodError(method);
       }
-
       await handler(accountId, options);
     },
   };
 
   const plugins: AuthPlugin[] = [passwordPlugin, oauthPlugin];
-
   for (const plugin of plugins) {
     plugin(methods, config, removeHandlers);
   }
@@ -64,7 +115,12 @@ export function createAuth(config: AuthConfig): AuthMethods {
   return methods;
 }
 
-// --- Password Plugin ---
+// ── Password plugin ──────────────────────────────────────────────────────────
+
+/**
+ * Activates all password-based flows when `config.password` is present.
+ * @internal
+ */
 const passwordPlugin: AuthPlugin = (methods, config, removeHandlers) => {
   if (!config.password) return;
 
@@ -85,13 +141,11 @@ const passwordPlugin: AuthPlugin = (methods, config, removeHandlers) => {
     logger: config.logger,
   });
 
-  methods.registerWithPassword = async (input): Promise<Receipt> => {
-    return await registerUseCase.execute(input);
-  };
+  methods.registerWithPassword = (input): Promise<Receipt> =>
+    registerUseCase.execute(input);
 
-  methods.authenticateWithPassword = async (input): Promise<Receipt> => {
-    return await authenticateUseCase.execute(input);
-  };
+  methods.authenticateWithPassword = (input): Promise<Receipt> =>
+    authenticateUseCase.execute(input);
 
   methods.addPasswordToAccount = async (
     accountId: AccountId,
@@ -101,9 +155,9 @@ const passwordPlugin: AuthPlugin = (methods, config, removeHandlers) => {
       accountRepo: config.accountRepo,
       passwordStore,
       hashManager,
+      generateId: config.generateId,
       authMethods: methods.getAccountAuthMethods,
     });
-
     await useCase.execute({ accountId, password });
   };
 
@@ -113,22 +167,27 @@ const passwordPlugin: AuthPlugin = (methods, config, removeHandlers) => {
       : false;
 
     if (!hasOAuth) {
-      throw new Error("Cannot remove last credential");
+      throw new CannotRemoveLastCredentialError();
     }
 
     await passwordStore.deleteByAccountId(accountId);
   };
 };
 
-// --- OAuth Plugin ---
+// ── OAuth plugin ─────────────────────────────────────────────────────────────
+
+/**
+ * Activates all OAuth-based flows when `config.oauth` is present.
+ * @internal
+ */
 const oauthPlugin: AuthPlugin = (methods, config, removeHandlers) => {
   if (!config.oauth) return;
 
-  const oauth = config.oauth;
+  const { oauthStore } = config.oauth;
 
   const authenticateOAuthUseCase = new AuthenticateOAuthUseCase({
     accountRepository: config.accountRepo,
-    oauthCredentialStore: oauth.oauthStore,
+    oauthCredentialStore: oauthStore,
     issueReceipt: config.tokenSigner,
     generateId: config.generateId,
     logger: config.logger,
@@ -136,56 +195,55 @@ const oauthPlugin: AuthPlugin = (methods, config, removeHandlers) => {
 
   const linkOAuthUseCase = new LinkOAuthToAccountUseCase({
     accountRepository: config.accountRepo,
-    oauthCredentialStore: oauth.oauthStore,
+    oauthCredentialStore: oauthStore,
     verifyReceipt: config.verifyReceipt,
     generateId: config.generateId,
     logger: config.logger,
   });
 
-  methods.authenticateWithOAuth = async (input): Promise<Receipt> => {
-    return await authenticateOAuthUseCase.execute(input);
-  };
+  methods.authenticateWithOAuth = (input): Promise<Receipt> =>
+    authenticateOAuthUseCase.execute(input);
 
-  methods.linkOAuthToAccount = async (input): Promise<void> => {
-    await linkOAuthUseCase.execute(input);
-  };
+  methods.linkOAuthToAccount = (input): Promise<void> =>
+    linkOAuthUseCase.execute(input);
 
-  removeHandlers["oauth"] = async (accountId, options): Promise<void> => {
-    const provider = options?.provider;
+  removeHandlers["oauth"] = async (
+    accountId: AccountId,
+    options?: { provider?: string },
+  ): Promise<void> => {
+    const credentials = await oauthStore.findAllByAccountId(accountId);
 
-    const credentials = await oauth.oauthStore.findAllByAccountId(accountId);
-
-    // Remove specific provider
-    if (provider) {
+    if (options?.provider) {
+      const provider = options.provider;
       const exists = credentials.some((c) => c.oauthProvider === provider);
 
       if (!exists) {
-        throw new Error("OAuth provider not found");
+        throw new OAuthProviderNotFoundError(provider);
       }
 
+      // Guard: removing the last OAuth credential when there is no password
       if (credentials.length <= 1) {
         const hasPassword = config.password
           ? await config.password.passwordStore.existsForAccount(accountId)
           : false;
-
         if (!hasPassword) {
-          throw new Error("Cannot remove last credential");
+          throw new CannotRemoveLastCredentialError();
         }
       }
 
-      await oauth.oauthStore.deleteByProvider(accountId, provider);
+      await oauthStore.deleteByProvider(accountId, provider);
       return;
     }
 
-    // Remove all OAuth credentials
+    // Remove all OAuth credentials — ensure a password exists
     const hasPassword = config.password
       ? await config.password.passwordStore.existsForAccount(accountId)
       : false;
 
     if (!hasPassword) {
-      throw new Error("Cannot remove last credential");
+      throw new CannotRemoveLastCredentialError();
     }
 
-    await oauth.oauthStore.deleteAllForAccount(accountId);
+    await oauthStore.deleteAllForAccount(accountId);
   };
 };

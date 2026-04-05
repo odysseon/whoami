@@ -1,42 +1,46 @@
-import { CredentialId, EmailAddress } from "../../../../shared/index.js";
+import { CredentialId } from "../../../../shared/domain/value-objects/credential-id.vo.js";
+import { EmailAddress } from "../../../../shared/domain/value-objects/email-address.vo.js";
 import { Credential } from "../credential.entity.js";
 
 /**
- * Stores magic link credentials.
+ * Persistence port for magic-link credentials.
  *
- * Implement this interface if your application supports magic link authentication.
- * Magic links are one-time use credentials that should be deleted after verification.
+ * Implement this interface in your infrastructure layer to plug in any storage
+ * backend.  Magic-link credentials are single-use and short-lived; delete them
+ * immediately after successful verification.
+ *
+ * @public
  */
 export interface MagicLinkCredentialStore {
   /**
-   * Finds a magic link credential by email address.
+   * Finds a magic-link credential by the recipient's email address.
    *
-   * @param email - The normalized email address.
-   * @returns The magic link credential, or `null` if none exists.
+   * @param email - The normalized {@link EmailAddress} to look up.
+   * @returns The magic-link credential, or `null` when none exists.
    */
   findByEmail(email: EmailAddress): Promise<Credential | null>;
 
   /**
-   * Persists a magic link credential.
+   * Persists a magic-link credential.
    *
    * @param credential - The credential to store.
    */
   save(credential: Credential): Promise<void>;
 
   /**
-   * Removes a magic link credential.
+   * Removes a magic-link credential by its own identifier.
    *
-   * @param credentialId - The identifier of the credential to remove.
+   * @param credentialId - The {@link CredentialId} of the credential to remove.
    */
   delete(credentialId: CredentialId): Promise<void>;
 
   /**
-   * Removes all magic link credentials for a given email address.
+   * Removes all magic-link credentials for the given email address.
    *
-   * Used to invalidate old magic links when a new one is requested.
+   * Use this to invalidate any outstanding magic links when a new one is
+   * requested, ensuring only the most recently issued link is valid.
    *
-   * @param email - The normalized email address whose magic link credentials
-   *                should be removed.
+   * @param email - The normalized email address whose magic-link credentials should be removed.
    */
   deleteByEmail(email: EmailAddress): Promise<void>;
 }

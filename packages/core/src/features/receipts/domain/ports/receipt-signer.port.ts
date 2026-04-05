@@ -2,14 +2,19 @@ import { AccountId } from "../../../../shared/domain/value-objects/account-id.vo
 
 /**
  * Signs receipt tokens for authenticated accounts.
+ *
+ * Implement this port in your infrastructure layer using a suitable signing
+ * algorithm (e.g. RS256 JWT via `@odysseon/adapter-jose`).
+ *
+ * @public
  */
 export interface ReceiptSigner {
   /**
-   * Signs a receipt token for the supplied account and expiry time.
+   * Produces a signed token encoding the account identity and expiry.
    *
    * @param accountId - The authenticated account identifier.
-   * @param expiresAt - The exact token expiry time.
-   * @returns The signed token.
+   * @param expiresAt - The exact UTC expiry time to embed in the token.
+   * @returns The opaque signed token string.
    */
   sign(accountId: AccountId, expiresAt: Date): Promise<string>;
 }

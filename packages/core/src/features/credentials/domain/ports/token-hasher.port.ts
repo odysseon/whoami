@@ -1,16 +1,21 @@
 /**
- * Deterministically hashes opaque tokens (e.g. magic-link, API-key).
+ * Produces deterministic, non-salted hashes for opaque tokens.
  *
- * Unlike password hashing, token hashing is non-salted and must be
- * reproducible so that a stored hash can be compared against a
- * candidate token on every request.
+ * Unlike {@link PasswordManager}, token hashing must be reproducible so that a
+ * stored hash can be compared against a candidate token on every request
+ * (e.g. magic-link tokens, API keys).  Use a fast, collision-resistant
+ * algorithm such as SHA-256.
+ *
+ * @public
  */
 export interface TokenHasher {
   /**
    * Produces a deterministic hash of the supplied token.
    *
-   * @param token - The raw token value to hash.
-   * @returns A hex-encoded hash string.
+   * The same `token` value must always produce the same output.
+   *
+   * @param token - The raw token string to hash.
+   * @returns A hex-encoded hash string suitable for persistent storage.
    */
   hash(token: string): Promise<string>;
 }

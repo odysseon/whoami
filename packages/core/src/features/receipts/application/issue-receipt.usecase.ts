@@ -5,27 +5,32 @@ import type { ReceiptSigner } from "../domain/ports/receipt-signer.port.js";
 
 /**
  * Configuration for {@link IssueReceiptUseCase}.
+ * @public
  */
 export interface IssueReceiptConfig {
-  /**
-   * The receipt signer implementation.
-   */
+  /** The receipt signer implementation. */
   signer: ReceiptSigner;
-
   /**
-   * How long the receipt remains valid, in minutes. Defaults to `60`.
+   * How long a receipt remains valid, in minutes.
+   * Must be a positive integer. Defaults to `60`.
    */
   tokenLifespanMinutes?: number;
-
   /**
-   * Clock injection — returns the current time. Defaults to `() => new Date()`.
-   * Override in tests to produce deterministic output.
+   * Clock factory — returns the current wall-clock time.
+   * Defaults to `() => new Date()`.
+   * Override in tests to produce fully deterministic output.
    */
   now?: () => Date;
 }
 
 /**
- * Issues a signed receipt token for an authenticated account.
+ * Issues a signed {@link Receipt} for a successfully authenticated account.
+ *
+ * Computes a single `now` snapshot and derives `expiresAt` from it so that the
+ * token and the receipt metadata always agree — no skew between sign time and
+ * validation time.
+ *
+ * @public
  */
 export class IssueReceiptUseCase {
   private readonly signer: ReceiptSigner;
@@ -39,11 +44,11 @@ export class IssueReceiptUseCase {
   }
 
   /**
-   * Issues a signed receipt using a single computed expiry value.
+   * Issues a signed receipt for the given account.
    *
    * @param accountId - The authenticated account identifier.
-   * @returns The signed receipt token and expiry metadata.
-   * @throws {InvalidConfigurationError} When the configured lifespan is not positive.
+   * @returns A signed {@link Receipt} with the computed expiry.
+   * @throws {InvalidConfigurationError} When `tokenLifespanMinutes` is not positive.
    */
   public async execute(accountId: AccountId): Promise<Receipt> {
     if (this.tokenLifespanMinutes <= 0) {
@@ -53,8 +58,9 @@ export class IssueReceiptUseCase {
     }
 
     const now = this.now();
-    const expiresAt = new Date(now.getTime());
-    expiresAt.setMinutes(expiresAt.getMinutes() + this.tokenLifespanMinutes);
+    const expiresAt = new Date(
+      now.getTime() + this.tokenLifespanMinutes * 60 * 1000,
+    );
 
     const signedToken = await this.signer.sign(accountId, expiresAt);
 
