@@ -1,0 +1,65 @@
+{
+  "name": "@odysseon/whoami-adapter-argon2",
+  "version": "7.0.0",
+  "description": "Argon2 password hashing adapter for Odysseon Whoami",
+  "keywords": [
+    "argon2",
+    "authentication",
+    "hashing",
+    "odysseon",
+    "password",
+    "security",
+    "whoami"
+  ],
+  "homepage": "https://github.com/odysseon/whoami/tree/main/packages/adapter-argon2#readme",
+  "bugs": {
+    "url": "https://github.com/odysseon/whoami/issues"
+  },
+  "license": "ISC",
+  "author": "Hammed Anuoluwapo Pelumi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/odysseon/whoami.git",
+    "directory": "packages/adapter-argon2"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -b tsconfig.build.json",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "node --import tsx --test src/**/*.spec.ts",
+    "test:cov": "node --import tsx --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test src/**/*.spec.ts"
+  },
+  "dependencies": {
+    "argon2": "^0.44.0"
+  },
+  "devDependencies": {
+    "@odysseon/whoami-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@odysseon/whoami-core": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}
