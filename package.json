@@ -10,6 +10,7 @@
     "test": "node --import ./scripts/register-tsx.mjs --test packages/**/*.spec.ts",
     "test:cov": "node --import ./scripts/register-tsx.mjs --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test packages/**/*.spec.ts",
     "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
     "format": "prettier --write \"packages/**/*.ts\"",
     "changeset": "changeset",
     "version": "changeset version",

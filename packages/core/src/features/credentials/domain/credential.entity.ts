@@ -25,21 +25,6 @@ export interface CreatePasswordProps {
 }
 
 /**
- * Props for {@link Credential.createMagicLink}.
- * @public
- */
-export interface CreateMagicLinkProps {
-  /** Unique identifier for this credential. */
-  id: CredentialId;
-  /** The account this credential belongs to. */
-  accountId: AccountId;
-  /** The opaque token value sent to the user's inbox. */
-  token: string;
-  /** UTC timestamp after which the token is invalid. */
-  expiresAt: Date;
-}
-
-/**
  * Props for {@link Credential.createOAuth}.
  * @public
  */
@@ -70,14 +55,13 @@ export interface LoadExistingProps {
 /**
  * Represents an authentication credential bound to a single account.
  *
- * A credential holds a typed proof (`password`, `magic_link`, or `oauth`)
+ * A credential holds a typed proof (`password` or `oauth`)
  * that is used by the corresponding authentication flow.  Accessing a proof
  * field for the wrong kind raises a {@link WrongCredentialTypeError} so that
  * misuse is caught at runtime without casting.
  *
  * Use the named static factories to create new credentials:
  * - {@link Credential.createPassword}
- * - {@link Credential.createMagicLink}
  * - {@link Credential.createOAuth}
  *
  * Use {@link Credential.loadExisting} only when rehydrating from a trusted store.
@@ -113,30 +97,6 @@ export class Credential {
       throw new WrongCredentialTypeError("password", this.proof.kind);
     }
     return this.proof.hash;
-  }
-
-  /**
-   * The opaque magic-link token value.
-   *
-   * @throws {WrongCredentialTypeError} When the credential is not a magic-link credential.
-   */
-  public get magicLinkToken(): string {
-    if (this.proof.kind !== "magic_link") {
-      throw new WrongCredentialTypeError("magic_link", this.proof.kind);
-    }
-    return this.proof.token;
-  }
-
-  /**
-   * The UTC expiry timestamp of the magic-link token.
-   *
-   * @throws {WrongCredentialTypeError} When the credential is not a magic-link credential.
-   */
-  public get magicLinkExpiresAt(): Date {
-    if (this.proof.kind !== "magic_link") {
-      throw new WrongCredentialTypeError("magic_link", this.proof.kind);
-    }
-    return this.proof.expiresAt;
   }
 
   /**
@@ -181,29 +141,6 @@ export class Credential {
       id: props.id,
       accountId: props.accountId,
       proof: { kind: "password", hash: props.hash },
-    });
-  }
-
-  /**
-   * Creates a new magic-link credential.
-   *
-   * @param props - {@link CreateMagicLinkProps}
-   * @throws {InvalidCredentialError} When `token` is empty or blank.
-   * @returns A new magic-link {@link Credential}.
-   */
-  public static createMagicLink(props: CreateMagicLinkProps): Credential {
-    if (!props.token || props.token.trim() === "") {
-      throw new InvalidCredentialError("Magic-link token cannot be empty.");
-    }
-
-    return new Credential({
-      id: props.id,
-      accountId: props.accountId,
-      proof: {
-        kind: "magic_link",
-        token: props.token,
-        expiresAt: props.expiresAt,
-      },
     });
   }
 
