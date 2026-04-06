@@ -26,6 +26,10 @@ export class InMemoryAccountRepository implements AccountRepository {
     }
     return null;
   }
+
+  async delete(id: AccountId): Promise<void> {
+    this.store.delete(String(id.value));
+  }
 }
 
 export class InMemoryPasswordCredentialStore implements PasswordCredentialStore {

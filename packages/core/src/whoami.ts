@@ -35,7 +35,11 @@ import { LinkOAuthToAccountUseCase } from "./features/credentials/application/li
 import { RegisterWithPasswordUseCase } from "./features/credentials/application/register-password.usecase.js";
 import { RemovePasswordUseCase } from "./features/credentials/application/remove-password.usecase.js";
 import type { Receipt } from "./features/receipts/index.js";
-import { CannotRemoveLastCredentialError } from "./shared/domain/errors/auth.error.js";
+import {
+  CannotRemoveLastCredentialError,
+  UnsupportedAuthMethodError,
+  OAuthProviderNotFoundError,
+} from "./shared/domain/errors/auth.error.js";
 import type { AccountId } from "./shared/index.js";
 import type { AuthConfig, AuthMethod, AuthMethods } from "./types.js";
 
@@ -85,12 +89,22 @@ export function createAuth(config: AuthConfig): AuthMethods {
     method: AuthMethod,
     options?: { provider?: string },
   ): Promise<void> => {
-    const activeMethods = await getAccountAuthMethods(accountId);
-    if (activeMethods.length <= 1) {
-      throw new CannotRemoveLastCredentialError();
-    }
+    if (method === "password") {
+      // Throw early when the method isn't configured at all.
+      if (!passwordConfig) {
+        throw new UnsupportedAuthMethodError("password");
+      }
 
-    if (method === "password" && passwordConfig) {
+      // After removing password, the account must still have at least one
+      // OAuth credential remaining.
+      const hasOAuth =
+        oauthConfig !== undefined &&
+        (await oauthConfig.oauthStore.existsForAccount(accountId));
+
+      if (!hasOAuth) {
+        throw new CannotRemoveLastCredentialError();
+      }
+
       const cred =
         await passwordConfig.passwordStore.findByAccountId(accountId);
       if (cred) {
@@ -99,18 +113,59 @@ export function createAuth(config: AuthConfig): AuthMethods {
         });
         await removeUC.execute({ credentialId: String(cred.id.value) });
       }
+      return;
     }
 
-    if (method === "oauth" && oauthConfig) {
+    if (method === "oauth") {
+      // Throw early when the method isn't configured at all.
+      if (!oauthConfig) {
+        throw new UnsupportedAuthMethodError("oauth");
+      }
+
       if (options?.provider) {
+        // Removing a single OAuth provider — safe only when another credential
+        // will remain after deletion (either another OAuth provider OR a password).
+        const allOAuth =
+          await oauthConfig.oauthStore.findAllByAccountId(accountId);
+
+        const providerCredential = allOAuth.find(
+          (c) => c.oauthProvider === options.provider,
+        );
+        if (!providerCredential) {
+          throw new OAuthProviderNotFoundError(options.provider);
+        }
+
+        const oauthCountAfter = allOAuth.length - 1;
+        const hasPassword =
+          passwordConfig !== undefined &&
+          (await passwordConfig.passwordStore.existsForAccount(accountId));
+
+        if (oauthCountAfter === 0 && !hasPassword) {
+          throw new CannotRemoveLastCredentialError();
+        }
+
         await oauthConfig.oauthStore.deleteByProvider(
           accountId,
           options.provider,
         );
       } else {
+        // Removing all OAuth — password auth must exist.
+        const hasPassword =
+          passwordConfig !== undefined &&
+          (await passwordConfig.passwordStore.existsForAccount(accountId));
+
+        if (!hasPassword) {
+          throw new CannotRemoveLastCredentialError();
+        }
+
         await oauthConfig.oauthStore.deleteAllForAccount(accountId);
       }
+      return;
     }
+
+    // Exhaustiveness: method is AuthMethod so this path is only reachable if
+    // the type is widened in the future without updating this switch.
+    throw new UnsupportedAuthMethodError(method as string);
   };
 
   // ── Base facade (always-present methods) ─────────────────────────────────

@@ -118,7 +118,16 @@ export class AuthenticateOAuthUseCase {
       provider: input.provider,
       providerId: input.providerId,
     });
-    await this.oauthStore.save(credential);
+
+    // Compensating action: if the credential write fails after the account has
+    // been persisted, delete the orphaned account so the caller can safely
+    // retry without hitting the conflict guard on the next attempt.
+    try {
+      await this.oauthStore.save(credential);
+    } catch (err) {
+      await this.accountRepo.delete(account.id);
+      throw err;
+    }
 
     return await this.issueReceipt.execute(account.id);
   }
