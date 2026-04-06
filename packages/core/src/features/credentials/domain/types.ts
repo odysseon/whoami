@@ -13,21 +13,6 @@ export type PasswordProof = {
 };
 
 /**
- * Magic-link credential proof.
- *
- * Stores a short-lived, single-use token that was sent to the user's inbox.
- *
- * @public
- */
-export type MagicLinkProof = {
-  kind: "magic_link";
-  /** The opaque token value (may be stored as a hash in production). */
-  token: string;
-  /** The UTC timestamp after which the token must be rejected. */
-  expiresAt: Date;
-};
-
-/**
  * OAuth credential proof.
  *
  * Stores the external provider identity, not an access token.
@@ -49,4 +34,4 @@ export type OAuthProof = {
  *
  * @public
  */
-export type CredentialProof = PasswordProof | MagicLinkProof | OAuthProof;
+export type CredentialProof = PasswordProof | OAuthProof;
