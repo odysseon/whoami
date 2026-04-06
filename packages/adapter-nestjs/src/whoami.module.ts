@@ -1,88 +1,54 @@
+import { DynamicModule, Module, Provider } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import {
-  DynamicModule,
-  FactoryProvider,
-  Module,
-  ModuleMetadata,
-  Type,
-} from "@nestjs/common";
-import type { ReceiptVerifier } from "@odysseon/whoami-core";
+  VerifyReceiptUseCase,
+  type ReceiptVerifier,
+} from "@odysseon/whoami-core";
+import { WhoamiAuthGuard } from "./guards/whoami-auth.guard.js";
+import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
 
-// ── DI token ─────────────────────────────────────────────────────────────────
-
-/** Injection token for the {@link ReceiptVerifier} bound by {@link WhoamiModule}. */
-export const WHOAMI_RECEIPT_VERIFIER = Symbol("WHOAMI_RECEIPT_VERIFIER");
-
-// ── Options shape ─────────────────────────────────────────────────────────────
-
 /**
- * Options accepted by {@link WhoamiModule.register} and {@link WhoamiModule.registerAsync}.
+ * Static options for `WhoamiModule.register`.
  * @public
  */
 export interface WhoamiModuleOptions {
-  /**
-   * The {@link ReceiptVerifier} implementation that validates signed receipt tokens.
-   *
-   * Typically an instance of `JoseReceiptVerifier` from `@odysseon/whoami-adapter-jose`.
-   */
-  receiptVerifier: ReceiptVerifier;
+  /** The receipt verifier implementation (e.g. `JoseReceiptVerifier`). */
+  verifier: ReceiptVerifier;
 }
 
-// ── Async options ─────────────────────────────────────────────────────────────
-
 /**
- * Async configuration options for {@link WhoamiModule.registerAsync}.
+ * Async options factory for `WhoamiModule.registerAsync`.
  * @public
  */
-export interface WhoamiModuleAsyncOptions extends Pick<
-  ModuleMetadata,
-  "imports"
-> {
-  /**
-   * Optional list of providers to inject into `useFactory`.
-   */
-  inject?: FactoryProvider["inject"];
-
-  /**
-   * Factory function that resolves {@link WhoamiModuleOptions}.
-   * The return value may be synchronous or a `Promise`.
-   */
+export interface WhoamiModuleAsyncOptions {
+  /** Modules to import whose providers are needed by `useFactory`. */
+  imports?: DynamicModule["imports"];
+  /** Factory that returns {@link WhoamiModuleOptions}. */
   useFactory: (
     ...args: unknown[]
   ) => WhoamiModuleOptions | Promise<WhoamiModuleOptions>;
-
-  /**
-   * Optional class with a `createWhoamiOptions()` method.
-   * Not implemented — prefer `useFactory` for simplicity.
-   */
-  useClass?: Type<{
-    createWhoamiOptions(): WhoamiModuleOptions | Promise<WhoamiModuleOptions>;
-  }>;
+  /** Providers injected into `useFactory`. */
+  inject?: Provider[];
 }
-
-// ── Module ────────────────────────────────────────────────────────────────────
 
 /**
  * NestJS integration module for `@odysseon/whoami-core`.
  *
- * Registers {@link WHOAMI_RECEIPT_VERIFIER} and {@link BearerTokenExtractor}
- * as providers so that {@link WhoamiAuthGuard} can be injected application-wide.
+ * Registers `VerifyReceiptUseCase`, `WhoamiAuthGuard`, `WhoamiExceptionFilter`,
+ * and `BearerTokenExtractor` as injectable providers.
  *
- * ### Synchronous registration
+ * @example
  * ```ts
- * WhoamiModule.register({
- *   receiptVerifier: new JoseReceiptVerifier({ secret, issuer }),
- * })
- * ```
+ * // Static
+ * WhoamiModule.register({ verifier: new JoseReceiptVerifier(config) })
  *
- * ### Asynchronous registration (preferred for env-driven config)
- * ```ts
+ * // Async
  * WhoamiModule.registerAsync({
- *   useFactory: (): WhoamiModuleOptions => ({
- *     receiptVerifier: new JoseReceiptVerifier({
- *       secret: process.env.JOSE_SECRET!,
- *       issuer: 'my-app',
- *     }),
+ *   imports: [ConfigModule],
+ *   inject: [ConfigService],
+ *   useFactory: (config: ConfigService) => ({
+ *     verifier: new JoseReceiptVerifier({ secret: config.get('JWT_SECRET') }),
  *   }),
  * })
  * ```
@@ -91,51 +57,56 @@ export interface WhoamiModuleAsyncOptions extends Pick<
  */
 @Module({})
 export class WhoamiModule {
-  /**
-   * Registers the module with a pre-constructed {@link WhoamiModuleOptions} object.
-   *
-   * @param options - Synchronous module options.
-   * @returns A {@link DynamicModule} ready to import.
-   */
-  public static register(options: WhoamiModuleOptions): DynamicModule {
+  static register(options: WhoamiModuleOptions): DynamicModule {
+    const providers = WhoamiModule.buildProviders(options);
     return {
       module: WhoamiModule,
-      providers: [
-        {
-          provide: WHOAMI_RECEIPT_VERIFIER,
-          useValue: options.receiptVerifier,
-        },
-        BearerTokenExtractor,
-      ],
-      exports: [WHOAMI_RECEIPT_VERIFIER, BearerTokenExtractor],
+      providers,
+      exports: providers,
     };
   }
 
-  /**
-   * Registers the module using an async factory, enabling injection of
-   * NestJS providers (e.g. `ConfigService`) into the options factory.
-   *
-   * @param asyncOptions - Async module options.
-   * @returns A {@link DynamicModule} ready to import.
-   */
-  public static registerAsync(
-    asyncOptions: WhoamiModuleAsyncOptions,
-  ): DynamicModule {
+  static registerAsync(options: WhoamiModuleAsyncOptions): DynamicModule {
+    const asyncProvider: Provider = {
+      provide: "WHOAMI_MODULE_OPTIONS",
+      useFactory: options.useFactory,
+      inject: (options.inject ?? []) as never[],
+    };
+
+    const verifyReceiptProvider: Provider = {
+      provide: VerifyReceiptUseCase,
+      useFactory: (opts: WhoamiModuleOptions) =>
+        new VerifyReceiptUseCase(opts.verifier),
+      inject: ["WHOAMI_MODULE_OPTIONS"],
+    };
+
+    const providers: Provider[] = [
+      asyncProvider,
+      verifyReceiptProvider,
+      WhoamiAuthGuard,
+      WhoamiExceptionFilter,
+      BearerTokenExtractor,
+      Reflector,
+    ];
+
     return {
       module: WhoamiModule,
-      imports: asyncOptions.imports ?? [],
-      providers: [
-        {
-          provide: WHOAMI_RECEIPT_VERIFIER,
-          useFactory: async (...args: unknown[]): Promise<ReceiptVerifier> => {
-            const opts = await asyncOptions.useFactory(...args);
-            return opts.receiptVerifier;
-          },
-          inject: asyncOptions.inject ?? [],
-        },
-        BearerTokenExtractor,
-      ],
-      exports: [WHOAMI_RECEIPT_VERIFIER, BearerTokenExtractor],
+      imports: options.imports ?? [],
+      providers,
+      exports: providers,
     };
+  }
+
+  private static buildProviders(options: WhoamiModuleOptions): Provider[] {
+    return [
+      {
+        provide: VerifyReceiptUseCase,
+        useValue: new VerifyReceiptUseCase(options.verifier),
+      },
+      WhoamiAuthGuard,
+      WhoamiExceptionFilter,
+      BearerTokenExtractor,
+      Reflector,
+    ];
   }
 }
