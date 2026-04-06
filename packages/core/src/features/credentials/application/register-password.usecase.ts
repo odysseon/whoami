@@ -66,13 +66,24 @@ export class RegisterWithPasswordUseCase {
    * @param input - {@link RegisterWithPasswordInput}
    * @returns A signed {@link Receipt} for the newly created account.
    * @throws {InvalidEmailError} When the email address is malformed.
-   * @throws {AccountAlreadyExistsError} When an account with this email already exists.
+   * @throws {AccountAlreadyExistsError} When an account with this email already exists,
+   *         whether registered via password or any other method such as OAuth.
    */
   async execute(input: RegisterWithPasswordInput): Promise<Receipt> {
     const email = new EmailAddress(input.email);
 
-    const existing = await this.deps.passwordStore.findByEmail(email);
-    if (existing) {
+    // Primary guard: check at the account level so OAuth-only accounts are
+    // caught. A missing password credential does NOT mean the email is free —
+    // the same email may already belong to an OAuth-registered account.
+    const existingAccount = await this.deps.accountRepo.findByEmail(email);
+    if (existingAccount) {
+      throw new AccountAlreadyExistsError();
+    }
+
+    // Secondary guard: belt-and-suspenders for credential-level duplicates
+    // (e.g. a race between two concurrent registrations for the same email).
+    const existingCredential = await this.deps.passwordStore.findByEmail(email);
+    if (existingCredential) {
       throw new AccountAlreadyExistsError();
     }
 
@@ -88,7 +99,16 @@ export class RegisterWithPasswordUseCase {
     });
 
     await this.deps.accountRepo.save(account);
-    await this.deps.passwordStore.save(credential);
+
+    // Compensating action: if the credential write fails after the account has
+    // been persisted, delete the orphaned account so the caller can safely
+    // retry without hitting the "already exists" guard on the next attempt.
+    try {
+      await this.deps.passwordStore.save(credential);
+    } catch (err) {
+      await this.deps.accountRepo.delete(account.id);
+      throw err;
+    }
 
     return await this.deps.issueReceipt.execute(account.id);
   }

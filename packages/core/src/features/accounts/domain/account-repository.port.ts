@@ -38,4 +38,15 @@ export interface AccountRepository {
    * @returns The matching account, or `null` when no account exists with that email.
    */
   findByEmail(email: EmailAddress): Promise<Account | null>;
+
+  /**
+   * Permanently removes an account by its unique identifier.
+   *
+   * Used by registration flows as a compensating action when a subsequent
+   * credential write fails, preventing orphaned accounts with no credential.
+   * Implementations should treat a missing ID as a no-op (idempotent).
+   *
+   * @param id - The {@link AccountId} of the account to remove.
+   */
+  delete(id: AccountId): Promise<void>;
 }
