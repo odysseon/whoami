@@ -1,5 +1,29 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 7.0.0
+
+### Major Changes
+
+- ba4a6f5: Removed Magic-Link authentication support to focus on Password and OAuth providers.
+  Finalized the `createAuth` factory with improved internal use-case composition.
+  Standardized workspace-wide TypeScript configurations and added new example implementation packages.
+
+### Minor Changes
+
+- d4e597b: Refactored authentication use cases to use structured input objects and moved callback handlers to the core library.
+  - Moved `OAuthCallbackHandler` from NestJS adapter to core to make it framework-agnostic.
+  - Introduced `PasswordCallbackHandler` and `MagicLinkCallbackHandler` in core.
+  - Changed `VerifyPasswordUseCase.execute` to accept a `VerifyPasswordInput` object instead of positional arguments.
+  - Standardized NestJS `WhoamiOAuthModule` to act as a DI wrapper for core handlers.
+
+### Patch Changes
+
+- Updated dependencies [d4e597b]
+- Updated dependencies [ba4a6f5]
+- Updated dependencies [140fc3d]
+- Updated dependencies [92e265d]
+  - @odysseon/whoami-core@5.0.0
+
 ## 6.0.0
 
 ### Major Changes

@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-adapter-jose",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "description": "Jose receipt signing and verification adapter for Odysseon Whoami",
   "license": "ISC",
   "author": "Hammed Anuoluwapo Pelumi",
@@ -44,7 +44,7 @@
     "@odysseon/whoami-core": "workspace:*"
   },
   "peerDependencies": {
-    "@odysseon/whoami-core": "^4.0.0"
+    "@odysseon/whoami-core": "^5.0.0"
   },
   "engines": {
     "node": ">=24.0.0"

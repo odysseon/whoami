@@ -1,5 +1,32 @@
 # @odysseon/whoami-core
 
+## 5.0.0
+
+### Major Changes
+
+- ba4a6f5: Removed Magic-Link authentication support to focus on Password and OAuth providers.
+  Finalized the `createAuth` factory with improved internal use-case composition.
+  Standardized workspace-wide TypeScript configurations and added new example implementation packages.
+- 140fc3d: Introduced a plugin-based authentication architecture and added full OAuth support.
+  - Refactored `createAuth` to support modular configuration for password and OAuth strategies.
+  - Added `authenticateWithOAuth` and `linkOAuthToAccount` methods.
+  - Added support for adding/removing authentication methods with safety guards against "orphaned" accounts.
+  - Updated registration and login flows to consistently return authentication receipts.
+  - Moved and standardized authentication types in a dedicated `types.ts` file.
+
+### Minor Changes
+
+- d4e597b: Refactored authentication use cases to use structured input objects and moved callback handlers to the core library.
+  - Moved `OAuthCallbackHandler` from NestJS adapter to core to make it framework-agnostic.
+  - Introduced `PasswordCallbackHandler` and `MagicLinkCallbackHandler` in core.
+  - Changed `VerifyPasswordUseCase.execute` to accept a `VerifyPasswordInput` object instead of positional arguments.
+  - Standardized NestJS `WhoamiOAuthModule` to act as a DI wrapper for core handlers.
+
+- 92e265d: - Added one-time use enforcement for magic-link authentication to prevent replay attacks.
+  - Introduced stable machine-readable error codes across all domain errors to improve error handling in consumers.
+  - Enhanced authentication use cases with detailed warning logs for failed verification attempts.
+  - Updated CredentialStore port to support `deleteByEmail`.
+
 ## 4.0.0
 
 ### Major Changes

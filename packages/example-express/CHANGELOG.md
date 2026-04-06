@@ -1,5 +1,22 @@
 # @odysseon/whoami-example-express
 
+## 0.0.2
+
+### Patch Changes
+
+- 92e265d: - Added one-time use enforcement for magic-link authentication to prevent replay attacks.
+  - Introduced stable machine-readable error codes across all domain errors to improve error handling in consumers.
+  - Enhanced authentication use cases with detailed warning logs for failed verification attempts.
+  - Updated CredentialStore port to support `deleteByEmail`.
+- Updated dependencies [d4e597b]
+- Updated dependencies [ba4a6f5]
+- Updated dependencies [140fc3d]
+- Updated dependencies [92e265d]
+  - @odysseon/whoami-core@5.0.0
+  - @odysseon/whoami-adapter-argon2@8.0.0
+  - @odysseon/whoami-adapter-jose@8.0.0
+  - @odysseon/whoami-adapter-webcrypto@8.0.0
+
 ## 0.0.1
 
 ### Patch Changes
