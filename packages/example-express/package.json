@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-example-express",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Simple Express app that consumes @odysseon/whoami-core",
   "type": "module",
