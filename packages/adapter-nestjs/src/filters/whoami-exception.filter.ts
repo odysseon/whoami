@@ -5,18 +5,16 @@ import {
   HttpStatus,
   Logger,
 } from "@nestjs/common";
-import { DomainError, DomainErrorCode } from "@odysseon/whoami-core";
 import type { Response } from "express";
+import { DomainError, InvalidConfigurationError } from "@odysseon/whoami-core";
 
-// ── Status map ────────────────────────────────────────────────────────────────
-
-const HTTP_STATUS_MAP: Record<DomainErrorCode, HttpStatus> = {
-  ACCOUNT_ALREADY_EXISTS: HttpStatus.CONFLICT,
+const STATUS_MAP: Partial<Record<string, HttpStatus>> = {
   AUTHENTICATION_ERROR: HttpStatus.UNAUTHORIZED,
   INVALID_RECEIPT: HttpStatus.UNAUTHORIZED,
-  WRONG_CREDENTIAL_TYPE: HttpStatus.BAD_REQUEST,
-  INVALID_EMAIL: HttpStatus.UNPROCESSABLE_ENTITY,
+  ACCOUNT_ALREADY_EXISTS: HttpStatus.CONFLICT,
+  INVALID_EMAIL: HttpStatus.BAD_REQUEST,
   INVALID_CONFIGURATION: HttpStatus.INTERNAL_SERVER_ERROR,
+  WRONG_CREDENTIAL_TYPE: HttpStatus.BAD_REQUEST,
   INVALID_ACCOUNT_ID: HttpStatus.BAD_REQUEST,
   INVALID_CREDENTIAL_ID: HttpStatus.BAD_REQUEST,
   INVALID_CREDENTIAL: HttpStatus.BAD_REQUEST,
@@ -27,50 +25,30 @@ const HTTP_STATUS_MAP: Record<DomainErrorCode, HttpStatus> = {
   UNSUPPORTED_AUTH_METHOD: HttpStatus.BAD_REQUEST,
 };
 
-// ── Filter ────────────────────────────────────────────────────────────────────
-
 /**
- * NestJS exception filter that translates {@link DomainError} instances thrown
- * by `@odysseon/whoami-core` into structured HTTP error responses.
+ * Catches every {@link DomainError} thrown inside NestJS route handlers and
+ * maps it to the appropriate HTTP response.
  *
- * Register globally in your `AppModule` or at controller level:
- *
- * ```ts
- * // Global registration (recommended)
- * app.useGlobalFilters(new WhoamiExceptionFilter());
- *
- * // Or as a provider via APP_FILTER
- * { provide: APP_FILTER, useClass: WhoamiExceptionFilter }
- * ```
+ * Register it globally via `app.useGlobalFilters(new WhoamiExceptionFilter())`
+ * or at module level with `APP_FILTER`.
  *
  * @public
  */
 @Catch(DomainError)
-export class WhoamiExceptionFilter implements ExceptionFilter<DomainError> {
+export class WhoamiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(WhoamiExceptionFilter.name);
 
-  /**
-   * Handles a caught {@link DomainError} and writes the HTTP response.
-   *
-   * @param exception - The domain error that was thrown.
-   * @param host      - The current arguments host.
-   */
-  public catch(exception: DomainError, host: ArgumentsHost): void {
+  catch(exception: DomainError, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
     const status =
-      HTTP_STATUS_MAP[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
+      STATUS_MAP[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
-    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(
-        `Unhandled domain error [${exception.code}]: ${exception.message}`,
-        exception.stack,
-      );
+    if (exception instanceof InvalidConfigurationError) {
+      this.logger.error(exception.message, exception.stack);
     } else {
-      this.logger.debug(
-        `Domain error [${exception.code}]: ${exception.message}`,
-      );
+      this.logger.warn(exception.message);
     }
 
     response.status(status).json({
