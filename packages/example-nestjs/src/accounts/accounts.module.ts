@@ -42,18 +42,18 @@ import { TOKENS } from "../tokens.js";
 // ---------------------------------------------------------------------------
 
 class RegisterDto {
-  @ApiProperty({ example: "ada@example.com", format: "email" })
+  @ApiProperty({ type: String, example: "ada@example.com", format: "email" })
   email!: string;
 
-  @ApiProperty({ example: "secret123", minLength: 8 })
+  @ApiProperty({ type: String, example: "secret123", minLength: 8 })
   password!: string;
 }
 
 class RegisterResponse {
-  @ApiProperty({ example: "eyJhbGciOiJIUzI1NiJ9..." })
+  @ApiProperty({ type: String, example: "eyJhbGciOiJIUzI1NiJ9..." })
   token!: string;
 
-  @ApiProperty({ format: "date-time" })
+  @ApiProperty({ type: Date, format: "date-time" })
   expiresAt!: Date;
 }
 

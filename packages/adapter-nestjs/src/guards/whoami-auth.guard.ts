@@ -5,9 +5,9 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import type { VerifyReceiptUseCase } from "@odysseon/whoami-core";
+import { VerifyReceiptUseCase } from "@odysseon/whoami-core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
-import type { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
+import { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
 
 /**
  * Global authentication guard for NestJS applications.

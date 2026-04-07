@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { AuthTokenExtractor } from "./auth-token-extractor.port.js";
+import { AuthTokenExtractor } from "./auth-token-extractor.port.js";
 
 type RequestWithHeaders = {
   headers?: {

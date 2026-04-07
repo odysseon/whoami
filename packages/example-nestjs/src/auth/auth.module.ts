@@ -25,29 +25,29 @@ import { TOKENS } from "../tokens.js";
 // ---------------------------------------------------------------------------
 
 class LoginPasswordDto {
-  @ApiProperty({ example: "ada@example.com", format: "email" })
+  @ApiProperty({ type: String, example: "ada@example.com", format: "email" })
   email!: string;
 
-  @ApiProperty({ example: "secret123" })
+  @ApiProperty({ type: String, example: "secret123" })
   password!: string;
 }
 
 class OAuthLoginDto {
-  @ApiProperty({ example: "ada@example.com", format: "email" })
+  @ApiProperty({ type: String, example: "ada@example.com", format: "email" })
   email!: string;
 
-  @ApiProperty({ example: "google" })
+  @ApiProperty({ type: String, example: "google" })
   provider!: string;
 
-  @ApiProperty({ example: "g-12345" })
+  @ApiProperty({ type: String, example: "g-12345" })
   providerId!: string;
 }
 
 class ReceiptTokenResponse {
-  @ApiProperty({ example: "eyJhbGciOiJIUzI1NiJ9..." })
+  @ApiProperty({ type: String, example: "eyJhbGciOiJIUzI1NiJ9..." })
   token!: string;
 
-  @ApiProperty({ format: "date-time" })
+  @ApiProperty({ type: Date, format: "date-time" })
   expiresAt!: Date;
 }
 

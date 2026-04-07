@@ -1,5 +1,4 @@
 import { DynamicModule, Module, Provider } from "@nestjs/common";
-import { Reflector } from "@nestjs/core";
 import {
   VerifyReceiptUseCase,
   type ReceiptVerifier,
@@ -7,54 +6,20 @@ import {
 import { WhoamiAuthGuard } from "./guards/whoami-auth.guard.js";
 import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
+import { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
 
-/**
- * Static options for `WhoamiModule.register`.
- * @public
- */
 export interface WhoamiModuleOptions {
-  /** The receipt verifier implementation (e.g. `JoseReceiptVerifier`). */
   verifier: ReceiptVerifier;
 }
 
-/**
- * Async options factory for `WhoamiModule.registerAsync`.
- * @public
- */
 export interface WhoamiModuleAsyncOptions {
-  /** Modules to import whose providers are needed by `useFactory`. */
   imports?: DynamicModule["imports"];
-  /** Factory that returns {@link WhoamiModuleOptions}. */
   useFactory: (
     ...args: unknown[]
   ) => WhoamiModuleOptions | Promise<WhoamiModuleOptions>;
-  /** Providers injected into `useFactory`. */
   inject?: Provider[];
 }
 
-/**
- * NestJS integration module for `@odysseon/whoami-core`.
- *
- * Registers `VerifyReceiptUseCase`, `WhoamiAuthGuard`, `WhoamiExceptionFilter`,
- * and `BearerTokenExtractor` as injectable providers.
- *
- * @example
- * ```ts
- * // Static
- * WhoamiModule.register({ verifier: new JoseReceiptVerifier(config) })
- *
- * // Async
- * WhoamiModule.registerAsync({
- *   imports: [ConfigModule],
- *   inject: [ConfigService],
- *   useFactory: (config: ConfigService) => ({
- *     verifier: new JoseReceiptVerifier({ secret: config.get('JWT_SECRET') }),
- *   }),
- * })
- * ```
- *
- * @public
- */
 @Module({})
 export class WhoamiModule {
   static register(options: WhoamiModuleOptions): DynamicModule {
@@ -80,13 +45,17 @@ export class WhoamiModule {
       inject: ["WHOAMI_MODULE_OPTIONS"],
     };
 
+    const tokenExtractorProvider: Provider = {
+      provide: AuthTokenExtractor,
+      useClass: BearerTokenExtractor,
+    };
+
     const providers: Provider[] = [
       asyncProvider,
       verifyReceiptProvider,
+      tokenExtractorProvider,
       WhoamiAuthGuard,
       WhoamiExceptionFilter,
-      BearerTokenExtractor,
-      Reflector,
     ];
 
     return {
@@ -103,10 +72,12 @@ export class WhoamiModule {
         provide: VerifyReceiptUseCase,
         useValue: new VerifyReceiptUseCase(options.verifier),
       },
+      {
+        provide: AuthTokenExtractor,
+        useClass: BearerTokenExtractor,
+      },
       WhoamiAuthGuard,
       WhoamiExceptionFilter,
-      BearerTokenExtractor,
-      Reflector,
     ];
   }
 }

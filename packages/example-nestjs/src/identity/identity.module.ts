@@ -25,13 +25,18 @@ import { TOKENS } from "../tokens.js";
 // ---------------------------------------------------------------------------
 
 class ProfileResponse {
-  @ApiProperty({ example: 1 })
+  @ApiProperty({ type: String, example: "1" })
   accountId!: unknown;
 
-  @ApiProperty({ example: "ada@example.com", format: "email", nullable: true })
+  @ApiProperty({
+    type: String,
+    example: "ada@example.com",
+    format: "email",
+    nullable: true,
+  })
   email!: string | null;
 
-  @ApiProperty({ format: "date-time" })
+  @ApiProperty({ type: Date, format: "date-time" })
   tokenExpiresAt!: Date;
 }
 
@@ -86,7 +91,7 @@ export class IdentityController {
     // over the env var directly, avoiding cross-module DI token resolution.
     WhoamiModule.registerAsync({
       useFactory: (): WhoamiModuleOptions => ({
-        receiptVerifier: new JoseReceiptVerifier({
+        verifier: new JoseReceiptVerifier({
           secret:
             process.env["JOSE_SECRET"] ?? "dev-secret-at-least-32-chars-long!!",
           issuer: "whoami-nestjs-example",
