@@ -1,5 +1,19 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 7.1.0
+
+### Minor Changes
+
+- 0e6fe8b: Added support for custom token extractors in WhoamiModule.
+  - Users can now override the default Bearer token extraction logic via module options.
+  - Improved DI registration to support both static and async configuration for extractors.
+
+### Patch Changes
+
+- 7cb2816: Fixed Dependency Injection issues in NestJS by using abstract classes for tokens.
+  Added explicit types to Swagger DTOs to ensure correct OpenAPI documentation.
+  Cleaned up redundant providers in WhoamiModule.
+
 ## 7.0.0
 
 ### Major Changes
