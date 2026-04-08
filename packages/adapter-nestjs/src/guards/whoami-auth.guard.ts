@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { VerifyReceiptUseCase } from "@odysseon/whoami-core";
+import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
 import { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
 

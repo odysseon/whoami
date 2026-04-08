@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { AuthenticateOAuthUseCase, Receipt } from "@odysseon/whoami-core";
+import { Inject, Injectable } from "@nestjs/common";
+import { type AuthMethods, type Receipt } from "@odysseon/whoami-core";
+import { AUTH_METHODS } from "../whoami.module.js";
 
 /**
  * The normalised profile shape that any OAuth provider strategy must supply.
@@ -7,58 +8,54 @@ import { AuthenticateOAuthUseCase, Receipt } from "@odysseon/whoami-core";
  * this shape before passing it to the handler.
  */
 export interface OAuthProfile {
-  /**
-   * The authenticated user's email address as returned by the provider.
-   */
+  /** The authenticated user's email address as returned by the provider. */
   email: string;
-
-  /**
-   * The provider identifier string (e.g. `"google"`, `"github"`).
-   */
+  /** The provider identifier string (e.g. `"google"`, `"github"`). */
   provider: string;
-
-  /**
-   * The stable user identifier issued by the provider
-   * (e.g. Google `sub`, GitHub numeric `id` as a string).
-   */
+  /** The stable user identifier issued by the provider. */
   providerId: string;
 }
 
 /**
  * Composes the full OAuth authentication flow into a single injectable service.
  *
- * Internally it runs `AuthenticateOAuthUseCase` (auto-register or verify) and
- * `IssueReceiptUseCase` in sequence. The consumer controller calls `handle(profile)`
- * and receives a signed `Receipt` ready to be returned to the client.
- *
- * After this call, you are responsible for creating or hydrating your own user record
- * using `receipt.accountId.value` as the foreign key.
+ * Delegates to the {@link AuthMethods} facade (`auth.authenticateWithOAuth`),
+ * which requires `oauth` to be configured in {@link WhoamiModuleOptions}.
+ * The consumer controller calls `handle(profile)` and receives a signed
+ * `Receipt` ready to be returned to the client.
  *
  * @example
  * ```ts
- * // In your OAuth callback controller:
  * const receipt = await this.oauthHandler.handle({
  *   email: profile.email,
  *   provider: 'google',
  *   providerId: profile.sub,
  * });
- * await this.userService.getOrCreate(receipt.accountId.value, profile);
  * return { token: receipt.token, expiresAt: receipt.expiresAt };
  * ```
  */
 @Injectable()
 export class OAuthCallbackHandler {
-  constructor(private readonly authenticateOAuth: AuthenticateOAuthUseCase) {}
+  constructor(
+    @Inject(AUTH_METHODS)
+    private readonly auth: AuthMethods,
+  ) {}
 
   /**
    * Authenticates or auto-registers an account via OAuth, then issues a signed receipt.
    *
    * @param profile - The normalised OAuth profile from the provider strategy.
    * @returns The signed receipt containing the token and account identity.
+   * @throws {Error} When `oauth` is not configured in WhoamiModuleOptions.
    * @throws {AuthenticationError} When an existing credential fails OAuth verification.
    */
   public async handle(profile: OAuthProfile): Promise<Receipt> {
-    return await this.authenticateOAuth.execute({
+    if (!this.auth.authenticateWithOAuth) {
+      throw new Error(
+        "OAuth is not configured. Add `oauth: { oauthStore }` to WhoamiModuleOptions.",
+      );
+    }
+    return await this.auth.authenticateWithOAuth({
       email: profile.email,
       provider: profile.provider,
       providerId: profile.providerId,

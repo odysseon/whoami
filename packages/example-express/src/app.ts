@@ -6,11 +6,8 @@ import express, {
 } from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
-import {
-  DomainError,
-  type AuthMethods,
-  type VerifyReceiptUseCase,
-} from "@odysseon/whoami-core";
+import { DomainError, type AuthMethods } from "@odysseon/whoami-core";
+import type { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 import { swaggerOptions } from "./swagger.js";
 import { createAccountsRouter } from "./routes/accounts.js";
 import { createAuthRouter } from "./routes/auth.js";
