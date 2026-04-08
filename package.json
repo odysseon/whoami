@@ -13,8 +13,11 @@
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write \"packages/**/*.ts\"",
     "changeset": "changeset",
-    "version": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "version": "changeset version && pnpm install --no-frozen-lockfile",
+    "release": "pnpm build && changeset publish",
+    "pre:enter": "changeset pre enter",
+    "pre:exit": "changeset pre exit",
+    "release:dev": "changeset version --snapshot dev && pnpm build && changeset publish --tag dev --no-git-tag"
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",

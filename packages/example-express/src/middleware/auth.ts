@@ -1,9 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import {
-  DomainError,
-  Receipt,
-  type VerifyReceiptUseCase,
-} from "@odysseon/whoami-core";
+import { DomainError, Receipt } from "@odysseon/whoami-core";
+import type { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 
 export interface AuthenticatedRequest extends Request {
   identity?: Receipt;

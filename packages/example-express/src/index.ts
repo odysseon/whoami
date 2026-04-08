@@ -1,10 +1,10 @@
 import { pathToFileURL } from "node:url";
 import type { Server } from "node:http";
+import { createAuth } from "@odysseon/whoami-core";
 import {
-  createAuth,
   IssueReceiptUseCase,
   VerifyReceiptUseCase,
-} from "@odysseon/whoami-core";
+} from "@odysseon/whoami-core/internal";
 import {
   JoseReceiptSigner,
   JoseReceiptVerifier,
