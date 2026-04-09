@@ -1,5 +1,16 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 0.0.0-beta.1
+
+### Major Changes
+
+- 28cfb75: Bifurcate public/internal API surface and promote NestJS adapter to a global module
+
+### Patch Changes
+
+- Updated dependencies [28cfb75]
+  - @odysseon/whoami-core@0.0.0-beta.0
+
 ## 0.0.0-beta.0
 
 ### Major Changes
