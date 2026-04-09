@@ -1,5 +1,15 @@
 # @odysseon/whoami-example-express
 
+## 0.0.0-beta.0
+
+### Patch Changes
+
+- Updated dependencies [28cfb75]
+  - @odysseon/whoami-core@0.0.0-beta.0
+  - @odysseon/whoami-adapter-argon2@0.0.0-beta.0
+  - @odysseon/whoami-adapter-jose@0.0.0-beta.0
+  - @odysseon/whoami-adapter-webcrypto@0.0.0-beta.0
+
 ## 0.0.0-dev-20260408132748
 
 ### Patch Changes

@@ -11,6 +11,7 @@
     "@odysseon/whoami-example-nestjs": "0.0.0-dev-20260408132748"
   },
   "changesets": [
-    "major-meals-rule"
+    "major-meals-rule",
+    "new-worms-fix"
   ]
 }
