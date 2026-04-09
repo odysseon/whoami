@@ -1,5 +1,16 @@
 # @odysseon/whoami-example-nestjs
 
+## 0.0.0-beta.2
+
+### Patch Changes
+
+- Updated dependencies [19cffd7]
+  - @odysseon/whoami-adapter-nestjs@0.0.0-beta.2
+  - @odysseon/whoami-core@0.0.0-beta.1
+  - @odysseon/whoami-adapter-argon2@0.0.0-beta.1
+  - @odysseon/whoami-adapter-jose@0.0.0-beta.1
+  - @odysseon/whoami-adapter-webcrypto@0.0.0-beta.1
+
 ## 0.0.0-beta.1
 
 ### Patch Changes

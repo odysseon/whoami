@@ -12,6 +12,7 @@
   },
   "changesets": [
     "major-meals-rule",
-    "new-worms-fix"
+    "new-worms-fix",
+    "solid-waves-like"
   ]
 }
