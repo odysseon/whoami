@@ -1,5 +1,11 @@
 # @odysseon/whoami-core
 
+## 0.0.0-beta.1
+
+### Major Changes
+
+- 19cffd7: Formalize beta release for global NestJS module and bifurcated core API.
+
 ## 0.0.0-beta.0
 
 ### Major Changes
