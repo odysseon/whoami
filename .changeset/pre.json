@@ -1,0 +1,14 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@odysseon/whoami-adapter-argon2": "0.0.0-dev-20260408132748",
+    "@odysseon/whoami-adapter-jose": "0.0.0-dev-20260408132748",
+    "@odysseon/whoami-adapter-nestjs": "0.0.0-dev-20260408132748",
+    "@odysseon/whoami-adapter-webcrypto": "0.0.0-dev-20260408132748",
+    "@odysseon/whoami-core": "0.0.0-dev-20260408132748",
+    "@odysseon/whoami-example-express": "0.0.0-dev-20260408132748",
+    "@odysseon/whoami-example-nestjs": "0.0.0-dev-20260408132748"
+  },
+  "changesets": []
+}
