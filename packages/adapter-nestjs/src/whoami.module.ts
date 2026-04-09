@@ -1,5 +1,6 @@
 import {
   DynamicModule,
+  Global,
   Module,
   Provider,
   FactoryProvider,
@@ -18,19 +19,9 @@ import { WhoamiAuthGuard } from "./guards/whoami-auth.guard.js";
 import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
 import { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
-
-/**
- * DI token for the {@link AuthMethods} facade produced by {@link createAuth}.
- *
- * Inject it to call auth methods directly in your own services:
- *
- * ```ts
- * constructor(@Inject(AUTH_METHODS) private readonly auth: AuthMethods) {}
- * ```
- *
- * @public
- */
-export const AUTH_METHODS = "WHOAMI_AUTH_METHODS" as const;
+import { OAuthCallbackHandler } from "./oauth/oauth-callback-handler.js";
+import { AUTH_METHODS } from "./tokens.js";
+export { AUTH_METHODS } from "./tokens.js";
 
 /**
  * Supply the full {@link AuthConfig} and let {@link WhoamiModule} call
@@ -66,6 +57,7 @@ function resolveAuth(opts: WhoamiModuleOptions): AuthMethods {
     : createAuth(opts as AuthConfig);
 }
 
+@Global()
 @Module({})
 export class WhoamiModule {
   static register(options: WhoamiModuleOptions): DynamicModule {
@@ -117,6 +109,7 @@ export class WhoamiModule {
       bearerTokenExtractorAliasProvider,
       WhoamiAuthGuard,
       WhoamiExceptionFilter,
+      OAuthCallbackHandler,
     ];
 
     return {
@@ -147,6 +140,7 @@ export class WhoamiModule {
       },
       WhoamiAuthGuard,
       WhoamiExceptionFilter,
+      OAuthCallbackHandler,
     ];
   }
 }
