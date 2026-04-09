@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { type AuthMethods, type Receipt } from "@odysseon/whoami-core";
-import { AUTH_METHODS } from "../whoami.module.js";
+import { AUTH_METHODS } from "../tokens.js";
 
 /**
  * The normalised profile shape that any OAuth provider strategy must supply.
