@@ -10,5 +10,7 @@
     "@odysseon/whoami-example-express": "0.0.0-dev-20260408132748",
     "@odysseon/whoami-example-nestjs": "0.0.0-dev-20260408132748"
   },
-  "changesets": []
+  "changesets": [
+    "major-meals-rule"
+  ]
 }
