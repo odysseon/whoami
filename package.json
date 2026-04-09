@@ -1,6 +1,6 @@
 {
   "name": "whoami",
-  "private": false,
+  "private": true,
   "keywords": [],
   "license": "ISC",
   "author": "",
