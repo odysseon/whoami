@@ -58,6 +58,30 @@ export class InMemoryPasswordCredentialStore implements PasswordCredentialStore 
     this.byAccountId.set(String(credential.accountId.value), credential);
   }
 
+  async update(credentialId: CredentialId, newHash: string): Promise<void> {
+    // Find the credential by its ID
+    let found: Credential | undefined;
+    for (const cred of this.byAccountId.values()) {
+      if (cred.id.value === credentialId.value) {
+        found = cred;
+        break;
+      }
+    }
+
+    if (!found) {
+      throw new Error(`Credential with id ${credentialId.value} not found`);
+    }
+
+    // Credential is immutable; create a new one with the same id and accountId
+    const updated = Credential.loadExisting({
+      id: found.id,
+      accountId: found.accountId,
+      proof: { kind: "password", hash: newHash },
+    });
+
+    this.byAccountId.set(String(found.accountId.value), updated);
+  }
+
   async delete(credentialId: CredentialId): Promise<void> {
     for (const [key, cred] of this.byAccountId.entries()) {
       if (cred.id.value === credentialId.value) {
