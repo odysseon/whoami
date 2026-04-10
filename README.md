@@ -1,121 +1,118 @@
-# @odysseon/whoami-core
+# whoami
+
+**whoami answers one question: who is making this request?**
+
+It handles identity — registration, authentication (password and OAuth), and signed receipt tokens. It does not manage profiles, roles, or application-level user data. That is intentionally your domain.
+
+## Why this matters
+
+Most auth libraries conflate identity with user management. They force you to extend their `User` model, fight their schema, and work around their assumptions. whoami owns exactly one thing:
+
+```
+AccountId ──► "This request is from account abc-123. You can trust that."
+```
+
+Everything else — what that account can do, what profile they have, what community they belong to — lives in your application, linked by a single foreign key.
+
+## Core value
+
+- **Framework-agnostic core.** Domain logic has zero framework or I/O dependencies. Bring your own NestJS, Express, Fastify, or none.
+- **Adapter-based extensibility.** Swap hashing algorithms, JWT strategies, or frameworks by swapping one package.
+- **Typed identity primitive.** `AccountId` accepts `string | number` — no forced UUID, no silent cast.
+
+## How your entities link to Account
+
+whoami returns an `AccountId` after authentication. Your application creates its own user record linked by that ID. No base class to extend, no schema to fight.
+
+```
+whoami DB:
+  accounts  { id, email }                      ← all whoami ever stores
+
+your DB:
+  users     { id, account_id ← accountId.value, display_name, avatar, ... }
+  posts     { id, author_id  → users.id }
+  channels  { id, owner_id   → users.id }
+```
+
+See [the example apps](#examples) for how this wiring looks in practice.
+
+## Architecture at a glance
 
 ```mermaid
 graph TD
-    Factory["createAuth(config) → AuthMethods"]
+    subgraph "Your Application"
+        YourUser["User / Profile / Post / Channel"]
+        YourController["Your Route Handler"]
+    end
 
-    Factory --> Accounts["accounts feature"]
-    Factory --> Auth["authentication feature"]
-    Factory --> Credentials["credentials feature"]
-    Factory --> Receipts["receipts feature"]
-    Factory --> Shared["shared domain"]
+    subgraph "adapter-nestjs"
+        Guard["WhoamiAuthGuard"]
+        OAuthHandler["OAuthCallbackHandler"]
+        Decorator["@CurrentIdentity()"]
+    end
 
-    Accounts --> AccountEntity["Account entity"]
-    Accounts --> AccountRepo["AccountRepository port"]
-    Accounts --> RegisterAccountUC["RegisterAccountUseCase"]
+    subgraph "whoami-core — createAuth facade"
+        AuthMethods["AuthMethods facade\n─────────────────\nregisterWithPassword\nauthenticateWithPassword\nauthenticateWithOAuth\nlinkOAuthToAccount\naddPasswordToAccount\ngetAccountAuthMethods\nremoveAuthMethod"]
+        IssueUC["IssueReceiptUseCase"]
+        VerifyUC["VerifyReceiptUseCase"]
+        Receipt["Receipt { token, accountId, expiresAt }"]
+    end
 
-    Auth --> AuthPwdUC["AuthenticateWithPasswordUseCase"]
-    Auth --> AuthOAuthUC["AuthenticateOAuthUseCase"]
-    Auth --> AddPwdUC["AddPasswordAuthUseCase"]
-
-    Credentials --> CredentialEntity["Credential entity"]
-    Credentials --> PwdStore["PasswordCredentialStore port"]
-    Credentials --> OAuthStore["OAuthCredentialStore port"]
-    Credentials --> PasswordMgr["PasswordManager port"]
-    Credentials --> TokenHasher["TokenHasher port"]
-    Credentials --> RegisterPwdUC["RegisterWithPasswordUseCase"]
-    Credentials --> LinkOAuthUC["LinkOAuthToAccountUseCase"]
-    Credentials --> RemovePwdUC["RemovePasswordUseCase"]
-
-    Receipts --> ReceiptEntity["Receipt entity"]
-    Receipts --> ReceiptSigner["ReceiptSigner port"]
-    Receipts --> ReceiptVerifier["ReceiptVerifier port"]
-    Receipts --> IssueUC["IssueReceiptUseCase"]
-    Receipts --> VerifyUC["VerifyReceiptUseCase"]
-
-    Shared --> VOs["Value Objects (AccountId, EmailAddress, CredentialId)"]
-    Shared --> Errors["Domain errors (12 types)"]
-    Shared --> LoggerPort["LoggerPort"]
+    YourController --> Guard
+    Guard --> VerifyUC
+    Decorator --> YourController
+    OAuthHandler --> AuthMethods
+    AuthMethods --> IssueUC
+    IssueUC --> Receipt
+    VerifyUC --> Receipt
+    YourUser -. "account_id FK" .-> Receipt
 ```
 
-## Delegated Responsibility
+## Packages
 
-This package enforces authentication rules and exposes the contracts that adapters must implement. It contains zero framework or I/O dependencies.
+| Package | Purpose |
+|---|---|
+| [`@odysseon/whoami-core`](packages/core/README.md) | Domain entities, use cases, port interfaces, and the `createAuth` factory facade |
+| [`@odysseon/whoami-adapter-argon2`](packages/adapter-argon2/README.md) | `PasswordManager` implementation via argon2 |
+| [`@odysseon/whoami-adapter-jose`](packages/adapter-jose/README.md) | `ReceiptSigner` / `ReceiptVerifier` via jose (HS256 JWT) |
+| [`@odysseon/whoami-adapter-webcrypto`](packages/adapter-webcrypto/README.md) | `TokenHasher` via native Web Crypto API (API keys, opaque tokens) |
+| [`@odysseon/whoami-adapter-nestjs`](packages/adapter-nestjs/README.md) | NestJS module, OAuth handler, guard, decorator, exception filter |
 
-## Entry points
+## Examples
 
-| Entry point                      | Consumer             | Contains                                                 |
-| -------------------------------- | -------------------- | -------------------------------------------------------- |
-| `@odysseon/whoami-core`          | Application code     | `createAuth`, all ports, entities, errors, value objects |
-| `@odysseon/whoami-core/internal` | Adapter authors only | Concrete use-case classes for NestJS DI token wiring     |
+| Example | Framework | What it shows |
+|---|---|---|
+| [`example-nestjs`](packages/example-nestjs/README.md) | NestJS 11 | DI wiring, password + OAuth flows, global guard, Swagger UI |
+| [`example-express`](packages/example-express/README.md) | Express 5 | Minimal wiring, password + OAuth flows, custom auth middleware |
 
-## createAuth
+## Quick start
 
-`createAuth(config: AuthConfig): AuthMethods` is the primary API. It composes all use-cases internally — you never import use-case classes directly from this package.
+```bash
+pnpm install
 
-```ts
-import { createAuth } from "@odysseon/whoami-core";
-import {
-  IssueReceiptUseCase,
-  VerifyReceiptUseCase,
-} from "@odysseon/whoami-core/internal";
+# run the NestJS example
+pnpm --filter @odysseon/whoami-example-nestjs dev
 
-const auth = createAuth({
-  accountRepo,
-  tokenSigner: new IssueReceiptUseCase({ signer, tokenLifespanMinutes: 60 }),
-  verifyReceipt: new VerifyReceiptUseCase(verifier),
-  logger: console,
-  generateId: () => crypto.randomUUID(),
-  password: { hashManager, passwordStore }, // omit to disable password auth
-  oauth: { oauthStore }, // omit to disable OAuth auth
-});
+# run the Express example
+pnpm --filter @odysseon/whoami-example-express dev
 
-const receipt = await auth.registerWithPassword!({ email, password });
+# run all tests
+pnpm test
 ```
 
-## Features
+## Key docs
 
-### `accounts`
+| Doc | Purpose |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Zone model, dependency rules, feature structure |
+| [docs/type-model.md](docs/type-model.md) | AccountId, Receipt, CredentialProof, AuthMethods, error types |
 
-Manages the `Account` aggregate. `RegisterAccountUseCase` enforces email uniqueness before persisting a new account through the `AccountRepository` port.
+## Development
 
-### `authentication`
-
-Orchestrates authentication flows. Use cases are composed internally by `createAuth`; you interact with them through the `AuthMethods` facade.
-
-| Use case                          | What it does                                                                      |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| `AuthenticateWithPasswordUseCase` | Looks up password credential by email, compares hash, issues receipt              |
-| `AuthenticateOAuthUseCase`        | Three-phase OAuth flow: fast-path → conflict-guard → auto-register                |
-| `AddPasswordAuthUseCase`          | Adds a password credential to an existing account (e.g. after OAuth registration) |
-
-### `credentials`
-
-Manages `Credential` aggregates. Two proof kinds are supported: `password` and `oauth`.
-
-| Use case                      | What it does                                                      |
-| ----------------------------- | ----------------------------------------------------------------- |
-| `RegisterWithPasswordUseCase` | Creates account + password credential atomically, returns receipt |
-| `LinkOAuthToAccountUseCase`   | Links an OAuth credential to an already-authenticated account     |
-| `RemovePasswordUseCase`       | Removes a password credential by credential ID                    |
-| `UpdatePasswordUseCase`       | Verifies current password and updates to a new hash               |
-
-### `receipts`
-
-Manages the `Receipt` aggregate. `IssueReceiptUseCase` signs a receipt for an authenticated `AccountId` via the `ReceiptSigner` port. `VerifyReceiptUseCase` verifies a signed token via the `ReceiptVerifier` port.
-
-## Ports summary
-
-| Port                      | Feature     | Purpose                                                   |
-| ------------------------- | ----------- | --------------------------------------------------------- |
-| `AccountRepository`       | accounts    | Persist and retrieve accounts                             |
-| `PasswordCredentialStore` | credentials | Persist and retrieve password credentials                 |
-| `OAuthCredentialStore`    | credentials | Persist and retrieve OAuth credentials (one per provider) |
-| `PasswordManager`         | credentials | Hash and verify passwords (slow, salted — use argon2)     |
-| `TokenHasher`             | credentials | Deterministically hash opaque tokens (fast, SHA-256)      |
-| `ReceiptSigner`           | receipts    | Sign a receipt JWT                                        |
-| `ReceiptVerifier`         | receipts    | Verify and decode a receipt JWT                           |
-| `LoggerPort`              | shared      | Framework-agnostic structured logging                     |
+```bash
+pnpm -r exec tsc --noEmit   # typecheck all packages
+pnpm test                    # test all packages
+```
 
 ## License
 
