@@ -39,8 +39,23 @@ export class IssueReceiptUseCase {
 
   constructor(config: IssueReceiptConfig) {
     this.signer = config.signer;
-    this.tokenLifespanMinutes = config.tokenLifespanMinutes ?? 60;
     this.now = config.now ?? ((): Date => new Date());
+
+    const minutes = config.tokenLifespanMinutes;
+    if (minutes !== undefined) {
+      if (
+        !Number.isFinite(minutes) ||
+        !Number.isInteger(minutes) ||
+        minutes <= 0
+      ) {
+        throw new InvalidConfigurationError(
+          "tokenLifespanMinutes must be a finite, positive integer.",
+        );
+      }
+      this.tokenLifespanMinutes = minutes;
+    } else {
+      this.tokenLifespanMinutes = 60;
+    }
   }
 
   /**
@@ -51,6 +66,7 @@ export class IssueReceiptUseCase {
    * @throws {InvalidConfigurationError} When `tokenLifespanMinutes` is not positive.
    */
   public async execute(accountId: AccountId): Promise<Receipt> {
+    // Redundant safety check (constructor already validated)
     if (this.tokenLifespanMinutes <= 0) {
       throw new InvalidConfigurationError(
         "Receipt token lifespan must be greater than zero minutes.",

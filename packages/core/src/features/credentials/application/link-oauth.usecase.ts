@@ -34,7 +34,7 @@ export interface LinkOAuthToAccountDeps {
    * Receipt verifier — either a {@link VerifyReceiptUseCase} instance or any
    * object with a compatible `execute(token)` signature.
    */
-  verifyReceipt: VerifyReceiptUseCase;
+  verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
   /**
    * Deterministic ID generator — must return a non-empty string on every call.
    * Inject `crypto.randomUUID` or any UUID v4 factory.
@@ -60,7 +60,7 @@ export interface LinkOAuthToAccountDeps {
 export class LinkOAuthToAccountUseCase {
   private readonly accountRepo: AccountRepository;
   private readonly oauthStore: OAuthCredentialStore;
-  private readonly verifyReceipt: VerifyReceiptUseCase;
+  private readonly verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
   private readonly generateId: () => string;
   private readonly logger: LoggerPort;
 
