@@ -2,15 +2,14 @@
 
 ## AccountId
 
-Accepts `string | number`. The `.value` property preserves whatever type you pass in — no silent coercion.
+Accepts a non-empty `string`. The `.value` property always returns the normalised string.
 
 ```ts
-new AccountId(1);           // numeric PK — value is number 1
 new AccountId("user-uuid"); // string UUID — value is "user-uuid"
 new AccountId("");          // throws InvalidAccountIdError
 ```
 
-Use `accountId.value` as the foreign key in your `users` table. Store it as whatever your database natively uses.
+Use `accountId.value` as the foreign key in your `users` table.
 
 ## EmailAddress
 
@@ -77,8 +76,9 @@ Calling a proof accessor that doesn't match the stored kind throws `WrongCredent
 ```ts
 interface AuthConfig {
   accountRepo: AccountRepository;        // required
-  tokenSigner: IssueReceiptUseCase;      // required — mints receipts
-  verifyReceipt: VerifyReceiptUseCase;   // required — validates receipts
+  receiptSigner: ReceiptSigner;          // required — mints receipt tokens
+  receiptVerifier: ReceiptVerifier;      // required — validates receipt tokens
+  tokenLifespanMinutes?: number;         // optional, default 60
   logger: LoggerPort;                    // required
   generateId: () => string;             // required — e.g. crypto.randomUUID
 
@@ -98,7 +98,7 @@ The returned `AuthMethods` facade has methods that are always present and method
 ```mermaid
 graph LR
     Always["Always present\n──────────────────────\ngetAccountAuthMethods(accountId)\nremoveAuthMethod(accountId, method, options?)"]
-    PwdOnly["Present when password configured\n──────────────────────────────────\nregisterWithPassword(input)\nauthenticateWithPassword(input)\naddPasswordToAccount(accountId, password)"]
+    PwdOnly["Present when password configured\n──────────────────────────────────\nregisterWithPassword(input)\nauthenticateWithPassword(input)\naddPasswordToAccount(accountId, password)\nupdatePassword(input)"]
     OAuthOnly["Present when oauth configured\n──────────────────────────────\nauthenticateWithOAuth(input)\nlinkOAuthToAccount(input)"]
 ```
 
@@ -126,7 +126,7 @@ Full error table:
 | `AccountAlreadyExistsError` | `ACCOUNT_ALREADY_EXISTS` | Registering an email that already has an account |
 | `AccountNotFoundError` | `ACCOUNT_NOT_FOUND` | A use case looks up an account by ID and finds none |
 | `AuthenticationError` | `AUTHENTICATION_ERROR` | Credential verification fails (intentionally vague to prevent enumeration) |
-| `WrongCredentialTypeError` | `WRONG_CREDENTIAL_TYPE` | Accessing a proof field that doesn't match the credential's kind |
+| `WrongCredentialTypeError` | `WRONG_CREDENTIAL_TYPE` | Accessing a proof field that doesn't match the credential's kind — indicates a server-side bug |
 | `InvalidReceiptError` | `INVALID_RECEIPT` | Receipt token is empty, expired, or fails signature verification |
 | `InvalidEmailError` | `INVALID_EMAIL` | Constructing `EmailAddress` with an invalid value |
 | `InvalidConfigurationError` | `INVALID_CONFIGURATION` | A use case is constructed with an invalid config value |
@@ -146,10 +146,9 @@ Ports are the boundary contracts that Zone 0 (domain) defines and Zone 3 (infras
 graph LR
     subgraph "Zone 0 — Ports (interfaces)"
         AR["AccountRepository\n───────────────────\nsave(account)\nfindById(id)\nfindByEmail(email)\ndelete(id)"]
-        PCS["PasswordCredentialStore\n────────────────────────\nfindByEmail(email)\nfindByAccountId(accountId)\nsave(credential)\ndelete(credentialId)\ndeleteByAccountId(accountId)\nexistsForAccount(accountId)"]
+        PCS["PasswordCredentialStore\n────────────────────────\nfindByEmail(email)\nfindByAccountId(accountId)\nsave(credential)\nupdate(credentialId, newHash)\ndelete(credentialId)\ndeleteByAccountId(accountId)\nexistsForAccount(accountId)"]
         OCS["OAuthCredentialStore\n──────────────────────\nfindByProvider(provider, providerId)\nfindAllByAccountId(accountId)\nsave(credential)\ndelete(credentialId)\ndeleteByProvider(accountId, provider)\ndeleteAllForAccount(accountId)\nexistsForAccount(accountId)"]
         PM["PasswordManager\n────────────────\nhash(plainText)\ncompare(plainText, hash)"]
-        TH["TokenHasher\n─────────────\nhash(token)"]
         RS["ReceiptSigner\n──────────────\nsign(accountId, expiresAt)"]
         RV["ReceiptVerifier\n────────────────\nverify(token)"]
         LP["LoggerPort\n───────────\ninfo(...)\nwarn(...)\nerror(...)"]
@@ -158,16 +157,16 @@ graph LR
     subgraph "Zone 3 — Implementations"
         Argon2["Argon2PasswordHasher\n(@odysseon/whoami-adapter-argon2)"]
         Jose["JoseReceiptSigner\nJoseReceiptVerifier\n(@odysseon/whoami-adapter-jose)"]
-        WC["WebCryptoTokenHasher\n(@odysseon/whoami-adapter-webcrypto)"]
         Yours["Your implementations\n(in-memory, PostgreSQL, etc.)"]
     end
 
     Argon2 -.->|implements| PM
     Jose -.->|implements| RS
     Jose -.->|implements| RV
-    WC -.->|implements| TH
     Yours -.->|implements| AR
     Yours -.->|implements| PCS
     Yours -.->|implements| OCS
     Yours -.->|implements| LP
 ```
+
+Note: `TokenHasher` is available as a port for consumers who need deterministic token hashing (e.g. API keys, opaque session tokens). `WebCryptoTokenHasher` (`@odysseon/whoami-adapter-webcrypto`) implements it using SHA-256 via the native `crypto.subtle` API.

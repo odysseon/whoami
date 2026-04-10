@@ -13,6 +13,7 @@ import {
   createAuth,
   type AuthConfig,
   type AuthMethods,
+  type ReceiptVerifier,
 } from "@odysseon/whoami-core";
 import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 import { WhoamiAuthGuard } from "./guards/whoami-auth.guard.js";
@@ -20,8 +21,8 @@ import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
 import { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
 import { OAuthCallbackHandler } from "./oauth/oauth-callback-handler.js";
-import { AUTH_METHODS } from "./tokens.js";
-export { AUTH_METHODS } from "./tokens.js";
+import { AUTH_METHODS, VERIFY_RECEIPT } from "./tokens.js";
+export { AUTH_METHODS, VERIFY_RECEIPT } from "./tokens.js";
 
 /**
  * Supply the full {@link AuthConfig} and let {@link WhoamiModule} call
@@ -31,11 +32,14 @@ export { AUTH_METHODS } from "./tokens.js";
  * The second form avoids re-constructing use-cases when the facade is already
  * available in the DI container.
  *
+ * In both cases `receiptVerifier` must be supplied so the guard can verify
+ * tokens independently of the facade.
+ *
  * @public
  */
 export type WhoamiModuleOptions = (
   | (AuthConfig & { auth?: never })
-  | { auth: AuthMethods; verifyReceipt: AuthConfig["verifyReceipt"] }
+  | { auth: AuthMethods; receiptVerifier: ReceiptVerifier }
 ) & {
   /** Optional token extractor override. Defaults to {@link BearerTokenExtractor}. */
   tokenExtractor?: AuthTokenExtractor;
@@ -55,6 +59,14 @@ function resolveAuth(opts: WhoamiModuleOptions): AuthMethods {
   return "auth" in opts && opts.auth !== undefined
     ? opts.auth
     : createAuth(opts as AuthConfig);
+}
+
+function resolveVerifier(opts: WhoamiModuleOptions): VerifyReceiptUseCase {
+  const verifier =
+    "receiptVerifier" in opts
+      ? opts.receiptVerifier
+      : (opts as AuthConfig).receiptVerifier;
+  return new VerifyReceiptUseCase(verifier);
 }
 
 @Global()
@@ -83,9 +95,9 @@ export class WhoamiModule {
     };
 
     const verifyReceiptProvider: FactoryProvider = {
-      provide: VerifyReceiptUseCase,
+      provide: VERIFY_RECEIPT,
       useFactory: (opts: WhoamiModuleOptions): VerifyReceiptUseCase =>
-        opts.verifyReceipt,
+        resolveVerifier(opts),
       inject: ["WHOAMI_MODULE_OPTIONS"],
     };
 
@@ -127,8 +139,8 @@ export class WhoamiModule {
         useValue: resolveAuth(options),
       },
       {
-        provide: VerifyReceiptUseCase,
-        useValue: options.verifyReceipt,
+        provide: VERIFY_RECEIPT,
+        useValue: resolveVerifier(options),
       },
       {
         provide: AuthTokenExtractor,
