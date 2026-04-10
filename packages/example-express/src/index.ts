@@ -1,10 +1,7 @@
 import { pathToFileURL } from "node:url";
 import type { Server } from "node:http";
 import { createAuth } from "@odysseon/whoami-core";
-import {
-  IssueReceiptUseCase,
-  VerifyReceiptUseCase,
-} from "@odysseon/whoami-core/internal";
+import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 import {
   JoseReceiptSigner,
   JoseReceiptVerifier,
@@ -29,6 +26,7 @@ function env(name: string, fallback?: string): string {
 const JOSE_SECRET = env("JOSE_SECRET", "dev-secret-at-least-32-chars-long!!");
 const joseConfig = { secret: JOSE_SECRET, issuer: "whoami-express-example" };
 
+// Create the ports
 const receiptSigner = new JoseReceiptSigner(joseConfig);
 const receiptVerifier = new JoseReceiptVerifier(joseConfig);
 const passwordHasher = new Argon2PasswordHasher();
@@ -37,16 +35,13 @@ const passwordStore = new InMemoryPasswordCredentialStore();
 const oauthStore = new InMemoryOAuthCredentialStore();
 const generateId = createIdGenerator();
 
-const tokenSigner = new IssueReceiptUseCase({
-  signer: receiptSigner,
-  tokenLifespanMinutes: 60,
-});
 const verifyReceipt = new VerifyReceiptUseCase(receiptVerifier);
 
 const auth = createAuth({
   accountRepo,
-  tokenSigner,
-  verifyReceipt,
+  receiptSigner,
+  receiptVerifier,
+  tokenLifespanMinutes: 60,
   logger: consoleLogger,
   generateId,
   password: {

@@ -39,6 +39,7 @@ export const createApp = (dependencies: AppDependencies): Express => {
   app.use("/login", createAuthRouter(dependencies.auth));
   app.use(createIdentityRouter(dependencies.accountRepo, authMiddleware));
 
+  // Error handler
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof DomainError) {
       res.status(400).json({ error: err.message });
