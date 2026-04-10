@@ -17,10 +17,6 @@ import {
   InMemoryOAuthCredentialStore,
   InMemoryPasswordCredentialStore,
 } from "./infrastructure/in-memory.stores.js";
-import {
-  IssueReceiptUseCase,
-  VerifyReceiptUseCase,
-} from "@odysseon/whoami-core/internal";
 
 @Module({
   imports: [
@@ -37,22 +33,20 @@ import {
         );
 
         return {
+          // Core config - only ports, no use-cases!
           accountRepo: new InMemoryAccountRepository(),
-          tokenSigner: new IssueReceiptUseCase({
-            signer: new JoseReceiptSigner({
-              secret: joseSecret,
-              issuer: "whoami-example",
-            }),
-            tokenLifespanMinutes: 60,
+          receiptSigner: new JoseReceiptSigner({
+            secret: joseSecret,
+            issuer: "whoami-example",
           }),
-          verifyReceipt: new VerifyReceiptUseCase(
-            new JoseReceiptVerifier({
-              secret: joseSecret,
-              issuer: "whoami-example",
-            }),
-          ),
+          receiptVerifier: new JoseReceiptVerifier({
+            secret: joseSecret,
+            issuer: "whoami-example",
+          }),
+          tokenLifespanMinutes: 60,
           logger: console,
           generateId: () => crypto.randomUUID(),
+
           password: {
             hashManager: new Argon2PasswordHasher(),
             passwordStore: new InMemoryPasswordCredentialStore(),
