@@ -30,7 +30,7 @@ export interface UpdatePasswordDeps {
    * Receipt verifier — either a {@link VerifyReceiptUseCase} instance or any
    * object with a compatible `execute(token)` signature.
    */
-  verifyReceipt: VerifyReceiptUseCase;
+  verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
   /** Structured logger. */
   logger: LoggerPort;
 }
@@ -48,7 +48,7 @@ export interface UpdatePasswordDeps {
 export class UpdatePasswordUseCase {
   private readonly passwordStore: PasswordCredentialStore;
   private readonly passwordManager: PasswordManager;
-  private readonly verifyReceipt: VerifyReceiptUseCase;
+  private readonly verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
   private readonly logger: LoggerPort;
 
   constructor(deps: UpdatePasswordDeps) {
