@@ -1,42 +1,89 @@
 # @odysseon/whoami-adapter-nestjs
 
-NestJS integration for `@odysseon/whoami-core`. Provides two modules:
-
-- **`WhoamiModule`** — verifies receipt tokens on incoming requests (the auth guard)
-- **`WhoamiOAuthModule`** — wires the full OAuth authentication flow (auto-register + issue receipt)
+NestJS integration for `@odysseon/whoami-core`. Provides a single `WhoamiModule` that wires the full auth facade into the NestJS DI container.
 
 ## Installation
 
 ```bash
 npm install @odysseon/whoami-core @odysseon/whoami-adapter-nestjs
-# plus a receipt adapter:
+# plus receipt adapters:
 npm install @odysseon/whoami-adapter-jose
+# optional — for password auth:
+npm install @odysseon/whoami-adapter-argon2
 ```
 
 ---
 
-## WhoamiModule — protecting routes
+## Module overview
 
-`WhoamiModule` installs receipt verification into NestJS's DI container. Register it once at the root level.
+```mermaid
+graph TD
+    WhoamiModule["WhoamiModule.registerAsync(options)\n(Global — registered once at AppModule)"]
 
-### 1. Register the module and global guard
+    WhoamiModule --> AuthMethods["AUTH_METHODS token\n→ AuthMethods facade"]
+    WhoamiModule --> VerifyUC["VerifyReceiptUseCase"]
+    WhoamiModule --> Extractor["AuthTokenExtractor\n(default: BearerTokenExtractor)"]
+    WhoamiModule --> Guard["WhoamiAuthGuard"]
+    WhoamiModule --> Filter["WhoamiExceptionFilter"]
+    WhoamiModule --> OAuthHandler["OAuthCallbackHandler"]
+
+    Guard --> VerifyUC
+    Guard --> Extractor
+    OAuthHandler --> AuthMethods
+```
+
+All providers are exported so they are available globally once the module is registered.
+
+---
+
+## WhoamiModule — full setup
+
+Register once at the root `AppModule` level with `registerAsync`. The options object is an `AuthConfig` (passed to `createAuth` internally) plus an optional `tokenExtractor` override:
 
 ```ts
 // app.module.ts
 import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { WhoamiModule, WhoamiAuthGuard } from "@odysseon/whoami-adapter-nestjs";
-import { JoseReceiptVerifier } from "@odysseon/whoami-adapter-jose";
+import {
+  JoseReceiptSigner,
+  JoseReceiptVerifier,
+} from "@odysseon/whoami-adapter-jose";
+import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
+import {
+  IssueReceiptUseCase,
+  VerifyReceiptUseCase,
+} from "@odysseon/whoami-core/internal";
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     WhoamiModule.registerAsync({
-      useFactory: () => ({
-        receiptVerifier: new JoseReceiptVerifier({
-          secret: process.env.JWT_SECRET!,
-          issuer: "my-app",
-        }),
-      }),
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const secret = config.get("JWT_SECRET")!;
+        return {
+          accountRepo: new InMemoryAccountRepository(),
+          tokenSigner: new IssueReceiptUseCase({
+            signer: new JoseReceiptSigner({ secret, issuer: "my-app" }),
+            tokenLifespanMinutes: 60,
+          }),
+          verifyReceipt: new VerifyReceiptUseCase(
+            new JoseReceiptVerifier({ secret, issuer: "my-app" }),
+          ),
+          logger: console,
+          generateId: () => crypto.randomUUID(),
+          password: {
+            hashManager: new Argon2PasswordHasher(),
+            passwordStore: new MyPasswordCredentialStore(),
+          },
+          oauth: {
+            oauthStore: new MyOAuthCredentialStore(),
+          },
+        };
+      },
     }),
   ],
   providers: [{ provide: APP_GUARD, useClass: WhoamiAuthGuard }],
@@ -44,7 +91,48 @@ import { JoseReceiptVerifier } from "@odysseon/whoami-adapter-jose";
 export class AppModule {}
 ```
 
-### 2. Access the verified identity in a route
+### Verify-only setup (guard only, no auth flows)
+
+If you handle auth flows in a separate service and only need the guard:
+
+```ts
+WhoamiModule.registerAsync({
+  useFactory: () => ({
+    auth: existingAuthMethods, // pre-built AuthMethods facade
+    verifyReceipt: verifyUseCase,
+  }),
+});
+```
+
+---
+
+## Using AUTH_METHODS in controllers
+
+Inject the `AuthMethods` facade directly using the `AUTH_METHODS` token:
+
+```ts
+import { Controller, Post, Body, Inject } from "@nestjs/common";
+import { Public, AUTH_METHODS } from "@odysseon/whoami-adapter-nestjs";
+import type { AuthMethods } from "@odysseon/whoami-core";
+
+@Controller("auth")
+export class AuthController {
+  constructor(@Inject(AUTH_METHODS) private readonly auth: AuthMethods) {}
+
+  @Public()
+  @Post("login")
+  async login(@Body() dto: { email: string; password: string }) {
+    const receipt = await this.auth.authenticateWithPassword!(dto);
+    return { token: receipt.token, expiresAt: receipt.expiresAt };
+  }
+}
+```
+
+---
+
+## Protecting routes
+
+`WhoamiAuthGuard` registered via `APP_GUARD` protects every route by default. Mark public routes with `@Public()`:
 
 ```ts
 import { Controller, Get } from "@nestjs/common";
@@ -55,7 +143,6 @@ import type { Receipt } from "@odysseon/whoami-core";
 export class ProfileController {
   @Get()
   getProfile(@CurrentIdentity() identity: Receipt) {
-    // identity.accountId.value is your FK into your users table
     return { accountId: identity.accountId.value };
   }
 
@@ -67,76 +154,18 @@ export class ProfileController {
 }
 ```
 
-### Customising token extraction
-
-Default: `Bearer <token>` from the `Authorization` header. Override with any `AuthTokenExtractor`:
-
-```ts
-import type { AuthTokenExtractor } from "@odysseon/whoami-adapter-nestjs";
-
-class CookieTokenExtractor implements AuthTokenExtractor {
-  extract(request: unknown): string | null {
-    const req = request as { cookies?: { token?: string } };
-    return req.cookies?.token ?? null;
-  }
-}
-
-WhoamiModule.registerAsync({
-  useFactory: () => ({
-    receiptVerifier: new JoseReceiptVerifier({
-      secret: process.env.JWT_SECRET!,
-    }),
-    tokenExtractor: new CookieTokenExtractor(),
-  }),
-});
-```
-
 ---
 
-## WhoamiOAuthModule — OAuth authentication
+## OAuthCallbackHandler
 
-`WhoamiOAuthModule` wires `AuthenticateOAuthUseCase` + `IssueReceiptUseCase` into a single injectable `OAuthCallbackHandler`. Register it in your auth module.
-
-### 1. Register WhoamiOAuthModule
+`OAuthCallbackHandler` is an injectable service that delegates to `auth.authenticateWithOAuth`. Use it in your OAuth callback controller:
 
 ```ts
-// auth.module.ts
-import { WhoamiOAuthModule } from "@odysseon/whoami-adapter-nestjs";
-import { JoseReceiptSigner } from "@odysseon/whoami-adapter-jose";
-
-@Module({
-  imports: [
-    WhoamiOAuthModule.registerAsync({
-      imports: [ConfigModule, DatabaseModule],
-      inject: [ConfigService, ACCOUNT_REPO_TOKEN, CRED_STORE_TOKEN],
-      useFactory: (config, accountRepository, credentialStore) => ({
-        accountRepository,
-        credentialStore,
-        receiptSigner: new JoseReceiptSigner({
-          secret: config.get("JWT_SECRET"),
-        }),
-        generateId: () => crypto.randomUUID(),
-        tokenLifespanMinutes: 60,
-      }),
-    }),
-  ],
-  controllers: [AuthController],
-})
-export class AuthModule {}
-```
-
-### 2. Use OAuthCallbackHandler in your callback controller
-
-```ts
-// auth.controller.ts
 import { OAuthCallbackHandler } from "@odysseon/whoami-adapter-nestjs";
 
 @Controller("auth")
 export class AuthController {
-  constructor(
-    private readonly oauthHandler: OAuthCallbackHandler,
-    private readonly userService: UserService,
-  ) {}
+  constructor(private readonly oauthHandler: OAuthCallbackHandler) {}
 
   @Public()
   @Get("google/callback")
@@ -147,14 +176,12 @@ export class AuthController {
       provider: "google",
       providerId: profile.sub,
     });
-
-    // Your domain — create or hydrate your user record
-    await this.userService.getOrCreate(receipt.accountId.value, profile);
-
     return { token: receipt.token, expiresAt: receipt.expiresAt };
   }
 }
 ```
+
+OAuth must be configured in `WhoamiModuleOptions` (via the `oauth` section) — calling `handle` without it throws immediately.
 
 ### OAuthProfile shape
 
@@ -162,7 +189,7 @@ export class AuthController {
 interface OAuthProfile {
   email: string; // the email from the provider
   provider: string; // "google" | "github" | your string
-  providerId: string; // the provider's stable user ID
+  providerId: string; // the provider's stable user ID (sub claim)
 }
 ```
 
@@ -174,18 +201,50 @@ interface OAuthProfile {
 
 ---
 
+## Customising token extraction
+
+Default: `Bearer <token>` from `Authorization` header. Override by extending `AuthTokenExtractor`:
+
+```ts
+import { AuthTokenExtractor } from "@odysseon/whoami-adapter-nestjs";
+
+class CookieTokenExtractor extends AuthTokenExtractor {
+  extract(request: unknown): string | null {
+    const req = request as { cookies?: { token?: string } };
+    return req.cookies?.token ?? null;
+  }
+}
+
+WhoamiModule.registerAsync({
+  useFactory: () => ({
+    // ...auth config...
+    tokenExtractor: new CookieTokenExtractor(),
+  }),
+});
+```
+
+---
+
 ## HTTP status mapping
 
-`WhoamiExceptionFilter` is installed automatically by `WhoamiModule` and translates core domain errors:
+`WhoamiExceptionFilter` is registered automatically by `WhoamiModule`. It catches every `DomainError` and maps it to the appropriate HTTP response:
 
-| Domain error                | HTTP status               |
-| --------------------------- | ------------------------- |
-| `AuthenticationError`       | 401 Unauthorized          |
-| `InvalidReceiptError`       | 401 Unauthorized          |
-| `AccountAlreadyExistsError` | 409 Conflict              |
-| `InvalidEmailError`         | 400 Bad Request           |
-| `InvalidConfigurationError` | 500 Internal Server Error |
-| Any other `DomainError`     | 400 Bad Request           |
+| Domain error code               | HTTP status               |
+| ------------------------------- | ------------------------- |
+| `AUTHENTICATION_ERROR`          | 401 Unauthorized          |
+| `INVALID_RECEIPT`               | 401 Unauthorized          |
+| `ACCOUNT_ALREADY_EXISTS`        | 409 Conflict              |
+| `CREDENTIAL_ALREADY_EXISTS`     | 409 Conflict              |
+| `INVALID_EMAIL`                 | 400 Bad Request           |
+| `WRONG_CREDENTIAL_TYPE`         | 400 Bad Request           |
+| `INVALID_ACCOUNT_ID`            | 400 Bad Request           |
+| `INVALID_CREDENTIAL_ID`         | 400 Bad Request           |
+| `INVALID_CREDENTIAL`            | 400 Bad Request           |
+| `UNSUPPORTED_AUTH_METHOD`       | 400 Bad Request           |
+| `ACCOUNT_NOT_FOUND`             | 404 Not Found             |
+| `OAUTH_PROVIDER_NOT_FOUND`      | 404 Not Found             |
+| `CANNOT_REMOVE_LAST_CREDENTIAL` | 422 Unprocessable Entity  |
+| `INVALID_CONFIGURATION`         | 500 Internal Server Error |
 
 ---
 

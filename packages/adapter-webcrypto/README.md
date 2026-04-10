@@ -1,14 +1,14 @@
 # @odysseon/whoami-adapter-webcrypto
 
-The official WebCrypto hashing adapter for the Odysseon Whoami identity core.
+`TokenHasher` implementation using the native [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) (SHA-256).
 
 ## Overview
 
-This package provides deterministic, dependency-free SHA-256 hashing via the native [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API). It implements the `TokenHasher` port from `@odysseon/whoami-core`.
+Provides deterministic, dependency-free hashing via `globalThis.crypto.subtle`. Runs natively in Node.js ≥ 20, Deno, Bun, and modern browsers and edge runtimes — **zero external dependencies**.
 
-By using `globalThis.crypto.subtle` it runs natively in Node.js ≥ 20, Deno, Bun, and modern browsers and edge runtimes with **zero external dependencies**.
+**When to use:** Hashing opaque tokens before storing them (e.g. API keys). The same token always produces the same hash, so you can compare a candidate hash against the stored value on every request.
 
-**Note:** This adapter is designed for _fast, deterministic_ hashing of opaque tokens (e.g. hashing a magic-link token before storing it to prevent database-breach token theft). It is **not** suitable for password hashing — use `@odysseon/whoami-adapter-argon2` for passwords.
+**When not to use:** Passwords. SHA-256 is fast and deterministic — it must not be used for password hashing. Use `@odysseon/whoami-adapter-argon2` for passwords.
 
 ## Installation
 
@@ -23,12 +23,12 @@ import { WebCryptoTokenHasher } from "@odysseon/whoami-adapter-webcrypto";
 
 const tokenHasher = new WebCryptoTokenHasher();
 
-// Hash a raw magic-link token before storing it
-const stored = await tokenHasher.hash(rawToken);
+// Hash a raw token before storing it
+const storedHash = await tokenHasher.hash(rawToken);
 
 // On verify: hash the candidate and compare to the stored value
-const candidate = await tokenHasher.hash(providedToken);
-const isValid = candidate === stored;
+const candidateHash = await tokenHasher.hash(providedToken);
+const isValid = candidateHash === storedHash;
 ```
 
-Pass the `tokenHasher` instance anywhere a `TokenHasher` is required, for example when constructing an in-memory `CredentialStore` that stores hashed magic-link tokens.
+Pass the instance to any component that accepts a `TokenHasher` port.

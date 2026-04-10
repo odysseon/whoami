@@ -1,10 +1,10 @@
 # @odysseon/whoami-adapter-argon2
 
-The official Argon2 password hashing adapter for the Odysseon Whoami identity core.
+Argon2 implementation of the `PasswordManager` port from `@odysseon/whoami-core`.
 
 ## Overview
 
-This package provides a salted password hashing implementation using the `argon2` algorithm. It implements the `PasswordHasher` port from `@odysseon/whoami-core` and ships with prebuilt native binaries for Linux, macOS, and Windows — no build toolchain required.
+Provides salted password hashing via the `argon2` npm package. Ships with prebuilt native binaries for Linux, macOS, and Windows — no build toolchain required.
 
 ## Installation
 
@@ -17,24 +17,27 @@ npm install @odysseon/whoami-core @odysseon/whoami-adapter-argon2
 ```ts
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
 
-const passwordHasher = new Argon2PasswordHasher();
+const hashManager = new Argon2PasswordHasher();
 
 // Hash on registration
-const hash = await passwordHasher.hash(plainTextPassword);
+const hash = await hashManager.hash(plainTextPassword);
 
-// Verify on login — pass directly to VerifyPasswordUseCase
-const isMatch = await passwordHasher.compare(plainTextPassword, storedHash);
+// Verify on login
+const isMatch = await hashManager.compare(plainTextPassword, storedHash);
 ```
 
-Pass the instance wherever `VerifyPasswordUseCase` requires a `PasswordHasher`:
+Pass the instance to `createAuth` as the `password.hashManager`:
 
 ```ts
-import { VerifyPasswordUseCase } from "@odysseon/whoami-core";
+import { createAuth } from "@odysseon/whoami-core";
+import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
 
-const verifyPassword = new VerifyPasswordUseCase({
-  credentialStore,
-  hasher: passwordHasher,
-  logger,
+const auth = createAuth({
+  // ...
+  password: {
+    hashManager: new Argon2PasswordHasher(),
+    passwordStore: myPasswordStore,
+  },
 });
 ```
 
@@ -43,9 +46,13 @@ const verifyPassword = new VerifyPasswordUseCase({
 The constructor accepts an optional `argon2.Options` object for tuning memory, time, and parallelism factors:
 
 ```ts
-const passwordHasher = new Argon2PasswordHasher({
+const hashManager = new Argon2PasswordHasher({
   memoryCost: 65536, // 64 MiB (default: 65536)
   timeCost: 3, // iterations (default: 3)
   parallelism: 4, // threads (default: 4)
 });
 ```
+
+## Note on use
+
+`Argon2PasswordHasher` implements `PasswordManager` — a slow, salted algorithm designed for passwords. It is **not** suitable for deterministic token hashing (magic links, API keys). Use `@odysseon/whoami-adapter-webcrypto` (`WebCryptoTokenHasher`) for those.
