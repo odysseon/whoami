@@ -26,15 +26,18 @@
  * @packageDocumentation
  */
 
-import { AddPasswordAuthUseCase } from "./features/authentication/add-password-auth.usecase.js";
-import { AuthenticateOAuthUseCase } from "./features/authentication/authenticate-oauth.usecase.js";
 import type { AuthenticateOAuthInput } from "./features/authentication/authenticate-oauth.usecase.js";
-import { AuthenticateWithPasswordUseCase } from "./features/authentication/authenticate-password.usecase.js";
 import type { LinkOAuthToAccountInput } from "./features/credentials/application/link-oauth.usecase.js";
 import { LinkOAuthToAccountUseCase } from "./features/credentials/application/link-oauth.usecase.js";
 import { RegisterWithPasswordUseCase } from "./features/credentials/application/register-password.usecase.js";
 import { RemovePasswordUseCase } from "./features/credentials/application/remove-password.usecase.js";
+import { UpdatePasswordUseCase } from "./features/credentials/index.js";
 import type { Receipt } from "./features/receipts/index.js";
+import {
+  AddPasswordAuthUseCase,
+  AuthenticateOAuthUseCase,
+  AuthenticateWithPasswordUseCase,
+} from "./internal/index.js";
 import {
   CannotRemoveLastCredentialError,
   UnsupportedAuthMethodError,
@@ -199,6 +202,19 @@ export function createAuth(config: AuthConfig): AuthMethods {
       generateId,
       authMethods: getAccountAuthMethods,
     });
+
+    const updatePasswordUC = new UpdatePasswordUseCase({
+      passwordStore,
+      passwordManager: hashManager,
+      verifyReceipt,
+      logger,
+    });
+
+    base.updatePassword = (input: {
+      receiptToken: string;
+      currentPassword: string;
+      newPassword: string;
+    }): Promise<void> => updatePasswordUC.execute(input);
 
     base.registerWithPassword = (input: {
       email: string;

@@ -129,4 +129,17 @@ export interface AuthMethods {
     method: AuthMethod,
     options?: { provider?: string },
   ) => Promise<void>;
+
+  /**
+   * Updates the account's password.
+   * Present only when `config.password` is configured.
+   *
+   * @param input - Contains receipt token, current password, and new password.
+   * @throws {AuthenticationError} If current password is incorrect or no password credential exists.
+   */
+  updatePassword?: (input: {
+    receiptToken: string;
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
 }
