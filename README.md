@@ -2,7 +2,7 @@
 
 **whoami answers one question: who is making this request?**
 
-It handles identity — registration, authentication (password, OAuth, magic link), and signed receipt tokens. It does not manage profiles, roles, or application-level user data. That is intentionally your domain.
+It handles identity — registration, authentication (password and OAuth), and signed receipt tokens. It does not manage profiles, roles, or application-level user data. That is intentionally your domain.
 
 ## Why this matters
 
@@ -51,8 +51,8 @@ graph TD
         Decorator["@CurrentIdentity()"]
     end
 
-    subgraph "whoami-core"
-        AuthUC["AuthenticateOAuthUseCase\nVerifyPasswordUseCase\nVerifyMagicLinkUseCase"]
+    subgraph "whoami-core — createAuth facade"
+        AuthMethods["AuthMethods facade\n─────────────────\nregisterWithPassword\nauthenticateWithPassword\nauthenticateWithOAuth\nlinkOAuthToAccount\naddPasswordToAccount\ngetAccountAuthMethods\nremoveAuthMethod"]
         IssueUC["IssueReceiptUseCase"]
         VerifyUC["VerifyReceiptUseCase"]
         Receipt["Receipt { token, accountId, expiresAt }"]
@@ -61,10 +61,10 @@ graph TD
     YourController --> Guard
     Guard --> VerifyUC
     Decorator --> YourController
-    OAuthHandler --> AuthUC
-    OAuthHandler --> IssueUC
-    AuthUC --> Receipt
+    OAuthHandler --> AuthMethods
+    AuthMethods --> IssueUC
     IssueUC --> Receipt
+    VerifyUC --> Receipt
     YourUser -. "account_id FK" .-> Receipt
 ```
 
@@ -72,18 +72,18 @@ graph TD
 
 | Package | Purpose |
 |---|---|
-| [`@odysseon/whoami-core`](packages/core/README.md) | Domain entities, use cases, and port interfaces — the identity kernel |
-| [`@odysseon/whoami-adapter-argon2`](packages/adapter-argon2/README.md) | `PasswordHasher` implementation via argon2 |
+| [`@odysseon/whoami-core`](packages/core/README.md) | Domain entities, use cases, port interfaces, and the `createAuth` factory facade |
+| [`@odysseon/whoami-adapter-argon2`](packages/adapter-argon2/README.md) | `PasswordManager` implementation via argon2 |
 | [`@odysseon/whoami-adapter-jose`](packages/adapter-jose/README.md) | `ReceiptSigner` / `ReceiptVerifier` via jose (HS256 JWT) |
-| [`@odysseon/whoami-adapter-webcrypto`](packages/adapter-webcrypto/README.md) | `TokenHasher` via native Web Crypto (magic links, API keys) |
+| [`@odysseon/whoami-adapter-webcrypto`](packages/adapter-webcrypto/README.md) | `TokenHasher` via native Web Crypto API (API keys, opaque tokens) |
 | [`@odysseon/whoami-adapter-nestjs`](packages/adapter-nestjs/README.md) | NestJS module, OAuth handler, guard, decorator, exception filter |
 
 ## Examples
 
 | Example | Framework | What it shows |
 |---|---|---|
-| [`example-nestjs`](packages/example-nestjs/README.md) | NestJS 11 | DI wiring, all auth flows, global guard, Swagger UI |
-| [`example-express`](packages/example-express/README.md) | Express 5 | Minimal wiring, all auth flows, custom auth middleware |
+| [`example-nestjs`](packages/example-nestjs/README.md) | NestJS 11 | DI wiring, password + OAuth flows, global guard, Swagger UI |
+| [`example-express`](packages/example-express/README.md) | Express 5 | Minimal wiring, password + OAuth flows, custom auth middleware |
 
 ## Quick start
 
@@ -105,7 +105,7 @@ pnpm test
 | Doc | Purpose |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Zone model, dependency rules, feature structure |
-| [docs/type-model.md](docs/type-model.md) | AccountId, Receipt, CredentialProof, error types |
+| [docs/type-model.md](docs/type-model.md) | AccountId, Receipt, CredentialProof, AuthMethods, error types |
 
 ## Development
 

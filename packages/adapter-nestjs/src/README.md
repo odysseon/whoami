@@ -1,11 +1,39 @@
 # Source Code (@odysseon/whoami-adapter-nestjs)
 
-This directory contains the NestJS boundary package for receipt-based authentication built on the feature-first `@odysseon/whoami-core` API.
+NestJS boundary package. Wires `@odysseon/whoami-core` into the NestJS DI container via a single global `WhoamiModule`.
 
-## Architecture
+## Directory structure
 
-- `decorators/` contains developer-facing route helpers such as `@Public()` and `@CurrentIdentity()`.
-- `extractors/` contains NestJS-facing token extraction contracts and implementations.
-- `guards/` verifies receipt tokens through `VerifyReceiptUseCase`.
-- `filters/` translates core domain errors into HTTP responses.
-- `whoami.module.ts` wires the NestJS container to the feature-first receipt verification use case.
+```
+src/
+├── whoami.module.ts          WhoamiModule — DynamicModule with register/registerAsync
+├── tokens.ts                 AUTH_METHODS DI token constant
+├── index.ts                  Public exports
+├── decorators/
+│   ├── public.decorator.ts   @Public() — bypasses WhoamiAuthGuard
+│   └── current-identity.decorator.ts  @CurrentIdentity() — resolves request.identity
+├── extractors/
+│   ├── auth-token-extractor.port.ts   AuthTokenExtractor abstract class (port)
+│   └── bearer-token.extractor.ts      BearerTokenExtractor (default implementation)
+├── filters/
+│   └── whoami-exception.filter.ts     WhoamiExceptionFilter — maps DomainError → HTTP
+├── guards/
+│   └── whoami-auth.guard.ts           WhoamiAuthGuard — verifies receipt on each request
+└── oauth/
+    ├── oauth-callback-handler.ts      OAuthCallbackHandler — injectable OAuth flow service
+    └── index.ts
+```
+
+## What WhoamiModule registers
+
+`WhoamiModule` is `@Global()`. All providers it registers are available application-wide without re-importing the module:
+
+| Token                   | Type                         | Description                                |
+| ----------------------- | ---------------------------- | ------------------------------------------ |
+| `AUTH_METHODS`          | `AuthMethods`                | The composed auth facade from `createAuth` |
+| `VerifyReceiptUseCase`  | `VerifyReceiptUseCase`       | Used by `WhoamiAuthGuard`                  |
+| `AuthTokenExtractor`    | `AuthTokenExtractor`         | Defaults to `BearerTokenExtractor`         |
+| `BearerTokenExtractor`  | alias → `AuthTokenExtractor` | Convenience alias                          |
+| `WhoamiAuthGuard`       | `WhoamiAuthGuard`            | Injectable guard                           |
+| `WhoamiExceptionFilter` | `WhoamiExceptionFilter`      | Injectable exception filter                |
+| `OAuthCallbackHandler`  | `OAuthCallbackHandler`       | Injectable OAuth handler                   |

@@ -1,13 +1,21 @@
 # @odysseon/whoami-adapter-nestjs — Examples
 
-## 1. Register WhoamiModule (receipt verification)
+## 1. Full setup with password + OAuth (AppModule)
 
 ```ts
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { WhoamiModule, WhoamiAuthGuard } from "@odysseon/whoami-adapter-nestjs";
-import { JoseReceiptVerifier } from "@odysseon/whoami-adapter-jose";
+import {
+  JoseReceiptSigner,
+  JoseReceiptVerifier,
+} from "@odysseon/whoami-adapter-jose";
+import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
+import {
+  IssueReceiptUseCase,
+  VerifyReceiptUseCase,
+} from "@odysseon/whoami-core/internal";
 
 @Module({
   imports: [
@@ -15,12 +23,28 @@ import { JoseReceiptVerifier } from "@odysseon/whoami-adapter-jose";
     WhoamiModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        receiptVerifier: new JoseReceiptVerifier({
-          secret: config.get("JWT_SECRET")!,
-          issuer: "my-app",
-        }),
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get("JWT_SECRET")!;
+        return {
+          accountRepo: new MyAccountRepository(),
+          tokenSigner: new IssueReceiptUseCase({
+            signer: new JoseReceiptSigner({ secret, issuer: "my-app" }),
+            tokenLifespanMinutes: 60,
+          }),
+          verifyReceipt: new VerifyReceiptUseCase(
+            new JoseReceiptVerifier({ secret, issuer: "my-app" }),
+          ),
+          logger: console,
+          generateId: () => crypto.randomUUID(),
+          password: {
+            hashManager: new Argon2PasswordHasher(),
+            passwordStore: new MyPasswordCredentialStore(),
+          },
+          oauth: {
+            oauthStore: new MyOAuthCredentialStore(),
+          },
+        };
+      },
     }),
   ],
   providers: [{ provide: APP_GUARD, useClass: WhoamiAuthGuard }],
@@ -28,20 +52,68 @@ import { JoseReceiptVerifier } from "@odysseon/whoami-adapter-jose";
 export class AppModule {}
 ```
 
-## 2. Register WhoamiOAuthModule and use OAuthCallbackHandler
+## 2. Inject AUTH_METHODS and call auth flows from a controller
 
 ```ts
-import { Module, Controller, Get, UseGuards } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
 import {
-  WhoamiOAuthModule,
-  OAuthCallbackHandler,
-  Public,
-} from "@odysseon/whoami-adapter-nestjs";
-import { JoseReceiptSigner } from "@odysseon/whoami-adapter-jose";
+  Controller,
+  Post,
+  Body,
+  Inject,
+  HttpCode,
+  HttpStatus,
+} from "@nestjs/common";
+import { Public, AUTH_METHODS } from "@odysseon/whoami-adapter-nestjs";
+import type { AuthMethods } from "@odysseon/whoami-core";
 
 @Controller("auth")
-class AuthController {
+export class AuthController {
+  constructor(@Inject(AUTH_METHODS) private readonly auth: AuthMethods) {}
+
+  @Public()
+  @Post("login")
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() dto: { email: string; password: string }) {
+    const receipt = await this.auth.authenticateWithPassword!(dto);
+    return { token: receipt.token, expiresAt: receipt.expiresAt };
+  }
+
+  @Public()
+  @Post("oauth")
+  @HttpCode(HttpStatus.OK)
+  async oauth(
+    @Body() dto: { email: string; provider: string; providerId: string },
+  ) {
+    const receipt = await this.auth.authenticateWithOAuth!(dto);
+    return { token: receipt.token, expiresAt: receipt.expiresAt };
+  }
+}
+```
+
+## 3. Access the verified identity in a protected route
+
+```ts
+import { Controller, Get } from "@nestjs/common";
+import { CurrentIdentity } from "@odysseon/whoami-adapter-nestjs";
+import type { Receipt } from "@odysseon/whoami-core";
+
+@Controller("me")
+export class ProfileController {
+  @Get()
+  async getProfile(@CurrentIdentity() identity: Receipt) {
+    return { accountId: identity.accountId.value };
+  }
+}
+```
+
+## 4. Use OAuthCallbackHandler in an OAuth callback
+
+```ts
+import { Controller, Get, UseGuards } from "@nestjs/common";
+import { OAuthCallbackHandler, Public } from "@odysseon/whoami-adapter-nestjs";
+
+@Controller("auth")
+export class AuthController {
   constructor(private readonly oauthHandler: OAuthCallbackHandler) {}
 
   @Public()
@@ -56,72 +128,29 @@ class AuthController {
     return { token: receipt.token, expiresAt: receipt.expiresAt };
   }
 }
-
-@Module({
-  imports: [
-    ConfigModule,
-    WhoamiOAuthModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService, ACCOUNT_REPO_TOKEN, CRED_STORE_TOKEN],
-      useFactory: (config, accountRepository, credentialStore) => ({
-        accountRepository,
-        credentialStore,
-        receiptSigner: new JoseReceiptSigner({
-          secret: config.get("JWT_SECRET")!,
-        }),
-        generateId: () => crypto.randomUUID(),
-      }),
-    }),
-  ],
-  controllers: [AuthController],
-})
-export class AuthModule {}
 ```
 
-## 3. Access the verified identity in a protected route
+## 5. Override token extraction (cookies)
 
 ```ts
-import { Controller, Get } from "@nestjs/common";
-import { CurrentIdentity } from "@odysseon/whoami-adapter-nestjs";
-import type { Receipt } from "@odysseon/whoami-core";
+import { AuthTokenExtractor } from "@odysseon/whoami-adapter-nestjs";
 
-@Controller("me")
-export class ProfileController {
-  constructor(private readonly userService: UserService) {}
-
-  @Get()
-  async getProfile(@CurrentIdentity() identity: Receipt) {
-    // Use identity.accountId.value to look up your own user record
-    const user = await this.userService.findByAccountId(
-      identity.accountId.value,
-    );
-    return { accountId: identity.accountId.value, profile: user };
-  }
-}
-```
-
-## 4. Override token extraction (e.g. cookies)
-
-```ts
-import type { AuthTokenExtractor } from "@odysseon/whoami-adapter-nestjs";
-
-class CookieTokenExtractor implements AuthTokenExtractor {
-  extract(request: { cookies?: Record<string, string> }) {
-    return request.cookies?.receipt ?? null;
+class CookieTokenExtractor extends AuthTokenExtractor {
+  extract(request: unknown): string | null {
+    const req = request as { cookies?: Record<string, string> };
+    return req.cookies?.receipt ?? null;
   }
 }
 
 WhoamiModule.registerAsync({
   useFactory: () => ({
-    receiptVerifier: new JoseReceiptVerifier({
-      secret: process.env.JWT_SECRET!,
-    }),
+    // ...auth config...
     tokenExtractor: new CookieTokenExtractor(),
   }),
 });
 ```
 
-## 5. Domain enforcement before OAuth (e.g. OAU email restriction)
+## 6. Domain enforcement before OAuth (e.g. email domain restriction)
 
 ```ts
 @Public()

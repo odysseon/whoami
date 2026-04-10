@@ -1,6 +1,6 @@
 # @odysseon/whoami-example-nestjs
 
-A NestJS 11 application demonstrating all `@odysseon/whoami-*` adapters wired through the NestJS DI container.
+A NestJS 11 application demonstrating all `@odysseon/whoami-*` adapters wired through the NestJS DI container via `WhoamiModule`.
 
 ## Adapters used
 
@@ -8,22 +8,26 @@ A NestJS 11 application demonstrating all `@odysseon/whoami-*` adapters wired th
 | ------------------------------------ | --------------------------------------------------------------------------------------------- |
 | `@odysseon/whoami-adapter-argon2`    | Hashes and verifies passwords                                                                 |
 | `@odysseon/whoami-adapter-jose`      | Signs and verifies receipt JWTs                                                               |
-| `@odysseon/whoami-adapter-webcrypto` | Hashes magic-link tokens before storage                                                       |
+| `@odysseon/whoami-adapter-webcrypto` | Available in stores for opaque token hashing                                                  |
 | `@odysseon/whoami-adapter-nestjs`    | `WhoamiModule`, `WhoamiAuthGuard`, `WhoamiExceptionFilter`, `@CurrentIdentity()`, `@Public()` |
 
 ## Module structure
 
-```
-AppModule
-├── AuthModule           (imports AccountsModule)
-│   └── AccountsModule   ← shared stores + Argon2PasswordHasher
-└── IdentityModule       (imports AccountsModule + WhoamiModule)
-    └── AccountsModule   ← NestJS deduplicates to a single singleton
+```mermaid
+graph TD
+    AppModule["AppModule\n(WhoamiModule.registerAsync — global)"]
+    AppModule --> AccountsModule
+    AppModule --> AuthModule
+    AppModule --> IdentityModule
+
+    AccountsModule["AccountsModule\n(AccountsController)"]
+    AuthModule["AuthModule\n(AuthController)"]
+    IdentityModule["IdentityModule\n(IdentityController)"]
 ```
 
-`AccountsModule` is imported by both `AuthModule` and `IdentityModule`. NestJS deduplicates module instances so the in-memory stores remain true singletons across all features.
+`WhoamiModule` is `@Global()` — registered once in `AppModule`. All three feature modules consume the `AUTH_METHODS` token and `WhoamiAuthGuard` without re-importing the module.
 
-`WhoamiAuthGuard` is registered via `APP_GUARD` in `IdentityModule`, making every route protected by default. Routes that should be publicly accessible are decorated with `@Public()`.
+`WhoamiAuthGuard` is registered via `APP_GUARD`, making every route protected by default. Routes decorated with `@Public()` bypass verification.
 
 ## Run
 
@@ -40,14 +44,12 @@ Set `PORT` to override the default (`3000`). Set `JOSE_SECRET` to a string of at
 
 ## Routes
 
-| Method | Path                       | Auth         | Description                                             |
-| ------ | -------------------------- | ------------ | ------------------------------------------------------- |
-| `POST` | `/accounts/register`       | Public       | Create an account + password credential                 |
-| `POST` | `/auth/login`              | Public       | Verify password, issue receipt token                    |
-| `POST` | `/auth/magic-link/request` | Public       | Generate a magic-link token (returned in body for demo) |
-| `POST` | `/auth/magic-link/verify`  | Public       | Verify magic-link token, issue receipt token            |
-| `POST` | `/auth/oauth`              | Public       | Auto-register or verify via OAuth, issue receipt token  |
-| `GET`  | `/me`                      | Bearer token | Return authenticated account profile                    |
+| Method | Path                 | Auth         | Description                                             |
+| ------ | -------------------- | ------------ | ------------------------------------------------------- |
+| `POST` | `/accounts/register` | Public       | Create an account + password credential, return receipt |
+| `POST` | `/auth/login`        | Public       | Verify password, return receipt token                   |
+| `POST` | `/auth/oauth`        | Public       | Auto-register or verify via OAuth, return receipt token |
+| `GET`  | `/me`                | Bearer token | Return authenticated account identity                   |
 
 ## cURL Examples
 
@@ -65,22 +67,6 @@ curl -X POST http://localhost:3000/accounts/register \
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"ada@example.com","password":"secret123"}'
-```
-
-**Magic-link request:**
-
-```bash
-curl -X POST http://localhost:3000/auth/magic-link/request \
-  -H "Content-Type: application/json" \
-  -d '{"email":"ada@example.com"}'
-```
-
-**Magic-link verify** (use the `magicLinkToken` from the request response):
-
-```bash
-curl -X POST http://localhost:3000/auth/magic-link/verify \
-  -H "Content-Type: application/json" \
-  -d '{"email":"ada@example.com","token":"<magicLinkToken>"}'
 ```
 
 **OAuth login** (auto-registers on first call):

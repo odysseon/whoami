@@ -1,6 +1,5 @@
-# Source Code
+# Source Code (@odysseon/whoami-adapter-webcrypto)
 
-This directory contains the source code for `@odysseon/whoami-adapter-webcrypto`.
+Single file: `webcrypto-token-hasher.adapter.ts`
 
-- [`webcrypto-token-hasher.adapter.ts`](webcrypto-token-hasher.adapter.ts) — `WebCryptoTokenHasher` — implements `TokenHasher`
-- [`index.ts`](index.ts) — package exports
+Implements the `TokenHasher` port from `@odysseon/whoami-core` using `globalThis.crypto.subtle.digest("SHA-256", ...)`. Returns a lowercase hex-encoded hash string. Rejects empty tokens with a thrown `Error` rather than silently hashing them.

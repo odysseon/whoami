@@ -1,6 +1,5 @@
-# Source Code
+# Source Code (@odysseon/whoami-adapter-argon2)
 
-This directory contains the source code for `@odysseon/whoami-adapter-argon2`.
+Single file: `argon2-password-hasher.adapter.ts`
 
-- [`argon2-password-hasher.adapter.ts`](argon2-password-hasher.adapter.ts) — `Argon2PasswordHasher` — implements `PasswordHasher`
-- [`index.ts`](index.ts) — package exports
+Implements the `PasswordManager` port from `@odysseon/whoami-core` using the `argon2` npm package. Provides `hash(plainText)` and `compare(plainText, hash)` as async methods. Rejects empty inputs rather than silently hashing them.
