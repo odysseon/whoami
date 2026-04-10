@@ -1,0 +1,14 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@odysseon/whoami-adapter-argon2": "10.0.0",
+    "@odysseon/whoami-adapter-jose": "10.0.0",
+    "@odysseon/whoami-adapter-nestjs": "10.0.0",
+    "@odysseon/whoami-adapter-webcrypto": "10.0.0",
+    "@odysseon/whoami-core": "10.0.0"
+  },
+  "changesets": [
+    "tired-peas-cover"
+  ]
+}

@@ -8,6 +8,14 @@ import { Credential } from "../credential.entity.js";
  * Implement this interface in your infrastructure layer to plug in any storage
  * backend.  An account may have multiple OAuth credentials — one per provider.
  *
+ * @remarks
+ * **No update method is defined.** OAuth credentials are immutable after
+ * creation — the `provider` and `providerId` fields are stable identifiers
+ * issued by the external provider.  If a provider migrates user identifiers,
+ * the correct approach is to delete the old credential and save a new one.
+ * This avoids partial-update race conditions and keeps the credential lifecycle
+ * explicit.
+ *
  * @public
  */
 export interface OAuthCredentialStore {
