@@ -14,8 +14,8 @@ import {
   type AuthConfig,
   type AuthMethods,
   type ReceiptVerifier,
+  InvalidConfigurationError,
 } from "@odysseon/whoami-core";
-import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 import { WhoamiAuthGuard } from "./guards/whoami-auth.guard.js";
 import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
@@ -55,6 +55,15 @@ export interface WhoamiModuleAsyncOptions {
   ) => Promise<WhoamiModuleOptions> | WhoamiModuleOptions;
 }
 
+function isReceiptVerifier(obj: unknown): obj is ReceiptVerifier {
+  return (
+    obj !== null &&
+    typeof obj === "object" &&
+    "verify" in obj &&
+    typeof (obj as Record<string, unknown>)["verify"] === "function"
+  );
+}
+
 function resolveAuth(opts: WhoamiModuleOptions): AuthMethods {
   return "auth" in opts && opts.auth !== undefined
     ? opts.auth
@@ -62,16 +71,29 @@ function resolveAuth(opts: WhoamiModuleOptions): AuthMethods {
 }
 
 function resolveVerifier(opts: WhoamiModuleOptions): ReceiptVerifier {
-  if ("receiptVerifier" in opts) {
-    return opts.receiptVerifier;
+  const verifier =
+    "receiptVerifier" in opts
+      ? opts.receiptVerifier
+      : (opts as AuthConfig).receiptVerifier;
+
+  if (!isReceiptVerifier(verifier)) {
+    throw new InvalidConfigurationError(
+      "receiptVerifier must be a valid ReceiptVerifier implementation with a verify() method. " +
+        "Example: new JoseReceiptVerifier({ secret, issuer })",
+    );
   }
-  return (opts as AuthConfig).receiptVerifier;
+
+  return verifier;
 }
 
 @Global()
 @Module({})
 export class WhoamiModule {
   static register(options: WhoamiModuleOptions): DynamicModule {
+    // Validate during registration - fails fast
+    resolveVerifier(options);
+    resolveAuth(options);
+
     const providers = WhoamiModule.buildProviders(options);
     return {
       module: WhoamiModule,
@@ -93,12 +115,10 @@ export class WhoamiModule {
       inject: ["WHOAMI_MODULE_OPTIONS"],
     };
 
-    const verifyReceiptProvider: FactoryProvider = {
+    const receiptVerifierProvider: FactoryProvider = {
       provide: VERIFY_RECEIPT,
-      useFactory: (opts: WhoamiModuleOptions): VerifyReceiptUseCase => {
-        const verifier = resolveVerifier(opts);
-        return new VerifyReceiptUseCase(verifier);
-      },
+      useFactory: (opts: WhoamiModuleOptions): ReceiptVerifier =>
+        resolveVerifier(opts),
       inject: ["WHOAMI_MODULE_OPTIONS"],
     };
 
@@ -117,7 +137,7 @@ export class WhoamiModule {
     const providers: Provider[] = [
       asyncProvider,
       authMethodsProvider,
-      verifyReceiptProvider,
+      receiptVerifierProvider,
       tokenExtractorProvider,
       bearerTokenExtractorAliasProvider,
       WhoamiAuthGuard,
@@ -134,14 +154,17 @@ export class WhoamiModule {
   }
 
   private static buildProviders(options: WhoamiModuleOptions): Provider[] {
+    const verifier = resolveVerifier(options);
+    const auth = resolveAuth(options);
+
     return [
       {
         provide: AUTH_METHODS,
-        useValue: resolveAuth(options),
+        useValue: auth,
       },
       {
         provide: VERIFY_RECEIPT,
-        useValue: new VerifyReceiptUseCase(resolveVerifier(options)),
+        useValue: verifier,
       },
       {
         provide: AuthTokenExtractor,

@@ -6,7 +6,10 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
+import {
+  type ReceiptVerifier,
+  InvalidReceiptError,
+} from "@odysseon/whoami-core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
 import { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
 import { VERIFY_RECEIPT } from "../tokens.js";
@@ -15,9 +18,8 @@ import { VERIFY_RECEIPT } from "../tokens.js";
  * Global authentication guard for NestJS applications.
  *
  * Extracts the bearer token from every incoming request using the supplied
- * {@link AuthTokenExtractor}, verifies it via the receipt verifier registered
- * under the {@link VERIFY_RECEIPT} token, and attaches the resulting `Receipt`
- * to `request.identity`.
+ * {@link AuthTokenExtractor}, verifies it via the receipt verifier port,
+ * and attaches the resulting `Receipt` to `request.identity`.
  *
  * Routes decorated with `@Public()` bypass verification entirely.
  *
@@ -27,7 +29,7 @@ import { VERIFY_RECEIPT } from "../tokens.js";
 export class WhoamiAuthGuard implements CanActivate {
   constructor(
     @Inject(VERIFY_RECEIPT)
-    private readonly verifyReceipt: VerifyReceiptUseCase,
+    private readonly receiptVerifier: ReceiptVerifier,
     private readonly extractor: AuthTokenExtractor,
     private readonly reflector: Reflector,
   ) {}
@@ -53,13 +55,17 @@ export class WhoamiAuthGuard implements CanActivate {
     }
 
     try {
-      const receipt = await this.verifyReceipt.execute(token);
+      const receipt = await this.receiptVerifier.verify(token);
       request["identity"] = receipt;
       return true;
-    } catch {
-      throw new UnauthorizedException(
-        "Invalid or expired authentication token.",
-      );
+    } catch (err) {
+      // Handle the specific error from the port
+      if (err instanceof InvalidReceiptError) {
+        throw new UnauthorizedException(
+          "Invalid or expired authentication token.",
+        );
+      }
+      throw err;
     }
   }
 }
