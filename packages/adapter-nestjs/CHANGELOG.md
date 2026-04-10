@@ -1,5 +1,26 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 10.0.0
+
+### Major Changes
+
+- f0808d8: New API
+- d0db366: Breaking Change: Refactored NestJS integration for better developer experience.
+  - `WhoamiModule` is now a Global module; manual imports in feature modules are no longer required.
+  - Deleted `WhoamiOAuthModule`. `OAuthCallbackHandler` is now provided directly by the main `WhoamiModule`.
+  - Moved `AUTH_METHODS` token to `@odysseon/whoami-adapter-nestjs/tokens`.
+
+- 28cfb75: Bifurcate public/internal API surface and promote NestJS adapter to a global module
+- 19cffd7: Formalize beta release for global NestJS module and bifurcated core API.
+
+### Patch Changes
+
+- Updated dependencies [f0808d8]
+- Updated dependencies [f0808d8]
+- Updated dependencies [28cfb75]
+- Updated dependencies [19cffd7]
+  - @odysseon/whoami-core@10.0.0
+
 ## 0.0.0-beta.2
 
 ### Major Changes

@@ -1,5 +1,20 @@
 # @odysseon/whoami-core
 
+## 10.0.0
+
+### Major Changes
+
+- f0808d8: New API
+- 28cfb75: Bifurcate public/internal API surface and promote NestJS adapter to a global module
+- 19cffd7: Formalize beta release for global NestJS module and bifurcated core API.
+
+### Minor Changes
+
+- f0808d8: - **Password Updates**: Added `UpdatePasswordUseCase` and `auth.updatePassword()` to allow authenticated users to securely change their passwords.
+  - **Facade Architecture**: All authentication flows are now centralized in the `createAuth` factory. Concrete use cases are moved to the `/internal` entry point.
+  - **NestJS Global Module**: `WhoamiModule` is now marked as `@Global()` and `WhoamiOAuthModule` has been merged into it.
+  - **Port Updates**: `PasswordCredentialStore` now requires an `update` method.
+
 ## 0.0.0-beta.1
 
 ### Major Changes

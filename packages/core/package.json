@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-core",
-  "version": "9.9.9",
+  "version": "10.0.0",
   "description": "Framework-agnostic identity and authentication core",
   "keywords": [
     "authentication",
