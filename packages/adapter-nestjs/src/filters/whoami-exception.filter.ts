@@ -14,7 +14,9 @@ const STATUS_MAP: Partial<Record<string, HttpStatus>> = {
   ACCOUNT_ALREADY_EXISTS: HttpStatus.CONFLICT,
   INVALID_EMAIL: HttpStatus.BAD_REQUEST,
   INVALID_CONFIGURATION: HttpStatus.INTERNAL_SERVER_ERROR,
-  WRONG_CREDENTIAL_TYPE: HttpStatus.BAD_REQUEST,
+  // WrongCredentialTypeError is a server-side programmer error (wrong proof accessor),
+  // never a client fault — map to 500.
+  WRONG_CREDENTIAL_TYPE: HttpStatus.INTERNAL_SERVER_ERROR,
   INVALID_ACCOUNT_ID: HttpStatus.BAD_REQUEST,
   INVALID_CREDENTIAL_ID: HttpStatus.BAD_REQUEST,
   INVALID_CREDENTIAL: HttpStatus.BAD_REQUEST,
@@ -45,7 +47,11 @@ export class WhoamiExceptionFilter implements ExceptionFilter {
     const status =
       STATUS_MAP[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
-    if (exception instanceof InvalidConfigurationError) {
+    // Log server-side errors at error level; client-side at warn level.
+    if (
+      exception instanceof InvalidConfigurationError ||
+      exception.code === "WRONG_CREDENTIAL_TYPE"
+    ) {
       this.logger.error(exception.message, exception.stack);
     } else {
       this.logger.warn(exception.message);
