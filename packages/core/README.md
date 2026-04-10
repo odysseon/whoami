@@ -98,6 +98,7 @@ Manages `Credential` aggregates. Two proof kinds are supported: `password` and `
 | `RegisterWithPasswordUseCase` | Creates account + password credential atomically, returns receipt |
 | `LinkOAuthToAccountUseCase`   | Links an OAuth credential to an already-authenticated account     |
 | `RemovePasswordUseCase`       | Removes a password credential by credential ID                    |
+| `UpdatePasswordUseCase`       | Verifies current password and updates to a new hash               |
 
 ### `receipts`
 
