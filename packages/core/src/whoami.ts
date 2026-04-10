@@ -2,18 +2,14 @@
  * `createAuth` — top-level factory that composes core use-cases into a single
  * framework-agnostic auth facade.
  *
- * Configure only the sections your application needs. Omitting `password` or
- * `oauth` disables the corresponding methods at runtime (they will be absent
- * on the returned object).
- *
  * @example
  * ```ts
  * import { createAuth } from "@odysseon/whoami-core";
  *
  * const auth = createAuth({
  *   accountRepo,
- *   tokenSigner: issueReceiptUC,
- *   verifyReceipt: verifyReceiptUC,
+ *   receiptSigner: new JoseReceiptSigner(joseConfig),
+ *   receiptVerifier: new JoseReceiptVerifier(joseConfig),
  *   logger,
  *   generateId: crypto.randomUUID.bind(crypto),
  *   password: { hashManager, passwordStore },
@@ -26,25 +22,21 @@
  * @packageDocumentation
  */
 
-import type { AuthenticateOAuthInput } from "./features/authentication/authenticate-oauth.usecase.js";
+import type { AuthenticateOAuthInput } from "./features/authentication/application/authenticate-oauth.usecase.js";
+import { AuthenticateOAuthUseCase } from "./features/authentication/application/authenticate-oauth.usecase.js";
+import { AuthenticateWithPasswordUseCase } from "./features/authentication/application/authenticate-password.usecase.js";
+import { AddPasswordAuthUseCase } from "./features/authentication/application/add-password-auth.usecase.js";
+import { RemoveAuthMethodUseCase } from "./features/authentication/application/remove-auth-method.usecase.js";
 import type { LinkOAuthToAccountInput } from "./features/credentials/application/link-oauth.usecase.js";
 import { LinkOAuthToAccountUseCase } from "./features/credentials/application/link-oauth.usecase.js";
 import { RegisterWithPasswordUseCase } from "./features/credentials/application/register-password.usecase.js";
-import { RemovePasswordUseCase } from "./features/credentials/application/remove-password.usecase.js";
-import { UpdatePasswordUseCase } from "./features/credentials/index.js";
+import { UpdatePasswordUseCase } from "./features/credentials/application/update-password.usecase.js";
 import type { Receipt } from "./features/receipts/index.js";
-import {
-  AddPasswordAuthUseCase,
-  AuthenticateOAuthUseCase,
-  AuthenticateWithPasswordUseCase,
-} from "./internal/index.js";
-import {
-  CannotRemoveLastCredentialError,
-  UnsupportedAuthMethodError,
-  OAuthProviderNotFoundError,
-} from "./shared/domain/errors/auth.error.js";
+import { IssueReceiptUseCase } from "./features/receipts/application/issue-receipt.usecase.js";
+import { VerifyReceiptUseCase } from "./features/receipts/application/verify-receipt.usecase.js";
 import type { AccountId } from "./shared/index.js";
-import type { AuthConfig, AuthMethod, AuthMethods } from "./types.js";
+import type { AuthMethod } from "./shared/domain/auth-method.js";
+import type { AuthConfig, AuthMethods } from "./types.js";
 
 /**
  * Composes the core use-cases and returns the {@link AuthMethods} facade.
@@ -56,127 +48,64 @@ import type { AuthConfig, AuthMethod, AuthMethods } from "./types.js";
 export function createAuth(config: AuthConfig): AuthMethods {
   const {
     accountRepo,
-    tokenSigner,
-    verifyReceipt,
+    receiptSigner,
+    receiptVerifier,
+    tokenLifespanMinutes,
     logger,
     generateId,
     password: passwordConfig,
     oauth: oauthConfig,
   } = config;
 
-  // ── Auth-method introspection ────────────────────────────────────────────
+  // ── Build use-cases from ports ───────────────────────────────────────────
+  const issueReceiptUC = new IssueReceiptUseCase({
+    signer: receiptSigner,
+    ...(tokenLifespanMinutes !== undefined ? { tokenLifespanMinutes } : {}),
+  });
 
+  const verifyReceiptUC = new VerifyReceiptUseCase(receiptVerifier);
+
+  // ── Auth-method introspection ────────────────────────────────────────────
   const getAccountAuthMethods = async (
     accountId: AccountId,
   ): Promise<AuthMethod[]> => {
     const methods: AuthMethod[] = [];
-
     if (passwordConfig) {
-      const exists =
-        await passwordConfig.passwordStore.existsForAccount(accountId);
-      if (exists) methods.push("password");
+      if (await passwordConfig.passwordStore.existsForAccount(accountId)) {
+        methods.push("password");
+      }
     }
-
     if (oauthConfig) {
-      const exists = await oauthConfig.oauthStore.existsForAccount(accountId);
-      if (exists) methods.push("oauth");
+      if (await oauthConfig.oauthStore.existsForAccount(accountId)) {
+        methods.push("oauth");
+      }
     }
-
     return methods;
   };
 
-  // ── removeAuthMethod ─────────────────────────────────────────────────────
+  // ── removeAuthMethod — delegates to extracted use-case ───────────────────
+  const removeAuthMethodUC = new RemoveAuthMethodUseCase({
+    ...(passwordConfig ? { passwordStore: passwordConfig.passwordStore } : {}),
+    ...(oauthConfig ? { oauthStore: oauthConfig.oauthStore } : {}),
+  });
 
-  const removeAuthMethod = async (
+  const removeAuthMethod = (
     accountId: AccountId,
     method: AuthMethod,
     options?: { provider?: string },
-  ): Promise<void> => {
-    if (method === "password") {
-      // Throw early when the method isn't configured at all.
-      if (!passwordConfig) {
-        throw new UnsupportedAuthMethodError("password");
-      }
+  ): Promise<void> =>
+    removeAuthMethodUC.execute({
+      accountId,
+      method,
+      ...(options?.provider !== undefined
+        ? { provider: options.provider }
+        : {}),
+    });
 
-      // After removing password, the account must still have at least one
-      // OAuth credential remaining.
-      const hasOAuth =
-        oauthConfig !== undefined &&
-        (await oauthConfig.oauthStore.existsForAccount(accountId));
-
-      if (!hasOAuth) {
-        throw new CannotRemoveLastCredentialError();
-      }
-
-      const cred =
-        await passwordConfig.passwordStore.findByAccountId(accountId);
-      if (cred) {
-        const removeUC = new RemovePasswordUseCase({
-          passwordStore: passwordConfig.passwordStore,
-        });
-        await removeUC.execute({ credentialId: String(cred.id.value) });
-      }
-      return;
-    }
-
-    if (method === "oauth") {
-      // Throw early when the method isn't configured at all.
-      if (!oauthConfig) {
-        throw new UnsupportedAuthMethodError("oauth");
-      }
-
-      if (options?.provider) {
-        // Removing a single OAuth provider — safe only when another credential
-        // will remain after deletion (either another OAuth provider OR a password).
-        const allOAuth =
-          await oauthConfig.oauthStore.findAllByAccountId(accountId);
-
-        const providerCredential = allOAuth.find(
-          (c) => c.oauthProvider === options.provider,
-        );
-        if (!providerCredential) {
-          throw new OAuthProviderNotFoundError(options.provider);
-        }
-
-        const oauthCountAfter = allOAuth.length - 1;
-        const hasPassword =
-          passwordConfig !== undefined &&
-          (await passwordConfig.passwordStore.existsForAccount(accountId));
-
-        if (oauthCountAfter === 0 && !hasPassword) {
-          throw new CannotRemoveLastCredentialError();
-        }
-
-        await oauthConfig.oauthStore.deleteByProvider(
-          accountId,
-          options.provider,
-        );
-      } else {
-        // Removing all OAuth — password auth must exist.
-        const hasPassword =
-          passwordConfig !== undefined &&
-          (await passwordConfig.passwordStore.existsForAccount(accountId));
-
-        if (!hasPassword) {
-          throw new CannotRemoveLastCredentialError();
-        }
-
-        await oauthConfig.oauthStore.deleteAllForAccount(accountId);
-      }
-      return;
-    }
-
-    // Exhaustiveness: method is AuthMethod so this path is only reachable if
-    // the type is widened in the future without updating this switch.
-    throw new UnsupportedAuthMethodError(method as string);
-  };
-
-  // ── Base facade (always-present methods) ─────────────────────────────────
-
+  // ── Base facade ──────────────────────────────────────────────────────────
   const base: AuthMethods = { getAccountAuthMethods, removeAuthMethod };
 
   // ── Password flow ────────────────────────────────────────────────────────
-
   if (passwordConfig) {
     const { hashManager, passwordStore } = passwordConfig;
 
@@ -184,14 +113,14 @@ export function createAuth(config: AuthConfig): AuthMethods {
       accountRepo,
       passwordStore,
       hashPassword: (plain: string): Promise<string> => hashManager.hash(plain),
-      issueReceipt: tokenSigner,
+      issueReceipt: issueReceiptUC,
       generateId,
     });
 
     const authenticateWithPasswordUC = new AuthenticateWithPasswordUseCase({
       passwordStore,
       passwordManager: hashManager,
-      issueReceipt: tokenSigner,
+      issueReceipt: issueReceiptUC,
       logger,
     });
 
@@ -206,15 +135,9 @@ export function createAuth(config: AuthConfig): AuthMethods {
     const updatePasswordUC = new UpdatePasswordUseCase({
       passwordStore,
       passwordManager: hashManager,
-      verifyReceipt,
+      verifyReceipt: verifyReceiptUC,
       logger,
     });
-
-    base.updatePassword = (input: {
-      receiptToken: string;
-      currentPassword: string;
-      newPassword: string;
-    }): Promise<void> => updatePasswordUC.execute(input);
 
     base.registerWithPassword = (input: {
       email: string;
@@ -230,17 +153,22 @@ export function createAuth(config: AuthConfig): AuthMethods {
       accountId: AccountId,
       password: string,
     ): Promise<void> => addPasswordUC.execute({ accountId, password });
+
+    base.updatePassword = (input: {
+      receiptToken: string;
+      currentPassword: string;
+      newPassword: string;
+    }): Promise<void> => updatePasswordUC.execute(input);
   }
 
   // ── OAuth flow ───────────────────────────────────────────────────────────
-
   if (oauthConfig) {
     const { oauthStore } = oauthConfig;
 
     const authenticateOAuthUC = new AuthenticateOAuthUseCase({
       accountRepository: accountRepo,
       oauthCredentialStore: oauthStore,
-      issueReceipt: tokenSigner,
+      issueReceipt: issueReceiptUC,
       generateId,
       logger,
     });
@@ -248,7 +176,7 @@ export function createAuth(config: AuthConfig): AuthMethods {
     const linkOAuthUC = new LinkOAuthToAccountUseCase({
       accountRepository: accountRepo,
       oauthCredentialStore: oauthStore,
-      verifyReceipt,
+      verifyReceipt: verifyReceiptUC,
       generateId,
       logger,
     });

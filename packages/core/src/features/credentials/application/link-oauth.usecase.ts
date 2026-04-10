@@ -3,7 +3,7 @@ import { CredentialId } from "../../../shared/domain/value-objects/credential-id
 import type { AccountRepository } from "../../accounts/domain/account-repository.port.js";
 import type { OAuthCredentialStore } from "../domain/ports/oauth-credential-store.port.js";
 import type { LoggerPort } from "../../../shared/domain/ports/logger.port.js";
-import { VerifyReceiptUseCase } from "../../receipts/index.js";
+import { VerifyReceiptUseCase } from "../../receipts/application/verify-receipt.usecase.js";
 import { AuthenticationError } from "../../../shared/domain/errors/auth.error.js";
 
 /**
@@ -30,7 +30,10 @@ export interface LinkOAuthToAccountDeps {
   accountRepository: AccountRepository;
   /** Persistence port for OAuth credentials. */
   oauthCredentialStore: OAuthCredentialStore;
-  /** Use-case that verifies the caller's receipt token. */
+  /**
+   * Receipt verifier — either a {@link VerifyReceiptUseCase} instance or any
+   * object with a compatible `execute(token)` signature.
+   */
   verifyReceipt: VerifyReceiptUseCase;
   /**
    * Deterministic ID generator — must return a non-empty string on every call.

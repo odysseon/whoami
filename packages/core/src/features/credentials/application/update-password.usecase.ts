@@ -1,7 +1,7 @@
 import type { LoggerPort } from "../../../shared/domain/ports/logger.port.js";
 import type { PasswordCredentialStore } from "../domain/ports/password-credential-store.port.js";
 import type { PasswordManager } from "../domain/ports/password-manager.port.js";
-import type { VerifyReceiptUseCase } from "../../receipts/index.js";
+import { VerifyReceiptUseCase } from "../../receipts/application/verify-receipt.usecase.js";
 import { AuthenticationError } from "../../../shared/domain/errors/auth.error.js";
 
 /**
@@ -26,7 +26,10 @@ export interface UpdatePasswordDeps {
   passwordStore: PasswordCredentialStore;
   /** Password hashing and comparison port. */
   passwordManager: PasswordManager;
-  /** Use-case that verifies the caller's receipt token. */
+  /**
+   * Receipt verifier — either a {@link VerifyReceiptUseCase} instance or any
+   * object with a compatible `execute(token)` signature.
+   */
   verifyReceipt: VerifyReceiptUseCase;
   /** Structured logger. */
   logger: LoggerPort;

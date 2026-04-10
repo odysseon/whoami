@@ -7,7 +7,8 @@ import {
 import { Account, AccountRepository } from "../../accounts/index.js";
 import { Credential } from "../domain/credential.entity.js";
 import { PasswordCredentialStore } from "../domain/ports/password-credential-store.port.js";
-import { IssueReceiptUseCase, Receipt } from "../../receipts/index.js";
+import type { Receipt } from "../../receipts/index.js";
+import type { IssueReceiptUseCase } from "../../receipts/application/issue-receipt.usecase.js";
 
 /**
  * Dependencies for {@link RegisterWithPasswordUseCase}.
@@ -30,7 +31,7 @@ export interface RegisterWithPasswordDeps {
    */
   hashPassword: (plain: string) => Promise<string>;
   /** The use-case that mints a signed receipt after registration. */
-  issueReceipt: IssueReceiptUseCase;
+  issueReceipt: Pick<IssueReceiptUseCase, "execute">;
 }
 
 /**

@@ -13,3 +13,4 @@ export * from "./domain/ports/logger.port.js";
 export * from "./domain/value-objects/account-id.vo.js";
 export * from "./domain/value-objects/credential-id.vo.js";
 export * from "./domain/value-objects/email-address.vo.js";
+export * from "./domain/auth-method.js";

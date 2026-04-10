@@ -1,23 +1,21 @@
-import { AccountRepository } from "./features/accounts/index.js";
-import { AuthenticateOAuthInput } from "./features/authentication/authenticate-oauth.usecase.js";
-import {
+import type { AccountRepository } from "./features/accounts/index.js";
+import type { AuthenticateOAuthInput } from "./features/authentication/application/authenticate-oauth.usecase.js";
+import type {
   LinkOAuthToAccountInput,
   OAuthCredentialStore,
   PasswordCredentialStore,
   PasswordManager,
 } from "./features/credentials/index.js";
-import {
-  IssueReceiptUseCase,
-  Receipt,
-  VerifyReceiptUseCase,
+import type { Receipt } from "./features/receipts/index.js";
+import type {
+  ReceiptSigner,
+  ReceiptVerifier,
 } from "./features/receipts/index.js";
-import { AccountId, LoggerPort } from "./shared/index.js";
+import type { AccountId, LoggerPort } from "./shared/index.js";
+import type { AuthMethod } from "./shared/index.js";
 
-/**
- * The set of authentication methods that an account may have active.
- * @public
- */
-export type AuthMethod = "password" | "oauth";
+// Re-export so consumers can import AuthMethod from the types barrel
+export type { AuthMethod };
 
 /** @internal */
 type RegisterArgs = { email: string; password: string };
@@ -37,10 +35,22 @@ type LoginArgs = { email: string; password: string };
 export interface AuthConfig {
   /** Persistence port for account aggregates. */
   accountRepo: AccountRepository;
-  /** Configured {@link IssueReceiptUseCase} — mints signed receipts after auth. */
-  tokenSigner: IssueReceiptUseCase;
-  /** Configured {@link VerifyReceiptUseCase} — validates receipt tokens. */
-  verifyReceipt: VerifyReceiptUseCase;
+  /**
+   * Receipt signer port — produces signed tokens after successful authentication.
+   * Use {@link JoseReceiptSigner} from `@odysseon/whoami-adapter-jose` or supply
+   * your own implementation.
+   */
+  receiptSigner: ReceiptSigner;
+  /**
+   * Receipt verifier port — validates signed tokens on protected routes.
+   * Must be the counterpart of {@link receiptSigner}.
+   */
+  receiptVerifier: ReceiptVerifier;
+  /**
+   * How long issued receipts remain valid, in minutes.
+   * Must be a positive integer. Defaults to `60`.
+   */
+  tokenLifespanMinutes?: number;
   /** Structured logger injected into every use-case. */
   logger: LoggerPort;
   /**

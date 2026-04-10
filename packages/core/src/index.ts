@@ -39,7 +39,7 @@ export type { PasswordManager } from "./features/credentials/domain/ports/passwo
 export type { TokenHasher } from "./features/credentials/domain/ports/token-hasher.port.js";
 
 // ── Input types ────────────────────────────────────────────────────────────
-export type { AuthenticateOAuthInput } from "./features/authentication/authenticate-oauth.usecase.js";
+export type { AuthenticateOAuthInput } from "./features/authentication/application/authenticate-oauth.usecase.js";
 export type { LinkOAuthToAccountInput } from "./features/credentials/application/link-oauth.usecase.js";
 
 // ── Credential domain types ────────────────────────────────────────────────

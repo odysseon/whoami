@@ -1,5 +1,5 @@
-import { CredentialId } from "../../../shared/index.js";
-import { PasswordCredentialStore } from "../domain/ports/password-credential-store.port.js";
+import type { CredentialId } from "../../../shared/index.js";
+import type { PasswordCredentialStore } from "../domain/ports/password-credential-store.port.js";
 
 /**
  * Dependencies for {@link RemovePasswordUseCase}.
@@ -15,8 +15,8 @@ export interface RemovePasswordDeps {
  * @public
  */
 export interface RemovePasswordInput {
-  /** The string ID of the password credential to remove. */
-  credentialId: string;
+  /** The {@link CredentialId} of the password credential to remove. */
+  credentialId: CredentialId;
 }
 
 /**
@@ -42,10 +42,8 @@ export class RemovePasswordUseCase {
    * Deletes the password credential identified by `input.credentialId`.
    *
    * @param input - {@link RemovePasswordInput}
-   * @throws {InvalidCredentialIdError} When `credentialId` is empty or blank.
    */
   async execute(input: RemovePasswordInput): Promise<void> {
-    const credentialId = new CredentialId(input.credentialId);
-    await this.deps.passwordStore.delete(credentialId);
+    await this.deps.passwordStore.delete(input.credentialId);
   }
 }
