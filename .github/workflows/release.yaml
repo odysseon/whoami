@@ -57,7 +57,7 @@ jobs:
       - name: 📥 Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      # Standard Release Flow (Auto)
+      # Standard Release Flow (Auto) - Uses Trusted Publishing
       - name: 🚀 Create Release Pull Request or Publish to npm
         if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: changesets/action@v1
@@ -68,12 +68,10 @@ jobs:
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Dev/Snapshot Flow (Manual)
+      # Dev/Snapshot Flow (Manual) - Uses Trusted Publishing
       - name: 🧪 Publish Dev Snapshot
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: pnpm release:dev --tag ${{ github.event.inputs.tag }}
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
