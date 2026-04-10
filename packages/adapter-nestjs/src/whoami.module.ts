@@ -61,12 +61,11 @@ function resolveAuth(opts: WhoamiModuleOptions): AuthMethods {
     : createAuth(opts as AuthConfig);
 }
 
-function resolveVerifier(opts: WhoamiModuleOptions): VerifyReceiptUseCase {
-  const verifier =
-    "receiptVerifier" in opts
-      ? opts.receiptVerifier
-      : (opts as AuthConfig).receiptVerifier;
-  return new VerifyReceiptUseCase(verifier);
+function resolveVerifier(opts: WhoamiModuleOptions): ReceiptVerifier {
+  if ("receiptVerifier" in opts) {
+    return opts.receiptVerifier;
+  }
+  return (opts as AuthConfig).receiptVerifier;
 }
 
 @Global()
@@ -96,8 +95,10 @@ export class WhoamiModule {
 
     const verifyReceiptProvider: FactoryProvider = {
       provide: VERIFY_RECEIPT,
-      useFactory: (opts: WhoamiModuleOptions): VerifyReceiptUseCase =>
-        resolveVerifier(opts),
+      useFactory: (opts: WhoamiModuleOptions): VerifyReceiptUseCase => {
+        const verifier = resolveVerifier(opts);
+        return new VerifyReceiptUseCase(verifier);
+      },
       inject: ["WHOAMI_MODULE_OPTIONS"],
     };
 
@@ -140,7 +141,7 @@ export class WhoamiModule {
       },
       {
         provide: VERIFY_RECEIPT,
-        useValue: resolveVerifier(options),
+        useValue: new VerifyReceiptUseCase(resolveVerifier(options)),
       },
       {
         provide: AuthTokenExtractor,
