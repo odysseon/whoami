@@ -22,15 +22,19 @@ export interface UpdatePasswordInput {
  * @public
  */
 export interface UpdatePasswordDeps {
-  /** Persistence port for password credentials. */
-  passwordStore: PasswordCredentialStore;
-  /** Password hashing and comparison port. */
-  passwordManager: PasswordManager;
+  /** Finds password credentials by account ID. */
+  credentialFinder: Pick<PasswordCredentialStore, "findByAccountId">;
+  /** Updates existing password credential hashes. */
+  credentialUpdater: Pick<PasswordCredentialStore, "update">;
+  /** Hashes new passwords for storage. */
+  passwordHasher: Pick<PasswordManager, "hash">;
+  /** Verifies current passwords against stored hashes. */
+  passwordVerifier: Pick<PasswordManager, "compare">;
   /**
    * Receipt verifier — either a {@link VerifyReceiptUseCase} instance or any
    * object with a compatible `execute(token)` signature.
    */
-  verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
+  receiptVerifier: Pick<VerifyReceiptUseCase, "execute">;
   /** Structured logger. */
   logger: LoggerPort;
 }
@@ -46,15 +50,22 @@ export interface UpdatePasswordDeps {
  * @public
  */
 export class UpdatePasswordUseCase {
-  private readonly passwordStore: PasswordCredentialStore;
-  private readonly passwordManager: PasswordManager;
-  private readonly verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
+  private readonly credentialFinder: Pick<
+    PasswordCredentialStore,
+    "findByAccountId"
+  >;
+  private readonly credentialUpdater: Pick<PasswordCredentialStore, "update">;
+  private readonly passwordHasher: Pick<PasswordManager, "hash">;
+  private readonly passwordVerifier: Pick<PasswordManager, "compare">;
+  private readonly receiptVerifier: Pick<VerifyReceiptUseCase, "execute">;
   private readonly logger: LoggerPort;
 
   constructor(deps: UpdatePasswordDeps) {
-    this.passwordStore = deps.passwordStore;
-    this.passwordManager = deps.passwordManager;
-    this.verifyReceipt = deps.verifyReceipt;
+    this.credentialFinder = deps.credentialFinder;
+    this.credentialUpdater = deps.credentialUpdater;
+    this.passwordHasher = deps.passwordHasher;
+    this.passwordVerifier = deps.passwordVerifier;
+    this.receiptVerifier = deps.receiptVerifier;
     this.logger = deps.logger;
   }
 
@@ -68,11 +79,11 @@ export class UpdatePasswordUseCase {
    */
   public async execute(input: UpdatePasswordInput): Promise<void> {
     // PHASE 1: verify the caller is authenticated
-    const receipt = await this.verifyReceipt.execute(input.receiptToken);
+    const receipt = await this.receiptVerifier.execute(input.receiptToken);
     const authenticatedAccountId = receipt.accountId;
 
     // PHASE 2: load the existing password credential
-    const existingCredential = await this.passwordStore.findByAccountId(
+    const existingCredential = await this.credentialFinder.findByAccountId(
       authenticatedAccountId,
     );
 
@@ -86,7 +97,7 @@ export class UpdatePasswordUseCase {
     }
 
     // PHASE 3: verify current password
-    const isCurrentPasswordValid = await this.passwordManager.compare(
+    const isCurrentPasswordValid = await this.passwordVerifier.compare(
       input.currentPassword,
       existingCredential.passwordHash,
     );
@@ -99,9 +110,9 @@ export class UpdatePasswordUseCase {
     }
 
     // PHASE 4: hash the new password and update the credential
-    const newHash = await this.passwordManager.hash(input.newPassword);
+    const newHash = await this.passwordHasher.hash(input.newPassword);
 
-    await this.passwordStore.update(existingCredential.id, newHash);
+    await this.credentialUpdater.update(existingCredential.id, newHash);
 
     this.logger.info(
       `Password updated successfully for account ${authenticatedAccountId.value}`,
