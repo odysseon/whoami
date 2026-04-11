@@ -4,6 +4,7 @@ import {
   PasswordCredentialStore,
   PasswordManager,
 } from "../../credentials/index.js";
+import type { AccountRepository } from "../../accounts/index.js";
 import type { Receipt } from "../../receipts/index.js";
 import type { IssueReceiptUseCase } from "../../receipts/application/issue-receipt.usecase.js";
 
@@ -12,14 +13,16 @@ import type { IssueReceiptUseCase } from "../../receipts/application/issue-recei
  * @public
  */
 export interface AuthenticateWithPasswordDeps {
-  /** Persistence port for password credentials. */
-  passwordStore: PasswordCredentialStore;
-  /** Use-case that mints a signed receipt on success. */
-  issueReceipt: Pick<IssueReceiptUseCase, "execute">;
+  /** Finds accounts by email address. */
+  accountFinder: Pick<AccountRepository, "findByEmail">;
+  /** Finds password credentials by account ID. */
+  credentialFinder: Pick<PasswordCredentialStore, "findByAccountId">;
+  /** Issues a signed receipt on successful authentication. */
+  receiptIssuer: Pick<IssueReceiptUseCase, "execute">;
   /** Structured logger. */
   logger: LoggerPort;
-  /** Password hashing and comparison port. */
-  passwordManager: PasswordManager;
+  /** Verifies plain-text passwords against stored hashes. */
+  passwordVerifier: Pick<PasswordManager, "compare">;
 }
 
 /**
@@ -59,13 +62,21 @@ export class AuthenticateWithPasswordUseCase {
   async execute(input: AuthenticateWithPasswordInput): Promise<Receipt> {
     const email = new EmailAddress(input.email);
 
-    const credential = await this.deps.passwordStore.findByEmail(email);
-    if (!credential) {
+    const account = await this.deps.accountFinder.findByEmail(email);
+    if (!account) {
       this.deps.logger.warn("Authentication failed: email not found");
       throw new AuthenticationError();
     }
 
-    const isValid = await this.deps.passwordManager.compare(
+    const credential = await this.deps.credentialFinder.findByAccountId(
+      account.id,
+    );
+    if (!credential) {
+      this.deps.logger.warn("Authentication failed: no password credential");
+      throw new AuthenticationError();
+    }
+
+    const isValid = await this.deps.passwordVerifier.compare(
       input.password,
       credential.passwordHash,
     );
@@ -74,6 +85,6 @@ export class AuthenticateWithPasswordUseCase {
       throw new AuthenticationError();
     }
 
-    return await this.deps.issueReceipt.execute(credential.accountId);
+    return await this.deps.receiptIssuer.execute(credential.accountId);
   }
 }

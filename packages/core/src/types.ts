@@ -23,11 +23,18 @@ type RegisterArgs = { email: string; password: string };
 /** @internal */
 type LoginArgs = { email: string; password: string };
 
+/** @internal */
+type UpdatePasswordArgs = {
+  receiptToken: string;
+  currentPassword: string;
+  newPassword: string;
+};
+
 /**
  * Top-level configuration passed to {@link createAuth}.
  *
  * Configure only the sections that match the authentication flows your
- * application supports.  Omitting `password` or `oauth` disables the
+ * application supports. Omitting `password` or `oauth` disables the
  * corresponding methods at runtime.
  *
  * @public
@@ -63,7 +70,7 @@ export interface AuthConfig {
   /** Password-auth section — omit to disable password-based flows. */
   password?: {
     /** Password hashing and comparison port. */
-    hashManager: PasswordManager;
+    passwordManager: PasswordManager;
     /** Persistence port for password credentials. */
     passwordStore: PasswordCredentialStore;
   };
@@ -147,9 +154,5 @@ export interface AuthMethods {
    * @param input - Contains receipt token, current password, and new password.
    * @throws {AuthenticationError} If current password is incorrect or no password credential exists.
    */
-  updatePassword?: (input: {
-    receiptToken: string;
-    currentPassword: string;
-    newPassword: string;
-  }) => Promise<void>;
+  updatePassword?: (input: UpdatePasswordArgs) => Promise<void>;
 }
