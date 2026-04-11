@@ -45,6 +45,6 @@ export type { LinkOAuthToAccountInput } from "./features/credentials/application
 // ── Credential domain types ────────────────────────────────────────────────
 export * from "./features/credentials/domain/types.js";
 
-// ── Factory & facade ───────────────────────────────────────────────────────
+// ── Factory, facade, and config types ─────────────────────────────────────
 export * from "./whoami.js";
 export * from "./types.js";
