@@ -30,8 +30,8 @@ export interface PasswordCredentialStore {
   /**
    * Updates the hash of an existing password credential.
    *
-   * This method assumes the credential already exists; implementations should
-   * throw an appropriate error if the credential is not found.
+   * Assumes the credential already exists; implementations should throw when
+   * the credential is not found.
    *
    * @param credentialId - The ID of the credential to update.
    * @param newHash - The new hashed password string.
@@ -39,20 +39,11 @@ export interface PasswordCredentialStore {
   update(credentialId: CredentialId, newHash: string): Promise<void>;
 
   /**
-   * Removes a password credential by its own identifier.
+   * Removes a password credential by its identifier.
    *
    * @param credentialId - The {@link CredentialId} of the credential to remove.
    */
   delete(credentialId: CredentialId): Promise<void>;
-
-  /**
-   * Removes the password credential for the given account.
-   *
-   * Convenience alternative to `delete` when only the account ID is known.
-   *
-   * @param accountId - The {@link AccountId} whose password credential should be removed.
-   */
-  deleteByAccountId(accountId: AccountId): Promise<void>;
 
   /**
    * Returns `true` when a password credential exists for the given account.

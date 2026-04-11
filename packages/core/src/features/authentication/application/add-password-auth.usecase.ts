@@ -3,7 +3,7 @@ import {
   AccountNotFoundError,
   CredentialAlreadyExistsError,
 } from "../../../shared/domain/errors/index.js";
-import type { AuthMethod } from "../../../shared/domain/auth-method.js";
+import type { AuthMethodsProvider } from "../../../shared/domain/auth-method.js";
 import { AccountRepository } from "../../accounts/index.js";
 import {
   PasswordCredentialStore,
@@ -31,7 +31,7 @@ export interface AddPasswordAuthDeps {
    * Returns the active authentication methods for the given account.
    * Used to enforce the "one password per account" invariant.
    */
-  authMethodsProvider: (accountId: AccountId) => Promise<AuthMethod[]>;
+  authMethodsProvider: AuthMethodsProvider;
 }
 
 /**

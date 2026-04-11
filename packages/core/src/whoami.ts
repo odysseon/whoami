@@ -2,7 +2,10 @@
  * `createAuth` — top-level factory that composes core use-cases into a single
  * framework-agnostic auth facade.
  *
- * @example
+ * Overloads narrow the return type to the configured auth methods, eliminating
+ * optional chaining at call sites.
+ *
+ * @example — password + OAuth
  * ```ts
  * import { createAuth } from "@odysseon/whoami-core";
  *
@@ -12,39 +15,110 @@
  *   receiptVerifier: new JoseReceiptVerifier(joseConfig),
  *   logger,
  *   generateId: crypto.randomUUID.bind(crypto),
- *   password: { hashManager, passwordStore },
+ *   password: { passwordManager, passwordStore },
  *   oauth: { oauthStore },
  * });
  *
- * const receipt = await auth.registerWithPassword!({ email, password });
- * ```
+ * // Register a new account with password
+ * const receipt = await auth.registerWithPassword({
+ *   email: "user@example.com",
+ *   password: "secure-password"
+ * });
+ *
+ * // Authenticate with password
+ * const authReceipt = await auth.authenticateWithPassword({
+ *   email: "user@example.com",
+ *   password: "secure-password"
+ * });
+ *
+ * // Add password to existing account (requires valid receipt)
+ * await auth.addPasswordToAccount(accountId, "new-password");
+ *
+ * // Update password (requires valid receipt)
+ * await auth.updatePassword({
+ *   accountId,
+ *   currentPassword: "old-password",
+ *   newPassword: "new-password"
+ * });
+ *
+ * // OAuth authentication
+ * const oauthReceipt = await auth.authenticateWithOAuth({
+ *   provider: "google",
+ *   code: "auth-code"
+ * });
+ *
+ * // Link OAuth to existing account
+ * await auth.linkOAuthToAccount({
+ *   receipt: validReceipt,
+ *   provider: "google",
+ *   code: "auth-code"
+ * });
+ *
+ * // Get available auth methods for an account
+ * const methods = await auth.getAccountAuthMethods(accountId);
+ *
+ * // Remove an auth method
+ * await auth.removeAuthMethod(accountId, "password");
  *
  * @packageDocumentation
  */
 
-import type { AuthenticateOAuthInput } from "./features/authentication/application/authenticate-oauth.usecase.js";
 import { AuthenticateOAuthUseCase } from "./features/authentication/application/authenticate-oauth.usecase.js";
 import { AuthenticateWithPasswordUseCase } from "./features/authentication/application/authenticate-password.usecase.js";
 import { AddPasswordAuthUseCase } from "./features/authentication/application/add-password-auth.usecase.js";
 import { RemoveAuthMethodUseCase } from "./features/authentication/application/remove-auth-method.usecase.js";
-import type { LinkOAuthToAccountInput } from "./features/credentials/application/link-oauth.usecase.js";
 import { LinkOAuthToAccountUseCase } from "./features/credentials/application/link-oauth.usecase.js";
 import { RegisterWithPasswordUseCase } from "./features/credentials/application/register-password.usecase.js";
 import { UpdatePasswordUseCase } from "./features/credentials/application/update-password.usecase.js";
-import type { Receipt } from "./features/receipts/index.js";
 import { IssueReceiptUseCase } from "./features/receipts/application/issue-receipt.usecase.js";
 import { VerifyReceiptUseCase } from "./features/receipts/application/verify-receipt.usecase.js";
 import type { AccountId } from "./shared/index.js";
 import type { AuthMethod } from "./shared/domain/auth-method.js";
-import type { AuthConfig, AuthMethods } from "./types.js";
+import type {
+  AuthConfig,
+  AuthMethods,
+  PasswordAuthConfig,
+  OAuthConfig,
+  FullAuthMethods,
+  PasswordOnlyAuthMethods,
+  OAuthOnlyAuthMethods,
+} from "./types.js";
+import { Receipt } from "./features/receipts/domain/receipt.entity.js";
+
+// ── Overloads ────────────────────────────────────────────────────────────────
 
 /**
- * Composes the core use-cases and returns the {@link AuthMethods} facade.
- *
- * @param config - {@link AuthConfig}
- * @returns Composed {@link AuthMethods} facade.
+ * Both password and OAuth configured — returns {@link FullAuthMethods}.
  * @public
  */
+export function createAuth(
+  config: AuthConfig & { password: PasswordAuthConfig; oauth: OAuthConfig },
+): FullAuthMethods;
+
+/**
+ * Only password configured — returns {@link PasswordOnlyAuthMethods}.
+ * @public
+ */
+export function createAuth(
+  config: AuthConfig & { password: PasswordAuthConfig; oauth?: undefined },
+): PasswordOnlyAuthMethods;
+
+/**
+ * Only OAuth configured — returns {@link OAuthOnlyAuthMethods}.
+ * @public
+ */
+export function createAuth(
+  config: AuthConfig & { password?: undefined; oauth: OAuthConfig },
+): OAuthOnlyAuthMethods;
+
+/**
+ * Base overload for unknown configuration — returns {@link AuthMethods}.
+ * @public
+ */
+export function createAuth(config: AuthConfig): AuthMethods;
+
+// ── Implementation ───────────────────────────────────────────────────────────
+
 export function createAuth(config: AuthConfig): AuthMethods {
   const {
     accountRepo,
@@ -57,7 +131,6 @@ export function createAuth(config: AuthConfig): AuthMethods {
     oauth: oauthConfig,
   } = config;
 
-  // ── Build use-cases from ports ───────────────────────────────────────────
   const issueReceiptUC = new IssueReceiptUseCase({
     signer: receiptSigner,
     ...(tokenLifespanMinutes !== undefined ? { tokenLifespanMinutes } : {}),
@@ -65,7 +138,6 @@ export function createAuth(config: AuthConfig): AuthMethods {
 
   const verifyReceiptUC = new VerifyReceiptUseCase(receiptVerifier);
 
-  // ── Auth-method introspection ────────────────────────────────────────────
   const getAccountAuthMethods = async (
     accountId: AccountId,
   ): Promise<AuthMethod[]> => {
@@ -83,18 +155,23 @@ export function createAuth(config: AuthConfig): AuthMethods {
     return methods;
   };
 
-  // ── removeAuthMethod — delegates to extracted use-case ───────────────────
-  const removeAuthMethodUC = new RemoveAuthMethodUseCase({
-    ...(passwordConfig ? { passwordStore: passwordConfig.passwordStore } : {}),
-    ...(oauthConfig ? { oauthStore: oauthConfig.oauthStore } : {}),
-  });
+  const removeAuthMethodUC = new RemoveAuthMethodUseCase(
+    passwordConfig && oauthConfig
+      ? {
+          passwordStore: passwordConfig.passwordStore,
+          oauthStore: oauthConfig.oauthStore,
+        }
+      : passwordConfig
+        ? { passwordStore: passwordConfig.passwordStore }
+        : { oauthStore: oauthConfig!.oauthStore },
+  );
 
-  const removeAuthMethod = (
+  const removeAuthMethod = async (
     accountId: AccountId,
     method: AuthMethod,
     options?: { provider?: string },
   ): Promise<void> =>
-    removeAuthMethodUC.execute({
+    await removeAuthMethodUC.execute({
       accountId,
       method,
       ...(options?.provider !== undefined
@@ -102,10 +179,8 @@ export function createAuth(config: AuthConfig): AuthMethods {
         : {}),
     });
 
-  // ── Base facade ──────────────────────────────────────────────────────────
   const base: AuthMethods = { getAccountAuthMethods, removeAuthMethod };
 
-  // ── Password flow ────────────────────────────────────────────────────────
   if (passwordConfig) {
     const { passwordManager, passwordStore } = passwordConfig;
 
@@ -144,29 +219,21 @@ export function createAuth(config: AuthConfig): AuthMethods {
       logger,
     });
 
-    base.registerWithPassword = (input: {
-      email: string;
-      password: string;
-    }): Promise<Receipt> => registerWithPasswordUC.execute(input);
-
-    base.authenticateWithPassword = (input: {
-      email: string;
-      password: string;
-    }): Promise<Receipt> => authenticateWithPasswordUC.execute(input);
-
-    base.addPasswordToAccount = (
-      accountId: AccountId,
-      password: string,
-    ): Promise<void> => addPasswordUC.execute({ accountId, password });
-
-    base.updatePassword = (input: {
-      receiptToken: string;
-      currentPassword: string;
-      newPassword: string;
-    }): Promise<void> => updatePasswordUC.execute(input);
+    (base as PasswordOnlyAuthMethods).registerWithPassword = async (
+      input,
+    ): Promise<Receipt> => await registerWithPasswordUC.execute(input);
+    (base as PasswordOnlyAuthMethods).authenticateWithPassword = async (
+      input,
+    ): Promise<Receipt> => await authenticateWithPasswordUC.execute(input);
+    (base as PasswordOnlyAuthMethods).addPasswordToAccount = async (
+      accountId,
+      password,
+    ): Promise<void> => await addPasswordUC.execute({ accountId, password });
+    (base as PasswordOnlyAuthMethods).updatePassword = async (
+      input,
+    ): Promise<void> => await updatePasswordUC.execute(input);
   }
 
-  // ── OAuth flow ───────────────────────────────────────────────────────────
   if (oauthConfig) {
     const { oauthStore } = oauthConfig;
 
@@ -186,12 +253,12 @@ export function createAuth(config: AuthConfig): AuthMethods {
       logger,
     });
 
-    base.authenticateWithOAuth = (
-      input: AuthenticateOAuthInput,
-    ): Promise<Receipt> => authenticateOAuthUC.execute(input);
-
-    base.linkOAuthToAccount = (input: LinkOAuthToAccountInput): Promise<void> =>
-      linkOAuthUC.execute(input);
+    (base as OAuthOnlyAuthMethods).authenticateWithOAuth = async (
+      input,
+    ): Promise<Receipt> => await authenticateOAuthUC.execute(input);
+    (base as OAuthOnlyAuthMethods).linkOAuthToAccount = async (
+      input,
+    ): Promise<void> => await linkOAuthUC.execute(input);
   }
 
   return base;
