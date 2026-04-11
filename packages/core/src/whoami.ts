@@ -107,35 +107,40 @@ export function createAuth(config: AuthConfig): AuthMethods {
 
   // ── Password flow ────────────────────────────────────────────────────────
   if (passwordConfig) {
-    const { hashManager, passwordStore } = passwordConfig;
+    const { passwordManager, passwordStore } = passwordConfig;
 
     const registerWithPasswordUC = new RegisterWithPasswordUseCase({
-      accountRepo,
-      passwordStore,
-      hashPassword: (plain: string): Promise<string> => hashManager.hash(plain),
-      issueReceipt: issueReceiptUC,
-      generateId,
+      accountFinder: accountRepo,
+      accountSaver: accountRepo,
+      accountRemover: accountRepo,
+      credentialSaver: passwordStore,
+      passwordHasher: passwordManager,
+      idGenerator: generateId,
+      receiptIssuer: issueReceiptUC,
     });
 
     const authenticateWithPasswordUC = new AuthenticateWithPasswordUseCase({
-      passwordStore,
-      passwordManager: hashManager,
-      issueReceipt: issueReceiptUC,
+      accountFinder: accountRepo,
+      credentialFinder: passwordStore,
+      passwordVerifier: passwordManager,
+      receiptIssuer: issueReceiptUC,
       logger,
     });
 
     const addPasswordUC = new AddPasswordAuthUseCase({
-      passwordStore,
-      accountRepo,
-      hashManager,
-      generateId,
-      authMethods: getAccountAuthMethods,
+      accountFinder: accountRepo,
+      credentialSaver: passwordStore,
+      passwordHasher: passwordManager,
+      idGenerator: generateId,
+      authMethodsProvider: getAccountAuthMethods,
     });
 
     const updatePasswordUC = new UpdatePasswordUseCase({
-      passwordStore,
-      passwordManager: hashManager,
-      verifyReceipt: verifyReceiptUC,
+      credentialFinder: passwordStore,
+      credentialUpdater: passwordStore,
+      passwordHasher: passwordManager,
+      passwordVerifier: passwordManager,
+      receiptVerifier: verifyReceiptUC,
       logger,
     });
 

@@ -1,5 +1,4 @@
 import { CredentialId } from "../../../../shared/domain/value-objects/credential-id.vo.js";
-import { EmailAddress } from "../../../../shared/domain/value-objects/email-address.vo.js";
 import { AccountId } from "../../../../shared/domain/value-objects/account-id.vo.js";
 import { Credential } from "../credential.entity.js";
 
@@ -7,20 +6,12 @@ import { Credential } from "../credential.entity.js";
  * Persistence port for password credentials.
  *
  * Implement this interface in your infrastructure layer to plug in any storage
- * backend.  Each account may have at most one password credential — enforce
+ * backend. Each account may have at most one password credential — enforce
  * this invariant in your implementation.
  *
  * @public
  */
 export interface PasswordCredentialStore {
-  /**
-   * Finds a password credential by the account's email address.
-   *
-   * @param email - The normalized {@link EmailAddress} to look up.
-   * @returns The password credential, or `null` when none exists.
-   */
-  findByEmail(email: EmailAddress): Promise<Credential | null>;
-
   /**
    * Finds a password credential by the account's identifier.
    *
@@ -32,13 +23,9 @@ export interface PasswordCredentialStore {
   /**
    * Persists a password credential.
    *
-   * The email address must be supplied so that implementations can maintain
-   * the email → credential index required by {@link findByEmail}.
-   *
    * @param credential - The credential to store.
-   * @param email      - The account's email address (used to build the lookup index).
    */
-  save(credential: Credential, email: EmailAddress): Promise<void>;
+  save(credential: Credential): Promise<void>;
 
   /**
    * Updates the hash of an existing password credential.

@@ -15,30 +15,30 @@ import {
  * Dependencies for {@link AddPasswordAuthUseCase}.
  * @public
  */
-export interface AddPasswordCredentialDeps {
-  /** Persistence port for password credentials. */
-  passwordStore: PasswordCredentialStore;
-  /** Persistence port for account aggregates. */
-  accountRepo: AccountRepository;
-  /** Password hashing and comparison port. */
-  hashManager: PasswordManager;
+export interface AddPasswordAuthDeps {
+  /** Finds accounts by ID. */
+  accountFinder: Pick<AccountRepository, "findById">;
+  /** Persists password credentials. */
+  credentialSaver: Pick<PasswordCredentialStore, "save">;
+  /** Hashes plain-text passwords for storage. */
+  passwordHasher: Pick<PasswordManager, "hash">;
   /**
    * Deterministic ID generator — must return a non-empty string on every call.
    * Inject `crypto.randomUUID` or any UUID v4 factory.
    */
-  generateId: () => string;
+  idGenerator: () => string;
   /**
    * Returns the active authentication methods for the given account.
    * Used to enforce the "one password per account" invariant.
    */
-  authMethods: (accountId: AccountId) => Promise<AuthMethod[]>;
+  authMethodsProvider: (accountId: AccountId) => Promise<AuthMethod[]>;
 }
 
 /**
  * Input for {@link AddPasswordAuthUseCase.execute}.
  * @public
  */
-export interface AddPasswordCredentialInput {
+export interface AddPasswordAuthInput {
   /** The account to add a password credential to. */
   accountId: AccountId;
   /** Plain-text password; will be hashed before storage. */
@@ -54,38 +54,40 @@ export interface AddPasswordCredentialInput {
  * @public
  */
 export class AddPasswordAuthUseCase {
-  private readonly deps: AddPasswordCredentialDeps;
+  private readonly deps: AddPasswordAuthDeps;
 
-  constructor(deps: AddPasswordCredentialDeps) {
+  constructor(deps: AddPasswordAuthDeps) {
     this.deps = deps;
   }
 
   /**
    * Hashes the password and persists a new password credential for the account.
    *
-   * @param input - {@link AddPasswordCredentialInput}
+   * @param input - {@link AddPasswordAuthInput}
    * @throws {AccountNotFoundError} When no account exists for `input.accountId`.
    * @throws {CredentialAlreadyExistsError} When the account already has a password credential.
    */
-  async execute(input: AddPasswordCredentialInput): Promise<void> {
-    const account = await this.deps.accountRepo.findById(input.accountId);
+  async execute(input: AddPasswordAuthInput): Promise<void> {
+    const account = await this.deps.accountFinder.findById(input.accountId);
     if (!account) {
       throw new AccountNotFoundError(input.accountId.value);
     }
 
-    const existingMethods = await this.deps.authMethods(input.accountId);
+    const existingMethods = await this.deps.authMethodsProvider(
+      input.accountId,
+    );
     if (existingMethods.includes("password")) {
       throw new CredentialAlreadyExistsError();
     }
 
-    const hash = await this.deps.hashManager.hash(input.password);
+    const hash = await this.deps.passwordHasher.hash(input.password);
 
     const credential = Credential.createPassword({
-      id: new CredentialId(this.deps.generateId()),
+      id: new CredentialId(this.deps.idGenerator()),
       accountId: account.id,
       hash,
     });
 
-    await this.deps.passwordStore.save(credential, account.email);
+    await this.deps.credentialSaver.save(credential);
   }
 }
