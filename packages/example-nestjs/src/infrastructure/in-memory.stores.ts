@@ -54,8 +54,9 @@ export class InMemoryPasswordCredentialStore implements PasswordCredentialStore 
     return this.byAccountId.get(String(accountId.value)) ?? null;
   }
 
-  async save(credential: Credential): Promise<void> {
+  async save(credential: Credential, email: EmailAddress): Promise<void> {
     this.byAccountId.set(String(credential.accountId.value), credential);
+    this.byEmail.set(email.value, String(credential.accountId.value));
   }
 
   async update(credentialId: CredentialId, newHash: string): Promise<void> {
@@ -97,14 +98,6 @@ export class InMemoryPasswordCredentialStore implements PasswordCredentialStore 
 
   async existsForAccount(accountId: AccountId): Promise<boolean> {
     return this.byAccountId.has(String(accountId.value));
-  }
-
-  async saveWithEmail(
-    credential: Credential,
-    email: EmailAddress,
-  ): Promise<void> {
-    this.byEmail.set(email.value, String(credential.accountId.value));
-    await this.save(credential);
   }
 }
 
