@@ -32,9 +32,13 @@ export interface PasswordCredentialStore {
   /**
    * Persists a password credential.
    *
+   * The email address must be supplied so that implementations can maintain
+   * the email → credential index required by {@link findByEmail}.
+   *
    * @param credential - The credential to store.
+   * @param email      - The account's email address (used to build the lookup index).
    */
-  save(credential: Credential): Promise<void>;
+  save(credential: Credential, email: EmailAddress): Promise<void>;
 
   /**
    * Updates the hash of an existing password credential.

@@ -86,6 +86,6 @@ export class AddPasswordAuthUseCase {
       hash,
     });
 
-    await this.deps.passwordStore.save(credential);
+    await this.deps.passwordStore.save(credential, account.email);
   }
 }

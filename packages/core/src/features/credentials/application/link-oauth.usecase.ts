@@ -1,5 +1,6 @@
 import { Credential } from "../domain/credential.entity.js";
 import { CredentialId } from "../../../shared/domain/value-objects/credential-id.vo.js";
+import { EmailAddress } from "../../../shared/domain/value-objects/email-address.vo.js";
 import type { AccountRepository } from "../../accounts/domain/account-repository.port.js";
 import type { OAuthCredentialStore } from "../domain/ports/oauth-credential-store.port.js";
 import type { LoggerPort } from "../../../shared/domain/ports/logger.port.js";
@@ -94,7 +95,8 @@ export class LinkOAuthToAccountUseCase {
       throw new AuthenticationError("Account not found.");
     }
 
-    if (account.email.value !== input.email.trim().toLowerCase()) {
+    const oauthEmail = new EmailAddress(input.email);
+    if (!account.email.equals(oauthEmail)) {
       this.logger.warn(
         `Email mismatch during OAuth linking — account: ${account.email.value}, ` +
           `OAuth email: ${input.email}, accountId: ${account.id.value}`,

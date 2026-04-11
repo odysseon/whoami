@@ -52,7 +52,7 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "node --import tsx --test src/**/*.spec.ts",
+    "test": "node --import tsx/esm --test src/**/**/**/*.test.ts src/**/**/*.test.ts src/**/*.test.ts",
     "test:cov": "node --import tsx --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test src/**/*.spec.ts"
   },
   "engines": {
