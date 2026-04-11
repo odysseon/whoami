@@ -98,8 +98,8 @@ export class AuthenticateOAuthUseCase {
     const existingAccount = await this.accountRepo.findByEmail(email);
     if (existingAccount) {
       this.logger.warn(
-        `OAuth login attempt for existing account ${existingAccount.id.value} ` +
-          `without linked ${input.provider} credential. Email: ${email.value}`,
+        `OAuth login attempt for account ${existingAccount.id.value} ` +
+          `without linked ${input.provider} credential — possible account-takeover probe`,
       );
       throw new AuthenticationError(
         "An account already exists with this email. " +

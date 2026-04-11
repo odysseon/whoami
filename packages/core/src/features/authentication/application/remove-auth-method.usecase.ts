@@ -7,7 +7,6 @@ import {
 } from "../../../shared/domain/errors/auth.error.js";
 import type { PasswordCredentialStore } from "../../credentials/domain/ports/password-credential-store.port.js";
 import type { OAuthCredentialStore } from "../../credentials/domain/ports/oauth-credential-store.port.js";
-import { RemovePasswordUseCase } from "../../credentials/application/remove-password.usecase.js";
 
 /**
  * Dependencies for {@link RemoveAuthMethodUseCase}.
@@ -90,10 +89,7 @@ export class RemoveAuthMethodUseCase {
 
     const cred = await this.passwordStore.findByAccountId(accountId);
     if (cred) {
-      const removeUC = new RemovePasswordUseCase({
-        passwordStore: this.passwordStore,
-      });
-      await removeUC.execute({ credentialId: cred.id });
+      await this.passwordStore.delete(cred.id);
     }
   }
 

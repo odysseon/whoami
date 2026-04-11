@@ -105,7 +105,7 @@ export class RegisterWithPasswordUseCase {
     // been persisted, delete the orphaned account so the caller can safely
     // retry without hitting the "already exists" guard on the next attempt.
     try {
-      await this.deps.passwordStore.save(credential);
+      await this.deps.passwordStore.save(credential, email);
     } catch (err) {
       await this.deps.accountRepo.delete(account.id);
       throw err;
