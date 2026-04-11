@@ -10,20 +10,21 @@ import type { OAuthCredentialStore } from "../../credentials/domain/ports/oauth-
 
 /**
  * Dependencies for {@link RemoveAuthMethodUseCase}.
+ *
+ * At least one store must be provided — the discriminated union enforces this
+ * at compile time. Supply only the stores that match your configured auth methods.
+ *
  * @public
  */
-export interface RemoveAuthMethodDeps {
-  /**
-   * Password credential store — required when password auth is configured,
-   * omit (pass `undefined`) when password auth is disabled.
-   */
-  passwordStore?: PasswordCredentialStore;
-  /**
-   * OAuth credential store — required when OAuth auth is configured,
-   * omit (pass `undefined`) when OAuth auth is disabled.
-   */
-  oauthStore?: OAuthCredentialStore;
-}
+export type RemoveAuthMethodDeps =
+  | {
+      passwordStore: PasswordCredentialStore;
+      oauthStore?: OAuthCredentialStore;
+    }
+  | {
+      passwordStore?: PasswordCredentialStore;
+      oauthStore: OAuthCredentialStore;
+    };
 
 /**
  * Input for {@link RemoveAuthMethodUseCase.execute}.
@@ -36,7 +37,7 @@ export interface RemoveAuthMethodInput {
   method: AuthMethod;
   /**
    * For `"oauth"`, optionally target a single provider rather than all OAuth
-   * credentials. When omitted, all OAuth credentials are removed.
+   * credentials. When omitted, all OAuth credentials for the account are removed.
    */
   provider?: string;
 }

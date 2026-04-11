@@ -12,10 +12,12 @@ import type {
   ReceiptVerifier,
 } from "./features/receipts/index.js";
 import type { AccountId, LoggerPort } from "./shared/index.js";
-import type { AuthMethod } from "./shared/index.js";
+import type { AuthMethod, AuthMethodsProvider } from "./shared/index.js";
 
-// Re-export so consumers can import AuthMethod from the types barrel
-export type { AuthMethod };
+// Re-export so consumers can import from the types barrel
+export type { AuthMethod, AuthMethodsProvider };
+
+// ── Internal arg shapes ──────────────────────────────────────────────────────
 
 /** @internal */
 type RegisterArgs = { email: string; password: string };
@@ -30,12 +32,34 @@ type UpdatePasswordArgs = {
   newPassword: string;
 };
 
+// ── Config ───────────────────────────────────────────────────────────────────
+
+/**
+ * Password-auth section of {@link AuthConfig}.
+ * @public
+ */
+export interface PasswordAuthConfig {
+  /** Password hashing and comparison port. */
+  passwordManager: PasswordManager;
+  /** Persistence port for password credentials. */
+  passwordStore: PasswordCredentialStore;
+}
+
+/**
+ * OAuth section of {@link AuthConfig}.
+ * @public
+ */
+export interface OAuthConfig {
+  /** Persistence port for OAuth credentials. */
+  oauthStore: OAuthCredentialStore;
+}
+
 /**
  * Top-level configuration passed to {@link createAuth}.
  *
  * Configure only the sections that match the authentication flows your
  * application supports. Omitting `password` or `oauth` disables the
- * corresponding methods at runtime.
+ * corresponding methods at compile time and at runtime.
  *
  * @public
  */
@@ -44,8 +68,6 @@ export interface AuthConfig {
   accountRepo: AccountRepository;
   /**
    * Receipt signer port — produces signed tokens after successful authentication.
-   * Use {@link JoseReceiptSigner} from `@odysseon/whoami-adapter-jose` or supply
-   * your own implementation.
    */
   receiptSigner: ReceiptSigner;
   /**
@@ -66,74 +88,55 @@ export interface AuthConfig {
    * Recommended: `crypto.randomUUID` (built-in since Node 14.17).
    */
   generateId: () => string;
-
   /** Password-auth section — omit to disable password-based flows. */
-  password?: {
-    /** Password hashing and comparison port. */
-    passwordManager: PasswordManager;
-    /** Persistence port for password credentials. */
-    passwordStore: PasswordCredentialStore;
-  };
-
+  password?: PasswordAuthConfig;
   /** OAuth section — omit to disable OAuth-based flows. */
-  oauth?: {
-    /** Persistence port for OAuth credentials. */
-    oauthStore: OAuthCredentialStore;
-  };
+  oauth?: OAuthConfig;
+}
+
+// ── Facade capability interfaces ─────────────────────────────────────────────
+
+/**
+ * Password-auth methods present when `config.password` is configured.
+ * @public
+ */
+export interface PasswordAuthMethods {
+  /** Registers a new account with a password credential and returns a receipt. */
+  registerWithPassword(input: RegisterArgs): Promise<Receipt>;
+  /** Authenticates a user with email + password and returns a receipt. */
+  authenticateWithPassword(input: LoginArgs): Promise<Receipt>;
+  /** Adds a password credential to an existing account. */
+  addPasswordToAccount(accountId: AccountId, password: string): Promise<void>;
+  /** Updates the account's password after verifying the current one. */
+  updatePassword(input: UpdatePasswordArgs): Promise<void>;
 }
 
 /**
- * The authenticated API surface returned by {@link createAuth}.
- *
- * Methods are optional — they are only present when the corresponding section
- * is configured in {@link AuthConfig}.
- *
+ * OAuth methods present when `config.oauth` is configured.
  * @public
  */
-export interface AuthMethods {
-  /**
-   * Registers a new account with a password credential and returns a receipt.
-   * Present only when `config.password` is configured.
-   */
-  registerWithPassword?: (input: RegisterArgs) => Promise<Receipt>;
+export interface OAuthAuthMethods {
+  /** Authenticates (or auto-registers) a user via OAuth and returns a receipt. */
+  authenticateWithOAuth(input: AuthenticateOAuthInput): Promise<Receipt>;
+  /** Links an OAuth credential to an authenticated account. */
+  linkOAuthToAccount(input: LinkOAuthToAccountInput): Promise<void>;
+}
 
-  /**
-   * Authenticates a user with email + password and returns a receipt.
-   * Present only when `config.password` is configured.
-   */
-  authenticateWithPassword?: (input: LoginArgs) => Promise<Receipt>;
-
-  /**
-   * Authenticates (or auto-registers) a user via OAuth and returns a receipt.
-   * Present only when `config.oauth` is configured.
-   */
-  authenticateWithOAuth?: (input: AuthenticateOAuthInput) => Promise<Receipt>;
-
-  /**
-   * Links an OAuth credential to an authenticated account.
-   * Present only when `config.oauth` is configured.
-   */
-  linkOAuthToAccount?: (input: LinkOAuthToAccountInput) => Promise<void>;
-
+/**
+ * Methods always present regardless of configuration.
+ * @public
+ */
+export interface CoreAuthMethods {
   /**
    * Returns the currently active authentication methods for an account.
    * Always present.
    */
-  getAccountAuthMethods: (accountId: AccountId) => Promise<AuthMethod[]>;
-
-  /**
-   * Adds a password credential to an existing account.
-   * Present only when `config.password` is configured.
-   */
-  addPasswordToAccount?: (
-    accountId: AccountId,
-    password: string,
-  ) => Promise<void>;
+  getAccountAuthMethods: AuthMethodsProvider;
 
   /**
    * Removes an authentication method from an account.
    *
-   * Throws {@link CannotRemoveLastCredentialError} when the removal would leave
+   * Throws {@link CannotRemoveLastCredentialError} when removal would leave
    * the account with no remaining authentication methods.
    *
    * @param accountId - The account to modify.
@@ -141,18 +144,42 @@ export interface AuthMethods {
    * @param options   - For `"oauth"`, optionally specify a `provider` to remove
    *                    only that provider rather than all OAuth credentials.
    */
-  removeAuthMethod: (
+  removeAuthMethod(
     accountId: AccountId,
     method: AuthMethod,
     options?: { provider?: string },
-  ) => Promise<void>;
-
-  /**
-   * Updates the account's password.
-   * Present only when `config.password` is configured.
-   *
-   * @param input - Contains receipt token, current password, and new password.
-   * @throws {AuthenticationError} If current password is incorrect or no password credential exists.
-   */
-  updatePassword?: (input: UpdatePasswordArgs) => Promise<void>;
+  ): Promise<void>;
 }
+
+/**
+ * The full authenticated API surface returned by {@link createAuth}.
+ *
+ * Prefer the narrowed overload signatures of `createAuth` over this type when
+ * you know which auth sections are configured — they eliminate optional
+ * chaining at call sites.
+ *
+ * @public
+ */
+export type AuthMethods = CoreAuthMethods &
+  Partial<PasswordAuthMethods> &
+  Partial<OAuthAuthMethods>;
+
+/**
+ * Narrowed facade type when both password and OAuth are configured.
+ * @public
+ */
+export type FullAuthMethods = CoreAuthMethods &
+  PasswordAuthMethods &
+  OAuthAuthMethods;
+
+/**
+ * Narrowed facade type when only password auth is configured.
+ * @public
+ */
+export type PasswordOnlyAuthMethods = CoreAuthMethods & PasswordAuthMethods;
+
+/**
+ * Narrowed facade type when only OAuth is configured.
+ * @public
+ */
+export type OAuthOnlyAuthMethods = CoreAuthMethods & OAuthAuthMethods;

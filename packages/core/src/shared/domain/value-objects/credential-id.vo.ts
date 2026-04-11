@@ -39,10 +39,11 @@ export class CredentialId {
    * @throws {InvalidCredentialIdError} When `raw` is empty or contains only whitespace.
    */
   constructor(raw: string) {
-    if (!raw || raw.trim() === "") {
+    const trimmed = raw?.trim();
+    if (!trimmed) {
       throw new InvalidCredentialIdError();
     }
-    this.value = raw;
+    this.value = trimmed;
   }
 
   /**
