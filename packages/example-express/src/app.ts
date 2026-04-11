@@ -13,12 +13,12 @@ import { createAccountsRouter } from "./routes/accounts.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createIdentityRouter } from "./routes/identity.js";
 import { createAuthMiddleware } from "./middleware/auth.js";
-import type { InMemoryAccountRepository } from "./infrastructure/in-memory-repositories.js";
+import type { AccountRepository } from "@odysseon/whoami-core";
 
 interface AppDependencies {
   auth: AuthMethods;
   verifyReceipt: VerifyReceiptUseCase;
-  accountRepo: InMemoryAccountRepository;
+  accountRepo: AccountRepository;
 }
 
 export const createApp = (dependencies: AppDependencies): Express => {
