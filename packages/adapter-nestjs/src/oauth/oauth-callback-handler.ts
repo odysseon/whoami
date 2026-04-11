@@ -1,5 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { type AuthMethods, type Receipt } from "@odysseon/whoami-core";
+import {
+  type AuthMethods,
+  type Receipt,
+  InvalidConfigurationError,
+} from "@odysseon/whoami-core";
 import { AUTH_METHODS } from "../tokens.js";
 
 /**
@@ -51,7 +55,7 @@ export class OAuthCallbackHandler {
    */
   public async handle(profile: OAuthProfile): Promise<Receipt> {
     if (!this.auth.authenticateWithOAuth) {
-      throw new Error(
+      throw new InvalidConfigurationError(
         "OAuth is not configured. Add `oauth: { oauthStore }` to WhoamiModuleOptions.",
       );
     }
