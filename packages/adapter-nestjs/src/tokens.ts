@@ -9,14 +9,14 @@
  *
  * @public
  */
-export const AUTH_METHODS = "WHOAMI_AUTH_METHODS" as const;
+export const AUTH_METHODS: unique symbol = Symbol("WHOAMI_AUTH_METHODS");
 
 /**
  * DI token for the receipt verifier used by {@link WhoamiAuthGuard}.
  *
- * The provided value is a {@link VerifyReceiptUseCase} instance constructed
+ * The provided value is a {@link ReceiptVerifier} instance constructed
  * internally by {@link WhoamiModule} from the configured {@link ReceiptVerifier} port.
  *
  * @public
  */
-export const VERIFY_RECEIPT = "WHOAMI_VERIFY_RECEIPT" as const;
+export const VERIFY_RECEIPT: unique symbol = Symbol("WHOAMI_VERIFY_RECEIPT");

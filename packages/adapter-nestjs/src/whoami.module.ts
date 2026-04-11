@@ -90,11 +90,9 @@ function resolveVerifier(opts: WhoamiModuleOptions): ReceiptVerifier {
 @Module({})
 export class WhoamiModule {
   static register(options: WhoamiModuleOptions): DynamicModule {
-    // Validate during registration - fails fast
-    resolveVerifier(options);
-    resolveAuth(options);
-
-    const providers = WhoamiModule.buildProviders(options);
+    const verifier = resolveVerifier(options);
+    const auth = resolveAuth(options);
+    const providers = WhoamiModule.buildProviders(options, { verifier, auth });
     return {
       module: WhoamiModule,
       providers,
@@ -153,9 +151,12 @@ export class WhoamiModule {
     };
   }
 
-  private static buildProviders(options: WhoamiModuleOptions): Provider[] {
-    const verifier = resolveVerifier(options);
-    const auth = resolveAuth(options);
+  private static buildProviders(
+    options: WhoamiModuleOptions,
+    resolved?: { verifier: ReceiptVerifier; auth: AuthMethods },
+  ): Provider[] {
+    const verifier = resolved?.verifier ?? resolveVerifier(options);
+    const auth = resolved?.auth ?? resolveAuth(options);
 
     return [
       {
