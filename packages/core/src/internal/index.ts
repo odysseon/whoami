@@ -13,7 +13,6 @@ export { LinkOAuthToAccountUseCase } from "../features/credentials/application/l
 export { AuthenticateOAuthUseCase } from "../features/authentication/application/authenticate-oauth.usecase.js";
 export { AuthenticateWithPasswordUseCase } from "../features/authentication/application/authenticate-password.usecase.js";
 export { AddPasswordAuthUseCase } from "../features/authentication/application/add-password-auth.usecase.js";
-export { RegisterAccountUseCase } from "../features/accounts/application/register-account.use-case.js";
 export { IssueReceiptUseCase } from "../features/receipts/application/issue-receipt.usecase.js";
 export { VerifyReceiptUseCase } from "../features/receipts/application/verify-receipt.usecase.js";
 export { RemoveAuthMethodUseCase } from "../features/authentication/application/remove-auth-method.usecase.js";

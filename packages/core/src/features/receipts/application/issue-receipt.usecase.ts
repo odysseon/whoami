@@ -66,13 +66,6 @@ export class IssueReceiptUseCase {
    * @throws {InvalidConfigurationError} When `tokenLifespanMinutes` is not positive.
    */
   public async execute(accountId: AccountId): Promise<Receipt> {
-    // Redundant safety check (constructor already validated)
-    if (this.tokenLifespanMinutes <= 0) {
-      throw new InvalidConfigurationError(
-        "Receipt token lifespan must be greater than zero minutes.",
-      );
-    }
-
     const now = this.now();
     const expiresAt = new Date(
       now.getTime() + this.tokenLifespanMinutes * 60 * 1000,
