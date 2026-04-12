@@ -28,18 +28,24 @@ export interface AuthenticateOAuthInput {
  * @public
  */
 export interface AuthenticateOAuthDeps {
-  /** Persistence port for account aggregates. */
-  accountRepository: AccountRepository;
-  /** Persistence port for OAuth credentials. */
-  oauthCredentialStore: OAuthCredentialStore;
-  /** Use-case that mints a signed receipt on success. */
-  issueReceipt: Pick<IssueReceiptUseCase, "execute">;
+  /** Finds accounts by email address. */
+  accountFinder: Pick<AccountRepository, "findByEmail">;
+  /** Persists new accounts. */
+  accountSaver: Pick<AccountRepository, "save">;
+  /** Removes accounts (used as compensating action on credential write failure). */
+  accountRemover: Pick<AccountRepository, "delete">;
+  /** Finds OAuth credentials by provider name and provider-specific user ID. */
+  credentialFinder: Pick<OAuthCredentialStore, "findByProvider">;
+  /** Persists OAuth credentials. */
+  credentialSaver: Pick<OAuthCredentialStore, "save">;
+  /** Issues a signed receipt on successful authentication. */
+  receiptIssuer: Pick<IssueReceiptUseCase, "execute">;
   /**
    * Deterministic ID generator — must return a non-empty string on every call.
    * Called twice when auto-registering: once for account ID, once for credential ID.
    * Inject `crypto.randomUUID` or any UUID v4 factory.
    */
-  generateId: () => string;
+  idGenerator: () => string;
   /** Structured logger. */
   logger: LoggerPort;
 }
@@ -55,18 +61,10 @@ export interface AuthenticateOAuthDeps {
  * @public
  */
 export class AuthenticateOAuthUseCase {
-  private readonly accountRepo: AccountRepository;
-  private readonly oauthStore: OAuthCredentialStore;
-  private readonly issueReceipt: Pick<IssueReceiptUseCase, "execute">;
-  private readonly generateId: () => string;
-  private readonly logger: LoggerPort;
+  private readonly deps: AuthenticateOAuthDeps;
 
   constructor(deps: AuthenticateOAuthDeps) {
-    this.accountRepo = deps.accountRepository;
-    this.oauthStore = deps.oauthCredentialStore;
-    this.issueReceipt = deps.issueReceipt;
-    this.generateId = deps.generateId;
-    this.logger = deps.logger;
+    this.deps = deps;
   }
 
   /**
@@ -82,22 +80,24 @@ export class AuthenticateOAuthUseCase {
     const email = new EmailAddress(input.email);
 
     // PHASE 1: fast path — existing OAuth credential
-    const existingCredential = await this.oauthStore.findByProvider(
+    const existingCredential = await this.deps.credentialFinder.findByProvider(
       input.provider,
       input.providerId,
     );
     if (existingCredential) {
-      this.logger.info(
+      this.deps.logger.info(
         `OAuth fast-path: existing credential for provider ${input.provider}, ` +
           `accountId ${existingCredential.accountId.value}`,
       );
-      return await this.issueReceipt.execute(existingCredential.accountId);
+      return await this.deps.receiptIssuer.execute(
+        existingCredential.accountId,
+      );
     }
 
     // PHASE 2: conflict guard — account exists without this OAuth credential
-    const existingAccount = await this.accountRepo.findByEmail(email);
+    const existingAccount = await this.deps.accountFinder.findByEmail(email);
     if (existingAccount) {
-      this.logger.warn(
+      this.deps.logger.warn(
         `OAuth login attempt for account ${existingAccount.id.value} ` +
           `without linked ${input.provider} credential — possible account-takeover probe`,
       );
@@ -108,13 +108,18 @@ export class AuthenticateOAuthUseCase {
     }
 
     // PHASE 3: auto-registration
-    this.logger.info(`Auto-registering new OAuth account for ${email.value}`);
+    this.deps.logger.info(
+      `Auto-registering new OAuth account for ${email.value}`,
+    );
 
-    const account = Account.create(new AccountId(this.generateId()), email);
-    await this.accountRepo.save(account);
+    const account = Account.create(
+      new AccountId(this.deps.idGenerator()),
+      email,
+    );
+    await this.deps.accountSaver.save(account);
 
     const credential = Credential.createOAuth({
-      id: new CredentialId(this.generateId()),
+      id: new CredentialId(this.deps.idGenerator()),
       accountId: account.id,
       provider: input.provider,
       providerId: input.providerId,
@@ -124,12 +129,12 @@ export class AuthenticateOAuthUseCase {
     // been persisted, delete the orphaned account so the caller can safely
     // retry without hitting the conflict guard on the next attempt.
     try {
-      await this.oauthStore.save(credential);
+      await this.deps.credentialSaver.save(credential);
     } catch (err) {
-      await this.accountRepo.delete(account.id);
+      await this.deps.accountRemover.delete(account.id);
       throw err;
     }
 
-    return await this.issueReceipt.execute(account.id);
+    return await this.deps.receiptIssuer.execute(account.id);
   }
 }
