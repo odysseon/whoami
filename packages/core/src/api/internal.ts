@@ -20,4 +20,3 @@ export { ChangePasswordUseCase } from "../modules/password/usecases/change-passw
 // OAuth module
 export { AuthenticateWithOAuthUseCase } from "../modules/oauth/usecases/authenticate.usecase.js";
 export { LinkOAuthToAccountUseCase } from "../modules/oauth/usecases/link-account.usecase.js";
-export { UnlinkOAuthUseCase } from "../modules/oauth/usecases/unlink-account.usecase.js";
