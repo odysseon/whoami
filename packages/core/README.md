@@ -4,38 +4,23 @@
 graph TD
     Factory["createAuth(config) → AuthMethods"]
 
-    Factory --> Accounts["accounts feature"]
-    Factory --> Auth["authentication feature"]
-    Factory --> Credentials["credentials feature"]
-    Factory --> Receipts["receipts feature"]
-    Factory --> Shared["shared domain"]
+    Factory --> Kernel["kernel"]
+    Factory --> Password["modules/password"]
+    Factory --> OAuth["modules/oauth"]
 
-    Accounts --> AccountEntity["Account entity"]
-    Accounts --> AccountRepo["AccountRepository port"]
-    Accounts --> RegisterAccountUC["RegisterAccountUseCase"]
+    Kernel --> Account["Account entity"]
+    Kernel --> Credential["Credential entity"]
+    Kernel --> Receipt["Receipt entity"]
+    Kernel --> Orchestrator["AuthOrchestrator"]
+    Kernel --> RemoveUC["RemoveAuthMethodUseCase"]
+    Kernel --> SharedPorts["LoggerPort · IdGeneratorPort · ClockPort"]
 
-    Auth --> AuthPwdUC["AuthenticateWithPasswordUseCase"]
-    Auth --> AuthOAuthUC["AuthenticateOAuthUseCase"]
-    Auth --> AddPwdUC["AddPasswordAuthUseCase"]
+    Password --> PwdUseCases["RegisterWithPasswordUseCase\nAuthenticateWithPasswordUseCase\nAddPasswordUseCase\nChangePasswordUseCase"]
+    Password --> PasswordHasher["PasswordHasher port"]
+    Password --> PasswordStore["PasswordCredentialStore port"]
 
-    Credentials --> CredentialEntity["Credential entity"]
-    Credentials --> PwdStore["PasswordCredentialStore port"]
-    Credentials --> OAuthStore["OAuthCredentialStore port"]
-    Credentials --> PasswordMgr["PasswordManager port"]
-    Credentials --> TokenHasher["TokenHasher port"]
-    Credentials --> RegisterPwdUC["RegisterWithPasswordUseCase"]
-    Credentials --> LinkOAuthUC["LinkOAuthToAccountUseCase"]
-    Credentials --> RemovePwdUC["RemovePasswordUseCase"]
-
-    Receipts --> ReceiptEntity["Receipt entity"]
-    Receipts --> ReceiptSigner["ReceiptSigner port"]
-    Receipts --> ReceiptVerifier["ReceiptVerifier port"]
-    Receipts --> IssueUC["IssueReceiptUseCase"]
-    Receipts --> VerifyUC["VerifyReceiptUseCase"]
-
-    Shared --> VOs["Value Objects (AccountId, EmailAddress, CredentialId)"]
-    Shared --> Errors["Domain errors (12 types)"]
-    Shared --> LoggerPort["LoggerPort"]
+    OAuth --> OAuthUseCases["AuthenticateWithOAuthUseCase\nLinkOAuthToAccountUseCase"]
+    OAuth --> OAuthStore["OAuthCredentialStore port"]
 ```
 
 ## Delegated Responsibility
@@ -55,67 +40,106 @@ This package enforces authentication rules and exposes the contracts that adapte
 
 ```ts
 import { createAuth } from "@odysseon/whoami-core";
-import {
-  IssueReceiptUseCase,
-  VerifyReceiptUseCase,
-} from "@odysseon/whoami-core/internal";
 
 const auth = createAuth({
   accountRepo,
-  tokenSigner: new IssueReceiptUseCase({ signer, tokenLifespanMinutes: 60 }),
-  verifyReceipt: new VerifyReceiptUseCase(verifier),
+  receiptSigner,
+  receiptVerifier,
   logger: console,
-  generateId: () => crypto.randomUUID(),
-  password: { hashManager, passwordStore }, // omit to disable password auth
-  oauth: { oauthStore }, // omit to disable OAuth auth
+  idGenerator: () => crypto.randomUUID(),
+
+  // omit either section to disable that auth method
+  password: { passwordStore, passwordHasher },
+  oauth: { oauthStore },
 });
 
-const receipt = await auth.registerWithPassword!({ email, password });
+const receipt = await auth.registerWithPassword({ email, password });
 ```
 
-## Features
+### AuthConfig fields
 
-### `accounts`
+| Field                  | Type                | Required | Description                                 |
+| ---------------------- | ------------------- | -------- | ------------------------------------------- |
+| `accountRepo`          | `AccountRepository` | ✓        | Persist and retrieve accounts               |
+| `receiptSigner`        | `ReceiptSigner`     | ✓        | Mint receipt JWTs                           |
+| `receiptVerifier`      | `ReceiptVerifier`   | ✓        | Verify receipt JWTs                         |
+| `logger`               | `LoggerPort`        | ✓        | Structured logger (`info`, `warn`, `error`) |
+| `idGenerator`          | `IdGeneratorPort`   | ✓        | `() => string` — e.g. `crypto.randomUUID`   |
+| `clock`                | `ClockPort`         | –        | Override `Date.now()` for testing           |
+| `tokenLifespanMinutes` | `number`            | –        | Receipt TTL, default 60                     |
+| `password`             | `PasswordConfig`    | –        | `{ passwordStore, passwordHasher }`         |
+| `oauth`                | `OAuthConfig`       | –        | `{ oauthStore }`                            |
 
-Manages the `Account` aggregate. `RegisterAccountUseCase` enforces email uniqueness before persisting a new account through the `AccountRepository` port.
+## Methods
 
-### `authentication`
+### Always present
 
-Orchestrates authentication flows. Use cases are composed internally by `createAuth`; you interact with them through the `AuthMethods` facade.
+| Method                                          | Description                                                                              |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `getAccountAuthMethods(accountId)`              | Returns all active auth methods for the account                                          |
+| `removeAuthMethod(accountId, method, options?)` | Removes an auth method; throws `CannotRemoveLastCredentialError` if it would be the last |
 
-| Use case                          | What it does                                                                      |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| `AuthenticateWithPasswordUseCase` | Looks up password credential by email, compares hash, issues receipt              |
-| `AuthenticateOAuthUseCase`        | Three-phase OAuth flow: fast-path → conflict-guard → auto-register                |
-| `AddPasswordAuthUseCase`          | Adds a password credential to an existing account (e.g. after OAuth registration) |
+### Present when `password` is configured
 
-### `credentials`
+| Method                            | Description                                            |
+| --------------------------------- | ------------------------------------------------------ |
+| `registerWithPassword(input)`     | Creates account + password credential, returns receipt |
+| `authenticateWithPassword(input)` | Verifies password, returns receipt                     |
+| `addPasswordToAccount(input)`     | Adds a password credential to an existing account      |
+| `changePassword(input)`           | Verifies current password, stores new hash             |
 
-Manages `Credential` aggregates. Two proof kinds are supported: `password` and `oauth`.
+### Present when `oauth` is configured
 
-| Use case                      | What it does                                                      |
-| ----------------------------- | ----------------------------------------------------------------- |
-| `RegisterWithPasswordUseCase` | Creates account + password credential atomically, returns receipt |
-| `LinkOAuthToAccountUseCase`   | Links an OAuth credential to an already-authenticated account     |
-| `RemovePasswordUseCase`       | Removes a password credential by credential ID                    |
-| `UpdatePasswordUseCase`       | Verifies current password and updates to a new hash               |
+| Method                         | Description                                                 |
+| ------------------------------ | ----------------------------------------------------------- |
+| `authenticateWithOAuth(input)` | Three-phase OAuth flow, returns receipt                     |
+| `linkOAuthToAccount(input)`    | Links an OAuth provider to an already-authenticated account |
 
-### `receipts`
-
-Manages the `Receipt` aggregate. `IssueReceiptUseCase` signs a receipt for an authenticated `AccountId` via the `ReceiptSigner` port. `VerifyReceiptUseCase` verifies a signed token via the `ReceiptVerifier` port.
+> **Unlinking an OAuth provider**: use `auth.removeAuthMethod(accountId, "oauth", { provider })`.
+> This routes through the kernel's last-credential guard and prevents accidental account lockout.
 
 ## Ports summary
 
-| Port                      | Feature     | Purpose                                                   |
-| ------------------------- | ----------- | --------------------------------------------------------- |
-| `AccountRepository`       | accounts    | Persist and retrieve accounts                             |
-| `PasswordCredentialStore` | credentials | Persist and retrieve password credentials                 |
-| `OAuthCredentialStore`    | credentials | Persist and retrieve OAuth credentials (one per provider) |
-| `PasswordManager`         | credentials | Hash and verify passwords (slow, salted — use argon2)     |
-| `TokenHasher`             | credentials | Deterministically hash opaque tokens (fast, SHA-256)      |
-| `ReceiptSigner`           | receipts    | Sign a receipt JWT                                        |
-| `ReceiptVerifier`         | receipts    | Verify and decode a receipt JWT                           |
-| `LoggerPort`              | shared      | Framework-agnostic structured logging                     |
+| Port                      | Provided by                       | Purpose                                                   |
+| ------------------------- | --------------------------------- | --------------------------------------------------------- |
+| `AccountRepository`       | Your infra                        | Persist and retrieve accounts                             |
+| `PasswordCredentialStore` | Your infra                        | Persist and retrieve password credentials                 |
+| `OAuthCredentialStore`    | Your infra                        | Persist and retrieve OAuth credentials (one per provider) |
+| `PasswordHasher`          | `@odysseon/whoami-adapter-argon2` | Hash and compare passwords                                |
+| `ReceiptSigner`           | `@odysseon/whoami-adapter-jose`   | Sign receipt JWTs                                         |
+| `ReceiptVerifier`         | `@odysseon/whoami-adapter-jose`   | Verify receipt JWTs                                       |
+| `LoggerPort`              | Your infra                        | Structured logging (`info`, `warn`, `error`)              |
+| `IdGeneratorPort`         | Your infra                        | `() => string` — any unique-ID strategy                   |
+| `ClockPort`               | Optional / your infra             | Override clock for testing                                |
+
+## PasswordCredentialStore contract
+
+```ts
+interface PasswordCredentialStore {
+  findByAccountId(accountId: AccountId): Promise<Credential | null>;
+  save(credential: Credential): Promise<void>;
+  update(credentialId: CredentialId, newHash: string): Promise<void>;
+  delete(credentialId: CredentialId): Promise<void>;
+  existsForAccount(accountId: AccountId): Promise<boolean>;
+}
+```
+
+## OAuthCredentialStore contract
+
+```ts
+interface OAuthCredentialStore {
+  findByProvider(
+    provider: string,
+    providerId: string,
+  ): Promise<Credential | null>;
+  findAllByAccountId(accountId: AccountId): Promise<Credential[]>;
+  save(credential: Credential): Promise<void>;
+  delete(credentialId: CredentialId): Promise<void>;
+  deleteByProvider(accountId: AccountId, provider: string): Promise<void>;
+  deleteAllForAccount(accountId: AccountId): Promise<void>;
+  existsForAccount(accountId: AccountId): Promise<boolean>;
+}
+```
 
 ## License
 
