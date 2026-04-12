@@ -13,6 +13,7 @@ export { createAuth } from "../composition/create-auth.js";
 export type {
   AuthConfig,
   AuthMethods,
+  AnyAuthMethods,
   CoreAuthMethods,
   AuthMethodKey,
 } from "../composition/types.js";

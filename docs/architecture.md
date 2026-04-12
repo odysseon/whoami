@@ -9,7 +9,6 @@ graph TD
     subgraph "Zone 3 — Infrastructure"
         Argon2["argon2 (npm)"]
         Jose["jose (npm)"]
-        WebCrypto["globalThis.crypto (built-in)"]
         NestJS["@nestjs/* (npm)"]
     end
 
@@ -17,7 +16,6 @@ graph TD
         ArgonAdapter["Argon2PasswordHasher"]
         JoseSigner["JoseReceiptSigner"]
         JoseVerifier["JoseReceiptVerifier"]
-        WebCryptoAdapter["WebCryptoTokenHasher"]
         NestModule["WhoamiModule"]
         NestGuard["WhoamiAuthGuard"]
         NestFilter["WhoamiExceptionFilter"]
@@ -28,11 +26,11 @@ graph TD
         CreateAuth["createAuth() factory"]
         RegisterUC["RegisterWithPasswordUseCase"]
         AuthPwdUC["AuthenticateWithPasswordUseCase"]
-        AuthOAuthUC["AuthenticateOAuthUseCase"]
-        AddPwdUC["AddPasswordAuthUseCase"]
+        AuthOAuthUC["AuthenticateWithOAuthUseCase"]
+        AddPwdUC["AddPasswordUseCase"]
+        ChangePwdUC["ChangePasswordUseCase"]
         LinkOAuthUC["LinkOAuthToAccountUseCase"]
-        RemovePwdUC["RemovePasswordUseCase"]
-        RegisterAccountUC["RegisterAccountUseCase"]
+        RemoveUC["RemoveAuthMethodUseCase"]
         IssueUC["IssueReceiptUseCase"]
         VerifyUC["VerifyReceiptUseCase"]
     end
@@ -47,51 +45,55 @@ graph TD
         AccountRepo["AccountRepository port"]
         PwdStore["PasswordCredentialStore port"]
         OAuthStore["OAuthCredentialStore port"]
-        PasswordMgr["PasswordManager port"]
-        TokenHasher["TokenHasher port"]
+        PasswordHasher["PasswordHasher port"]
         ReceiptSigner["ReceiptSigner port"]
         ReceiptVerifier["ReceiptVerifier port"]
         LoggerPort["LoggerPort"]
+        IdGeneratorPort["IdGeneratorPort"]
+        ClockPort["ClockPort"]
         Errors["Domain errors"]
     end
 
     Argon2 --> ArgonAdapter
     Jose --> JoseSigner
     Jose --> JoseVerifier
-    WebCrypto --> WebCryptoAdapter
     NestJS --> NestModule
     NestJS --> NestGuard
 
-    ArgonAdapter -.->|implements| PasswordMgr
+    ArgonAdapter -.->|implements| PasswordHasher
     JoseSigner -.->|implements| ReceiptSigner
     JoseVerifier -.->|implements| ReceiptVerifier
-    WebCryptoAdapter -.->|implements| TokenHasher
 
     NestGuard --> VerifyUC
     NestModule --> CreateAuth
-    NestModule --> VerifyUC
     OAuthHandler --> CreateAuth
 
     CreateAuth --> RegisterUC
     CreateAuth --> AuthPwdUC
     CreateAuth --> AuthOAuthUC
     CreateAuth --> AddPwdUC
+    CreateAuth --> ChangePwdUC
     CreateAuth --> LinkOAuthUC
-    CreateAuth --> RemovePwdUC
+    CreateAuth --> RemoveUC
+    CreateAuth --> IssueUC
+    CreateAuth --> VerifyUC
 
     RegisterUC --> AccountRepo
     RegisterUC --> PwdStore
+    AuthPwdUC --> AccountRepo
     AuthPwdUC --> PwdStore
-    AuthPwdUC --> PasswordMgr
+    AuthPwdUC --> PasswordHasher
     AuthOAuthUC --> AccountRepo
     AuthOAuthUC --> OAuthStore
-    AddPwdUC --> PwdStore
     AddPwdUC --> AccountRepo
-    AddPwdUC --> PasswordMgr
+    AddPwdUC --> PwdStore
+    AddPwdUC --> PasswordHasher
+    ChangePwdUC --> PwdStore
+    ChangePwdUC --> PasswordHasher
     LinkOAuthUC --> AccountRepo
     LinkOAuthUC --> OAuthStore
-    LinkOAuthUC --> VerifyUC
-    RemovePwdUC --> PwdStore
+    RemoveUC --> PwdStore
+    RemoveUC --> OAuthStore
     IssueUC --> ReceiptSigner
     VerifyUC --> ReceiptVerifier
 
@@ -123,68 +125,68 @@ graph TD
 
 Application code should only call `createAuth` and never import use-case classes directly — they are implementation details and may change without notice.
 
-## Feature structure
+## Module structure
 
-The core is organised by feature, not by layer:
+The core is organised into a `kernel` (shared primitives, entities, orchestration) and per-auth-method `modules`:
 
 ```
 packages/core/src/
-├── whoami.ts               createAuth() factory facade
-├── types.ts                AuthConfig, AuthMethods, AuthMethod types
-├── index.ts                Public API re-exports
+├── index.ts                     re-exports public surface
+├── api/
+│   ├── public.ts                public entry point
+│   └── internal.ts              internal entry point (concrete use-case classes)
 ├── internal/
-│   └── index.ts            Internal re-exports (use-case classes for adapters)
-├── features/
-│   ├── accounts/           Register and retrieve accounts
-│   │   ├── application/    RegisterAccountUseCase
-│   │   ├── domain/         Account entity, AccountRepository port
-│   │   └── index.ts
-│   ├── authentication/     Authenticate via password or OAuth
-│   │   ├── add-password-auth.usecase.ts
-│   │   ├── authenticate-oauth.usecase.ts
-│   │   ├── authenticate-password.usecase.ts
-│   │   └── index.ts
-│   ├── credentials/        Manage credential lifecycle
-│   │   ├── application/    RegisterWithPasswordUseCase, RemovePasswordUseCase,
-│   │   │                   LinkOAuthToAccountUseCase
-│   │   ├── domain/         Credential entity, PasswordCredentialStore port,
-│   │   │                   OAuthCredentialStore port, PasswordManager port,
-│   │   │                   TokenHasher port, CredentialProof types
-│   │   └── index.ts
-│   └── receipts/           Issue and verify signed receipt tokens
-│       ├── application/    IssueReceiptUseCase, VerifyReceiptUseCase
-│       ├── domain/         Receipt entity, ReceiptSigner port, ReceiptVerifier port
-│       └── index.ts
-└── shared/
-    ├── domain/
-    │   ├── errors/         DomainError hierarchy (14 error types)
-    │   ├── ports/          LoggerPort
-    │   └── value-objects/  AccountId, EmailAddress, CredentialId
-    └── index.ts
+│   └── index.ts                 re-exports api/internal.ts
+├── composition/
+│   ├── create-auth.ts           createAuth() factory — wires all modules together
+│   ├── context-builder.ts       buildCoreContext() — shared infra passed to modules
+│   └── types.ts                 AuthConfig, AuthMethods, AuthMethodKey, CoreAuthMethods
+├── kernel/
+│   ├── account/                 Account entity, AccountRepository port
+│   ├── auth/
+│   │   ├── auth-method.port.ts  AuthMethod, AuthMethodPort
+│   │   ├── auth-orchestrator.ts AuthOrchestrator — queries method existence and count
+│   │   ├── auth-result.type.ts  AuthResult
+│   │   └── usecases/
+│   │       └── remove-auth-method.usecase.ts  Last-credential guard + module delegation
+│   ├── credential/              Credential entity, CredentialProof types
+│   ├── receipt/                 Receipt entity, ReceiptSigner/Verifier ports, use cases
+│   └── shared/
+│       ├── errors/              DomainError hierarchy (14 error types)
+│       ├── ports/               LoggerPort, IdGeneratorPort, ClockPort
+│       └── value-objects/       AccountId, EmailAddress, CredentialId
+└── modules/
+    ├── module.interface.ts      AuthModule<Config, Methods> contract
+    ├── password/                PasswordConfig, PasswordMethods, use cases, ports
+    └── oauth/                   OAuthConfig, OAuthMethods, use cases, ports
 ```
-
-Each feature exposes its public surface through its own `index.ts`. Nothing crosses feature boundaries except through exported types.
 
 ## createAuth — the composition facade
 
-`createAuth(config: AuthConfig): AuthMethods` is the primary entry point. It composes all use-cases into a single object. Methods are present only when the corresponding config section is provided:
+`createAuth(config: AuthConfig): AuthMethods` is the primary entry point. Methods are present only when the corresponding config section is provided:
 
 ```mermaid
 graph LR
-    Config["AuthConfig\n──────────\naccountRepo\ntokenSigner\nverifyReceipt\nlogger\ngenerateId\npassword? { hashManager, passwordStore }\noauth? { oauthStore }"]
+    Config["AuthConfig\n──────────\naccountRepo\nreceiptSigner\nreceiptVerifier\nlogger\nidGenerator\nclock?\ntokenLifespanMinutes?\npassword? { passwordStore, passwordHasher }\noauth? { oauthStore }"]
 
-    Methods["AuthMethods (always present)\n──────────────────────────────\ngetAccountAuthMethods\nremoveAuthMethod\n\n+ if password configured:\n  registerWithPassword\n  authenticateWithPassword\n  addPasswordToAccount\n\n+ if oauth configured:\n  authenticateWithOAuth\n  linkOAuthToAccount"]
+    Methods["AuthMethods (always present)\n──────────────────────────────\ngetAccountAuthMethods\nremoveAuthMethod\n\n+ if password configured:\n  registerWithPassword\n  authenticateWithPassword\n  addPasswordToAccount\n  changePassword\n\n+ if oauth configured:\n  authenticateWithOAuth\n  linkOAuthToAccount"]
 
     Config -->|"createAuth(config)"| Methods
 ```
 
+## RemoveAuthMethodUseCase — last-credential invariant
+
+`auth.removeAuthMethod(accountId, method, options?)` is the only correct way to remove any credential from an account. Before delegating to a module's remover, the kernel counts how many total credentials would remain across all active methods. If the result would be zero, it throws `CannotRemoveLastCredentialError` — no deletion occurs.
+
+For OAuth, pass `{ provider }` in `options` to target a single linked provider rather than all OAuth credentials for the account.
+
 ## OAuth security model
 
-`AuthenticateOAuthUseCase` implements a three-phase security-first flow:
+`AuthenticateWithOAuthUseCase` implements a three-phase security-first flow:
 
 ```mermaid
 flowchart TD
-    Start["handle(profile: OAuthProfile)"]
+    Start["execute({ provider, providerId, email })"]
     P1{"Existing OAuth\ncredential found?"}
     P2{"Account exists with\nthis email?"}
     P3["Auto-register:\ncreate Account + Credential"]
@@ -201,11 +203,11 @@ flowchart TD
     FastAuth --> IssueReceipt
 ```
 
-The conflict guard prevents OAuth account-takeover: if an account already exists with a given email but has no linked OAuth credential for that provider, the flow rejects. The user must log in with their existing method and link the provider via settings.
+The conflict guard prevents OAuth account-takeover: if an account already exists with a given email but has no linked OAuth credential for that provider, the flow rejects. The user must log in with their existing method and link the provider via `linkOAuthToAccount`.
 
 ## What whoami deliberately does not own
 
 - **User profiles, roles, permissions** — your domain. Link via `accountId` as a foreign key.
 - **Session management** — use your framework's session layer.
 - **Refresh tokens** — stateful token rotation requires storage, rotation families, and reuse detection. That is a consumer concern, not an identity primitive.
-- **Magic links** — one-time token flows require transport-layer integration (email). Implement as a thin use case in your application calling `createAuth` for the receipt step.
+- **Magic links** — one-time token flows require transport-layer integration (email). Implement as a thin use case in your application, calling `createAuth` for the receipt step.

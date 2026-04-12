@@ -18,7 +18,7 @@ Everything else — what that account can do, what profile they have, what commu
 
 - **Framework-agnostic core.** Domain logic has zero framework or I/O dependencies. Bring your own NestJS, Express, Fastify, or none.
 - **Adapter-based extensibility.** Swap hashing algorithms, JWT strategies, or frameworks by swapping one package.
-- **Typed identity primitive.** `AccountId` accepts `string | number` — no forced UUID, no silent cast.
+- **Typed identity primitive.** `AccountId` accepts a non-empty `string` — no forced UUID, no silent cast.
 
 ## How your entities link to Account
 
@@ -33,8 +33,6 @@ your DB:
   posts     { id, author_id  → users.id }
   channels  { id, owner_id   → users.id }
 ```
-
-See [the example apps](#examples) for how this wiring looks in practice.
 
 ## Architecture at a glance
 
@@ -52,7 +50,7 @@ graph TD
     end
 
     subgraph "whoami-core — createAuth facade"
-        AuthMethods["AuthMethods facade\n─────────────────\nregisterWithPassword\nauthenticateWithPassword\nauthenticateWithOAuth\nlinkOAuthToAccount\naddPasswordToAccount\ngetAccountAuthMethods\nremoveAuthMethod"]
+        AuthMethods["AuthMethods facade\n─────────────────\nregisterWithPassword\nauthenticateWithPassword\nauthenticateWithOAuth\nlinkOAuthToAccount\naddPasswordToAccount\nchangePassword\ngetAccountAuthMethods\nremoveAuthMethod"]
         IssueUC["IssueReceiptUseCase"]
         VerifyUC["VerifyReceiptUseCase"]
         Receipt["Receipt { token, accountId, expiresAt }"]
@@ -73,9 +71,8 @@ graph TD
 | Package | Purpose |
 |---|---|
 | [`@odysseon/whoami-core`](packages/core/README.md) | Domain entities, use cases, port interfaces, and the `createAuth` factory facade |
-| [`@odysseon/whoami-adapter-argon2`](packages/adapter-argon2/README.md) | `PasswordManager` implementation via argon2 |
+| [`@odysseon/whoami-adapter-argon2`](packages/adapter-argon2/README.md) | `PasswordHasher` implementation via argon2 |
 | [`@odysseon/whoami-adapter-jose`](packages/adapter-jose/README.md) | `ReceiptSigner` / `ReceiptVerifier` via jose (HS256 JWT) |
-| [`@odysseon/whoami-adapter-webcrypto`](packages/adapter-webcrypto/README.md) | `TokenHasher` via native Web Crypto API (API keys, opaque tokens) |
 | [`@odysseon/whoami-adapter-nestjs`](packages/adapter-nestjs/README.md) | NestJS module, OAuth handler, guard, decorator, exception filter |
 
 ## Examples
@@ -98,14 +95,17 @@ pnpm --filter @odysseon/whoami-example-express dev
 
 # run all tests
 pnpm test
+
+# typecheck all packages
+pnpm -r exec tsc --noEmit
 ```
 
 ## Key docs
 
 | Doc | Purpose |
 |---|---|
-| [docs/architecture.md](docs/architecture.md) | Zone model, dependency rules, feature structure |
-| [docs/type-model.md](docs/type-model.md) | AccountId, Receipt, CredentialProof, AuthMethods, error types |
+| [docs/architecture.md](docs/architecture.md) | Zone model, dependency rules, module structure |
+| [docs/type-model.md](docs/type-model.md) | AccountId, Receipt, CredentialProof, AuthConfig, error types |
 
 ## Development
 
