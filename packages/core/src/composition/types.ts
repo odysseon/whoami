@@ -17,12 +17,6 @@ type RequireAtLeastOne<T> = {
   [K in keyof T]: Required<Pick<T, K>> & Partial<Omit<T, K>>;
 }[keyof T];
 
-type UnionToIntersection<U> = (
-  U extends unknown ? (k: U) => void : never
-) extends (k: infer I) => void
-  ? I
-  : never;
-
 // ── Core methods always present ───────────────────────────────────────────────
 
 export interface CoreAuthMethods {
@@ -66,15 +60,12 @@ export type AuthConfig = {
 
 // ── Return type ───────────────────────────────────────────────────────────────
 
-type MethodsForConfig<T> = UnionToIntersection<
-  {
-    [K in keyof T]: K extends AuthMethodKey
-      ? AuthMethodRegistry[K]["methods"]
-      : never;
-  }[keyof T]
->;
+type MethodsForConfig<T> = (T extends { password: PasswordConfig }
+  ? PasswordMethods
+  : Record<never, never>) &
+  (T extends { oauth: OAuthConfig } ? OAuthMethods : Record<never, never>);
 
-export type AuthMethods<T extends AuthConfig = AuthConfig> = CoreAuthMethods &
+export type AuthMethods<T extends AuthConfig> = CoreAuthMethods &
   MethodsForConfig<T>;
 
 /**

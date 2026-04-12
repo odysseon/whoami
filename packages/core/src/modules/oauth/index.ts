@@ -82,7 +82,7 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
         accountId: AccountId,
         provider?: string,
       ): Promise<void> => {
-        if (provider) {
+        if (provider !== undefined) {
           const all = await config.oauthStore.findAllByAccountId(accountId);
           const target = all.find((c): boolean => c.oauthProvider === provider);
           if (!target) throw new OAuthProviderNotFoundError(provider);

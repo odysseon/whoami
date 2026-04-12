@@ -1,4 +1,7 @@
-import { InvalidConfigurationError } from "../kernel/shared/index.js";
+import {
+  InvalidConfigurationError,
+  InvalidCredentialError,
+} from "../kernel/shared/index.js";
 import { AuthOrchestrator } from "../kernel/auth/auth-orchestrator.js";
 import { RemoveAuthMethodUseCase } from "../kernel/auth/usecases/remove-auth-method.usecase.js";
 import { buildCoreContext } from "./context-builder.js";
@@ -50,14 +53,20 @@ export function createAuth<T extends AuthConfig>(config: T): AuthMethods<T> {
   const coreMethods: CoreAuthMethods = {
     getAccountAuthMethods: (accountId) =>
       orchestrator.getActiveMethods(accountId),
-    removeAuthMethod: (accountId, method, options) =>
-      removeUC.execute({
+    removeAuthMethod: (accountId, method, options) => {
+      if (options?.provider !== undefined && options.provider.trim() === "") {
+        throw new InvalidCredentialError(
+          "options.provider must not be an empty string — pass undefined to remove all credentials for the method.",
+        );
+      }
+      return removeUC.execute({
         accountId,
         method,
         ...(options?.provider !== undefined
           ? { provider: options.provider }
           : {}),
-      }),
+      });
+    },
   };
 
   const CORE_KEYS = new Set<string>(Object.keys(coreMethods));
