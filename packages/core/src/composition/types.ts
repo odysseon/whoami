@@ -77,6 +77,24 @@ type MethodsForConfig<T> = UnionToIntersection<
 export type AuthMethods<T extends AuthConfig = AuthConfig> = CoreAuthMethods &
   MethodsForConfig<T>;
 
+/**
+ * A concrete, non-generic alias for `AuthMethods` that includes all known
+ * module methods as optional properties.
+ *
+ * Use this type when you need to annotate a variable, parameter, or DI token
+ * that holds an `AuthMethods` facade but you don't have the specific `T`
+ * available — for example in adapters, guards, or example apps.
+ *
+ * Individual methods are optional because not every consumer configures every
+ * module. At runtime the guard pattern (`if (!auth.authenticateWithOAuth)`)
+ * remains correct.
+ *
+ * @public
+ */
+export type AnyAuthMethods = CoreAuthMethods &
+  Partial<PasswordMethods> &
+  Partial<OAuthMethods>;
+
 // ── Type guard ────────────────────────────────────────────────────────────────
 
 export function hasAuthMethod<K extends AuthMethodKey>(
