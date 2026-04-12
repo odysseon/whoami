@@ -1,5 +1,5 @@
 import type { AuthConfig, AuthMethods, CoreAuthMethods } from "./types.js";
-import type { AccountId } from "./shared/index.js";
+import { InvalidConfigurationError, type AccountId } from "./shared/index.js";
 import type { AuthMethod } from "./shared/domain/auth-method.js";
 
 import { buildCoreContext } from "./modules/core-context.js";
@@ -33,7 +33,7 @@ export function createAuth<T extends AuthConfig>(config: T): AuthMethods<T> {
     receiptVerifier: config.receiptVerifier,
     logger: config.logger,
     generateId: config.generateId,
-    ...(config.tokenLifespanMinutes
+    ...(config.tokenLifespanMinutes !== undefined
       ? { tokenLifespanMinutes: config.tokenLifespanMinutes }
       : {}),
   });
@@ -83,19 +83,36 @@ export function createAuth<T extends AuthConfig>(config: T): AuthMethods<T> {
   };
 
   // ── Iterate modules, accumulate methods ──────────────────────────────────
+  const CORE_KEYS = new Set<string>(Object.keys(coreMethods));
+
   const moduleMethods = MODULES.reduce(
     (acc, mod) => {
       const modConfig = config[mod.key as keyof typeof config];
       if (!modConfig) return acc;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { ...acc, ...mod.create(modConfig as any, ctx) };
+      const newMethods = mod.create(modConfig as any, ctx);
+
+      // Guard: no module may shadow a core method or another module's method
+      const collisions = Object.keys(newMethods).filter(
+        (k) => CORE_KEYS.has(k) || k in acc,
+      );
+      if (collisions.length > 0) {
+        throw new InvalidConfigurationError(
+          `[whoami] Module "${mod.key}" declares method(s) that collide with ` +
+            `already-registered names: ${collisions.map((k) => `"${k}"`).join(", ")}. ` +
+            `Each method name must be unique across core and all modules.`,
+        );
+      }
+
+      return { ...acc, ...newMethods };
     },
     {} as Record<string, unknown>,
   );
 
-  // ── Final composition (no mutation) ─────────────────────────────────────
+  // ── Final composition — core keys are set last so they can never be overridden ──
   return {
-    ...coreMethods,
     ...moduleMethods,
+    ...coreMethods,
   } as AuthMethods<T>;
 }
