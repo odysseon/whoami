@@ -3,13 +3,9 @@ import type { AuthMethodPort } from "../../kernel/auth/auth-method.port.js";
 import type { AuthMethodRemover } from "../../kernel/auth/usecases/remove-auth-method.usecase.js";
 import type { CoreContext } from "../../composition/context-builder.js";
 import type { OAuthCredentialStore } from "./ports/oauth-credential.store.port.js";
-import type { PasswordCredentialStore } from "../password/ports/password-credential.store.port.js";
 import type { AccountId } from "../../kernel/shared/index.js";
 import type { Receipt } from "../../kernel/receipt/receipt.entity.js";
-import {
-  OAuthProviderNotFoundError,
-  CannotRemoveLastCredentialError,
-} from "../../kernel/shared/index.js";
+import { OAuthProviderNotFoundError } from "../../kernel/shared/index.js";
 
 import { AuthenticateWithOAuthUseCase } from "./usecases/authenticate.usecase.js";
 import { LinkOAuthToAccountUseCase } from "./usecases/link-account.usecase.js";
@@ -17,11 +13,6 @@ import { UnlinkOAuthUseCase } from "./usecases/unlink-account.usecase.js";
 
 export interface OAuthConfig {
   oauthStore: OAuthCredentialStore;
-  /**
-   * Optional: provide to enable last-credential check when unlinking OAuth.
-   * Without this, the module cannot verify a password fallback exists.
-   */
-  passwordStore?: PasswordCredentialStore;
 }
 
 export interface OAuthMethods {
@@ -46,7 +37,7 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
   key: "oauth",
 
   create(config: OAuthConfig, ctx: CoreContext): OAuthMethods {
-    const { oauthStore, passwordStore } = config;
+    const { oauthStore } = config;
     const { accountRepo, issueReceipt, verifyReceipt, logger, idGenerator } =
       ctx;
 
@@ -72,7 +63,6 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
 
     const unlinkUC = new UnlinkOAuthUseCase({
       oauthStore,
-      ...(passwordStore ? { passwordStore } : {}),
     });
 
     return {
@@ -88,6 +78,10 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
       method: "oauth",
       exists: (accountId): Promise<boolean> =>
         config.oauthStore.existsForAccount(accountId),
+      count: async (accountId): Promise<number> => {
+        const all = await config.oauthStore.findAllByAccountId(accountId);
+        return all.length;
+      },
     };
   },
 
@@ -100,15 +94,8 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
       ): Promise<void> => {
         if (provider) {
           const all = await config.oauthStore.findAllByAccountId(accountId);
-          const target = all.find((c) => c.oauthProvider === provider);
+          const target = all.find((c): boolean => c.oauthProvider === provider);
           if (!target) throw new OAuthProviderNotFoundError(provider);
-
-          const remaining = all.length - 1;
-          const hasPassword = config.passwordStore
-            ? await config.passwordStore.existsForAccount(accountId)
-            : false;
-          if (remaining === 0 && !hasPassword)
-            throw new CannotRemoveLastCredentialError();
 
           await config.oauthStore.deleteByProvider(accountId, provider);
         } else {
