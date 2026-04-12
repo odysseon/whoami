@@ -17,11 +17,26 @@ import { RemoveAuthMethodUseCase } from "./features/authentication/application/r
 const MODULES = [PasswordModule, OAuthModule] as const;
 
 /**
- * Composes the full authentication facade from declarative config.
+ * Builds the authentication API from your config.
  *
- * Iterates over the registered {@link MODULES}. For each module whose config
- * key is present in `config`, it calls `module.create(config[key], ctx)` and
- * merges the returned methods into the final object.
+ * Pass `password`, `oauth`, or both — you get back only the methods for the
+ * auth types you configured, fully typed. The returned object is the single
+ * entry point for all auth operations: register, login, link, remove, etc.
+ *
+ * @throws {InvalidConfigurationError} When two modules declare the same method name.
+ *
+ * @example
+ * ```ts
+ * const auth = createAuth({
+ *   accountRepo, receiptSigner, receiptVerifier, logger, generateId,
+ *   password: { passwordManager, passwordStore },
+ *   oauth: { oauthStore },
+ * });
+ *
+ * // auth.registerWithPassword(...)
+ * // auth.authenticateWithOAuth(...)
+ * // auth.removeAuthMethod(...)
+ * ```
  *
  * @public
  */

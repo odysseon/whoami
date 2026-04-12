@@ -15,10 +15,7 @@ import {
  * @public
  */
 export class Account {
-  /** The unique, stable account identifier. */
   public readonly id: AccountId;
-
-  /** The normalized email address for this account. */
   public readonly email: EmailAddress;
 
   private constructor(id: AccountId, email: EmailAddress) {
