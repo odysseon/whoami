@@ -4,8 +4,8 @@ import type { AuthMethod, AuthMethodPort } from "./auth-method.port.js";
 /**
  * Strategy runner — blind to all module internals.
  *
- * The kernel uses this to answer "which auth methods does this account have?"
- * without importing any module-specific store or type.
+ * Queries registered {@link AuthMethodPort}s to answer identity questions
+ * about an account without knowing anything about module storage.
  * @public
  */
 export class AuthOrchestrator {
@@ -15,10 +15,6 @@ export class AuthOrchestrator {
     this.ports = ports;
   }
 
-  /**
-   * Returns the active authentication methods for an account by querying
-   * each registered {@link AuthMethodPort}.
-   */
   async getActiveMethods(accountId: AccountId): Promise<AuthMethod[]> {
     const results = await Promise.all(
       this.ports.map(async (p) => ({
@@ -27,5 +23,14 @@ export class AuthOrchestrator {
       })),
     );
     return results.filter((r) => r.exists).map((r) => r.method);
+  }
+
+  async countForMethod(
+    accountId: AccountId,
+    method: AuthMethod,
+  ): Promise<number> {
+    const port = this.ports.find((p) => p.method === method);
+    if (!port) return 0;
+    return await port.count(accountId);
   }
 }
