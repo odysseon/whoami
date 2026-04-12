@@ -51,7 +51,7 @@ export interface CoreInfrastructure {
 export function buildCoreContext(infra: CoreInfrastructure): CoreContext {
   const issueReceipt = new IssueReceiptUseCase({
     signer: infra.receiptSigner,
-    ...(infra.tokenLifespanMinutes
+    ...(infra.tokenLifespanMinutes !== undefined
       ? { tokenLifespanMinutes: infra.tokenLifespanMinutes }
       : {}),
   });
