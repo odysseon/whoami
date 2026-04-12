@@ -72,21 +72,46 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
         const all = await config.oauthStore.findAllByAccountId(accountId);
         return all.length;
       },
+      /**
+       * Returns the number of OAuth credentials that would remain after the
+       * described removal, validating provider existence in the process.
+       *
+       * This is called by the kernel's last-credential guard so that
+       * `OAuthProviderNotFoundError` is raised before `CannotRemoveLastCredentialError`
+       * when the account has exactly one credential and the caller passes a
+       * non-linked provider.
+       *
+       * @throws {OAuthProviderNotFoundError} when `provider` is defined but not
+       * linked to the account.
+       */
+      countAfterRemoval: async (
+        accountId: AccountId,
+        provider?: string,
+      ): Promise<number> => {
+        const all = await config.oauthStore.findAllByAccountId(accountId);
+        if (provider !== undefined) {
+          const linked = all.some((c): boolean => c.oauthProvider === provider);
+          if (!linked) throw new OAuthProviderNotFoundError(provider);
+          return Math.max(0, all.length - 1);
+        }
+        return 0;
+      },
     };
   },
 
   buildAuthMethodRemover(config: OAuthConfig): AuthMethodRemover {
     return {
       method: "oauth",
+      /**
+       * Deletes the credential(s) for this account.
+       * Provider existence is validated upstream via
+       * {@link AuthMethodPort.countAfterRemoval} — this method only deletes.
+       */
       remove: async (
         accountId: AccountId,
         provider?: string,
       ): Promise<void> => {
         if (provider !== undefined) {
-          const all = await config.oauthStore.findAllByAccountId(accountId);
-          const target = all.find((c): boolean => c.oauthProvider === provider);
-          if (!target) throw new OAuthProviderNotFoundError(provider);
-
           await config.oauthStore.deleteByProvider(accountId, provider);
         } else {
           await config.oauthStore.deleteAllForAccount(accountId);
