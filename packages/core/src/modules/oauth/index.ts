@@ -3,13 +3,12 @@ import type { AuthMethodPort } from "../../kernel/auth/auth-method.port.js";
 import type { AuthMethodRemover } from "../../kernel/auth/usecases/remove-auth-method.usecase.js";
 import type { CoreContext } from "../../composition/context-builder.js";
 import type { OAuthCredentialStore } from "./ports/oauth-credential.store.port.js";
-import type { AccountId } from "../../kernel/shared/index.js";
 import type { Receipt } from "../../kernel/receipt/receipt.entity.js";
+import type { AccountId } from "../../kernel/shared/index.js";
 import { OAuthProviderNotFoundError } from "../../kernel/shared/index.js";
 
 import { AuthenticateWithOAuthUseCase } from "./usecases/authenticate.usecase.js";
 import { LinkOAuthToAccountUseCase } from "./usecases/link-account.usecase.js";
-import { UnlinkOAuthUseCase } from "./usecases/unlink-account.usecase.js";
 
 export interface OAuthConfig {
   oauthStore: OAuthCredentialStore;
@@ -26,10 +25,6 @@ export interface OAuthMethods {
     provider: string;
     providerId: string;
     email: string;
-  }): Promise<void>;
-  unlinkOAuthFromAccount(input: {
-    accountId: AccountId;
-    provider: string;
   }): Promise<void>;
 }
 
@@ -61,15 +56,10 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
       logger,
     });
 
-    const unlinkUC = new UnlinkOAuthUseCase({
-      oauthStore,
-    });
-
     return {
       authenticateWithOAuth: (input): Promise<Receipt> =>
         authenticateUC.execute(input),
       linkOAuthToAccount: (input): Promise<void> => linkUC.execute(input),
-      unlinkOAuthFromAccount: (input): Promise<void> => unlinkUC.execute(input),
     };
   },
 
