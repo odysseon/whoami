@@ -4,7 +4,7 @@ import { EmailAddress } from "../../../shared/domain/value-objects/email-address
 import type { AccountRepository } from "../../accounts/domain/account-repository.port.js";
 import type { OAuthCredentialStore } from "../domain/ports/oauth-credential-store.port.js";
 import type { LoggerPort } from "../../../shared/domain/ports/logger.port.js";
-import { VerifyReceiptUseCase } from "../../receipts/application/verify-receipt.usecase.js";
+import type { VerifyReceiptUseCase } from "../../receipts/application/verify-receipt.usecase.js";
 import { AuthenticationError } from "../../../shared/domain/errors/auth.error.js";
 
 /**
@@ -27,20 +27,23 @@ export interface LinkOAuthToAccountInput {
  * @public
  */
 export interface LinkOAuthToAccountDeps {
-  /** Persistence port for account aggregates. */
-  accountRepository: AccountRepository;
-  /** Persistence port for OAuth credentials. */
-  oauthCredentialStore: OAuthCredentialStore;
+  /** Finds accounts by their unique identifier. */
+  accountFinder: Pick<AccountRepository, "findById">;
+  /** Finds OAuth credentials by provider name and provider-specific user ID. */
+  credentialFinder: Pick<OAuthCredentialStore, "findByProvider">;
+  /** Persists OAuth credentials. */
+  credentialSaver: Pick<OAuthCredentialStore, "save">;
   /**
-   * Receipt verifier — either a {@link VerifyReceiptUseCase} instance or any
-   * object with a compatible `execute(token)` signature.
+   * Verifies a signed receipt token and returns the authenticated account ID.
+   * Either a {@link VerifyReceiptUseCase} instance or any object with a
+   * compatible `execute(token)` signature.
    */
-  verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
+  receiptVerifier: Pick<VerifyReceiptUseCase, "execute">;
   /**
    * Deterministic ID generator — must return a non-empty string on every call.
    * Inject `crypto.randomUUID` or any UUID v4 factory.
    */
-  generateId: () => string;
+  idGenerator: () => string;
   /** Structured logger. */
   logger: LoggerPort;
 }
@@ -59,18 +62,10 @@ export interface LinkOAuthToAccountDeps {
  * @public
  */
 export class LinkOAuthToAccountUseCase {
-  private readonly accountRepo: AccountRepository;
-  private readonly oauthStore: OAuthCredentialStore;
-  private readonly verifyReceipt: Pick<VerifyReceiptUseCase, "execute">;
-  private readonly generateId: () => string;
-  private readonly logger: LoggerPort;
+  private readonly deps: LinkOAuthToAccountDeps;
 
   constructor(deps: LinkOAuthToAccountDeps) {
-    this.accountRepo = deps.accountRepository;
-    this.oauthStore = deps.oauthCredentialStore;
-    this.verifyReceipt = deps.verifyReceipt;
-    this.generateId = deps.generateId;
-    this.logger = deps.logger;
+    this.deps = deps;
   }
 
   /**
@@ -83,13 +78,15 @@ export class LinkOAuthToAccountUseCase {
    */
   public async execute(input: LinkOAuthToAccountInput): Promise<void> {
     // PHASE 1: verify the caller is authenticated
-    const receipt = await this.verifyReceipt.execute(input.receiptToken);
+    const receipt = await this.deps.receiptVerifier.execute(input.receiptToken);
     const authenticatedAccountId = receipt.accountId;
 
     // PHASE 2: load the account and verify email matches
-    const account = await this.accountRepo.findById(authenticatedAccountId);
+    const account = await this.deps.accountFinder.findById(
+      authenticatedAccountId,
+    );
     if (!account) {
-      this.logger.error(
+      this.deps.logger.error(
         `Account ${authenticatedAccountId.value} not found despite valid receipt`,
       );
       throw new AuthenticationError("Account not found.");
@@ -97,7 +94,7 @@ export class LinkOAuthToAccountUseCase {
 
     const oauthEmail = new EmailAddress(input.email);
     if (!account.email.equals(oauthEmail)) {
-      this.logger.warn(
+      this.deps.logger.warn(
         `Email mismatch during OAuth linking — account: ${account.email.value}, ` +
           `OAuth email: ${input.email}, accountId: ${account.id.value}`,
       );
@@ -107,7 +104,7 @@ export class LinkOAuthToAccountUseCase {
     }
 
     // PHASE 3: check for an existing credential for this provider/providerId
-    const existing = await this.oauthStore.findByProvider(
+    const existing = await this.deps.credentialFinder.findByProvider(
       input.provider,
       input.providerId,
     );
@@ -115,12 +112,12 @@ export class LinkOAuthToAccountUseCase {
     if (existing) {
       if (existing.accountId.equals(account.id)) {
         // Already linked to this account — idempotent success
-        this.logger.info(
+        this.deps.logger.info(
           `OAuth credential already linked to account ${account.id.value}`,
         );
         return;
       }
-      this.logger.error(
+      this.deps.logger.error(
         `Attempted to link OAuth credential to account ${account.id.value} ` +
           `but it is already linked to account ${existing.accountId.value}`,
       );
@@ -130,17 +127,17 @@ export class LinkOAuthToAccountUseCase {
     }
 
     // PHASE 4: create and persist the new credential
-    this.logger.info(
+    this.deps.logger.info(
       `Linking ${input.provider} OAuth credential to account ${account.id.value}`,
     );
 
     const credential = Credential.createOAuth({
-      id: new CredentialId(this.generateId()),
+      id: new CredentialId(this.deps.idGenerator()),
       accountId: account.id,
       provider: input.provider,
       providerId: input.providerId,
     });
 
-    await this.oauthStore.save(credential);
+    await this.deps.credentialSaver.save(credential);
   }
 }
