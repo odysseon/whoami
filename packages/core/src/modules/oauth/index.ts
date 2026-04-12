@@ -28,18 +28,22 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthAuthMethods> = {
     // ── Use-case instantiation ──────────────────────────────────────────────
 
     const authenticateUC = new AuthenticateOAuthUseCase({
-      accountRepository: accountRepo,
-      oauthCredentialStore: oauthStore,
-      issueReceipt,
-      generateId,
+      accountFinder: accountRepo,
+      accountSaver: accountRepo,
+      accountRemover: accountRepo,
+      credentialFinder: oauthStore,
+      credentialSaver: oauthStore,
+      receiptIssuer: issueReceipt,
+      idGenerator: generateId,
       logger,
     });
 
     const linkUC = new LinkOAuthToAccountUseCase({
-      accountRepository: accountRepo,
-      oauthCredentialStore: oauthStore,
-      verifyReceipt,
-      generateId,
+      accountFinder: accountRepo,
+      credentialFinder: oauthStore,
+      credentialSaver: oauthStore,
+      receiptVerifier: verifyReceipt,
+      idGenerator: generateId,
       logger,
     });
 

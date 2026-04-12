@@ -6,8 +6,8 @@ import type { PasswordCredentialStore } from "../domain/ports/password-credentia
  * @public
  */
 export interface RemovePasswordDeps {
-  /** Persistence port for password credentials. */
-  passwordStore: PasswordCredentialStore;
+  /** Removes a password credential by its identifier. */
+  credentialRemover: Pick<PasswordCredentialStore, "delete">;
 }
 
 /**
@@ -44,6 +44,6 @@ export class RemovePasswordUseCase {
    * @param input - {@link RemovePasswordInput}
    */
   async execute(input: RemovePasswordInput): Promise<void> {
-    await this.deps.passwordStore.delete(input.credentialId);
+    await this.deps.credentialRemover.delete(input.credentialId);
   }
 }
