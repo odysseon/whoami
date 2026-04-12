@@ -35,7 +35,6 @@ export interface UpdatePasswordDeps {
    * object with a compatible `execute(token)` signature.
    */
   receiptVerifier: Pick<VerifyReceiptUseCase, "execute">;
-  /** Structured logger. */
   logger: LoggerPort;
 }
 

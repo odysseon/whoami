@@ -16,9 +16,7 @@ interface CredentialConstructorProps {
  * @public
  */
 export interface CreatePasswordProps {
-  /** Unique identifier for this credential. */
   id: CredentialId;
-  /** The account this credential belongs to. */
   accountId: AccountId;
   /** The hashed password string (never plain-text). */
   hash: string;
@@ -29,9 +27,7 @@ export interface CreatePasswordProps {
  * @public
  */
 export interface CreateOAuthProps {
-  /** Unique identifier for this credential. */
   id: CredentialId;
-  /** The account this credential belongs to. */
   accountId: AccountId;
   /** OAuth provider name, e.g. `"google"`. */
   provider: string;
@@ -44,11 +40,9 @@ export interface CreateOAuthProps {
  * @public
  */
 export interface LoadExistingProps {
-  /** Unique identifier for this credential. */
   id: CredentialId;
-  /** The account this credential belongs to. */
   accountId: AccountId;
-  /** The full proof discriminated union reconstructed from storage. */
+  /** The credential data, loaded from your database. */
   proof: CredentialProof;
 }
 
@@ -69,11 +63,9 @@ export interface LoadExistingProps {
  * @public
  */
 export class Credential {
-  /** The unique credential identifier. */
   public readonly id: CredentialId;
-  /** The account this credential is bound to. */
   public readonly accountId: AccountId;
-  /** The proof kind discriminant; use to narrow the proof type. */
+  /** Switch on this to safely access `passwordHash`, `oauthProvider`, or `oauthProviderId`. */
   public readonly proofKind: CredentialProof["kind"];
 
   private readonly proof: CredentialProof;

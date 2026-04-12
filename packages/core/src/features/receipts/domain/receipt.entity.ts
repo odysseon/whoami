@@ -8,9 +8,7 @@ import { AccountId } from "../../../shared/domain/value-objects/account-id.vo.js
 export interface ReceiptIssuanceInput {
   /** The signed token string produced by the {@link ReceiptSigner}. */
   token: string;
-  /** The account this receipt is bound to. */
   accountId: AccountId;
-  /** The UTC timestamp after which the receipt is invalid. */
   expiresAt: Date;
   /**
    * The current time, injected for deterministic validation.
@@ -35,9 +33,7 @@ export interface ReceiptIssuanceInput {
 export class Receipt {
   /** The opaque signed token string (e.g. a JWT). */
   public readonly token: string;
-  /** The account this receipt is bound to. */
   public readonly accountId: AccountId;
-  /** The UTC timestamp after which the receipt must be rejected. */
   public readonly expiresAt: Date;
 
   private constructor(token: string, accountId: AccountId, expiresAt: Date) {
