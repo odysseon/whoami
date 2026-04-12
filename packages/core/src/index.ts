@@ -41,9 +41,14 @@ export type { TokenHasher } from "./features/credentials/domain/ports/token-hash
 // ── Input types ────────────────────────────────────────────────────────────
 export type { AuthenticateOAuthInput } from "./features/authentication/application/authenticate-oauth.usecase.js";
 export type { LinkOAuthToAccountInput } from "./features/credentials/application/link-oauth.usecase.js";
+export type { AddPasswordAuthInput } from "./features/authentication/application/add-password-auth.usecase.js";
 
 // ── Credential domain types ────────────────────────────────────────────────
 export * from "./features/credentials/domain/types.js";
+
+// ── Module interface (for adapter/plugin authors) ──────────────────────────
+export type { AuthModule } from "./modules/auth-module.interface.js";
+export type { CoreContext } from "./modules/core-context.js";
 
 // ── Factory, facade, and config types ─────────────────────────────────────
 export * from "./whoami.js";
