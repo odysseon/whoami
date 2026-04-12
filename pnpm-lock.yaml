@@ -96,12 +96,6 @@ importers:
         specifier: ^5.0.0
         version: 5.0.6
 
-  packages/adapter-webcrypto:
-    devDependencies:
-      '@odysseon/whoami-core':
-        specifier: workspace:*
-        version: link:../core
-
   packages/core:
     devDependencies:
       '@types/node':
@@ -119,9 +113,6 @@ importers:
       '@odysseon/whoami-adapter-jose':
         specifier: workspace:*
         version: link:../adapter-jose
-      '@odysseon/whoami-adapter-webcrypto':
-        specifier: workspace:*
-        version: link:../adapter-webcrypto
       '@odysseon/whoami-core':
         specifier: workspace:*
         version: link:../core
@@ -171,9 +162,6 @@ importers:
       '@odysseon/whoami-adapter-nestjs':
         specifier: workspace:*
         version: link:../adapter-nestjs
-      '@odysseon/whoami-adapter-webcrypto':
-        specifier: workspace:*
-        version: link:../adapter-webcrypto
       '@odysseon/whoami-core':
         specifier: workspace:*
         version: link:../core

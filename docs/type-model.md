@@ -5,7 +5,7 @@
 Accepts a non-empty `string`. The `.value` property always returns the normalised string.
 
 ```ts
-new AccountId("user-uuid"); // string UUID — value is "user-uuid"
+new AccountId("user-uuid"); // value is "user-uuid"
 new AccountId("");          // throws InvalidAccountIdError
 ```
 
@@ -28,9 +28,9 @@ The output of a successful authentication. Contains everything a route handler n
 
 ```ts
 class Receipt {
-  token: string;      // the signed JWT
+  token: string;        // the signed JWT
   accountId: AccountId; // the authenticated account
-  expiresAt: Date;    // when the token expires
+  expiresAt: Date;      // when the token expires
 }
 ```
 
@@ -67,7 +67,7 @@ New credentials should be created through the `Credential` factory methods:
 
 `Credential.loadExisting(...)` is intended for rehydrating persisted credentials only.
 
-Calling a proof accessor that doesn't match the stored kind throws `WrongCredentialTypeError`. For example, calling `credential.passwordHash` on an OAuth credential throws immediately — no silent fallthrough.
+Calling a proof accessor that doesn't match the stored kind throws `WrongCredentialTypeError` — no silent fallthrough.
 
 ## AuthConfig and AuthMethods
 
@@ -78,13 +78,14 @@ interface AuthConfig {
   accountRepo: AccountRepository;        // required
   receiptSigner: ReceiptSigner;          // required — mints receipt tokens
   receiptVerifier: ReceiptVerifier;      // required — validates receipt tokens
-  tokenLifespanMinutes?: number;         // optional, default 60
   logger: LoggerPort;                    // required
-  generateId: () => string;             // required — e.g. crypto.randomUUID
+  idGenerator: IdGeneratorPort;          // required — e.g. () => crypto.randomUUID()
+  clock?: ClockPort;                     // optional — override Date.now() for testing
+  tokenLifespanMinutes?: number;         // optional, default 60
 
   password?: {                           // omit to disable password auth
-    hashManager: PasswordManager;
     passwordStore: PasswordCredentialStore;
+    passwordHasher: PasswordHasher;
   };
 
   oauth?: {                              // omit to disable OAuth auth
@@ -98,13 +99,28 @@ The returned `AuthMethods` facade has methods that are always present and method
 ```mermaid
 graph LR
     Always["Always present\n──────────────────────\ngetAccountAuthMethods(accountId)\nremoveAuthMethod(accountId, method, options?)"]
-    PwdOnly["Present when password configured\n──────────────────────────────────\nregisterWithPassword(input)\nauthenticateWithPassword(input)\naddPasswordToAccount(accountId, password)\nupdatePassword(input)"]
+    PwdOnly["Present when password configured\n──────────────────────────────────\nregisterWithPassword(input)\nauthenticateWithPassword(input)\naddPasswordToAccount(input)\nchangePassword(input)"]
     OAuthOnly["Present when oauth configured\n──────────────────────────────\nauthenticateWithOAuth(input)\nlinkOAuthToAccount(input)"]
+```
+
+### Removing an auth method
+
+All credential removal must go through `removeAuthMethod`. The kernel enforces the last-credential invariant before any deletion occurs.
+
+```ts
+// Remove password auth
+await auth.removeAuthMethod(accountId, "password");
+
+// Unlink a specific OAuth provider
+await auth.removeAuthMethod(accountId, "oauth", { provider: "google" });
+
+// Remove all OAuth credentials
+await auth.removeAuthMethod(accountId, "oauth");
 ```
 
 ## Domain errors
 
-All domain errors extend `DomainError`. They carry a stable `code` discriminant — switch on `err.code` rather than doing `instanceof` checks or matching on `message` (messages are for humans and may change; codes are part of the public API contract).
+All domain errors extend `DomainError`. Switch on `err.code` — codes are stable API, messages are for humans and may change.
 
 ```ts
 try {
@@ -131,27 +147,31 @@ Full error table:
 | `InvalidEmailError` | `INVALID_EMAIL` | Constructing `EmailAddress` with an invalid value |
 | `InvalidConfigurationError` | `INVALID_CONFIGURATION` | A use case is constructed with an invalid config value |
 | `InvalidCredentialError` | `INVALID_CREDENTIAL` | A credential factory receives an empty proof field |
+| `InvalidAccountIdError` | `INVALID_ACCOUNT_ID` | Constructing `AccountId` with an empty value |
+| `InvalidCredentialIdError` | `INVALID_CREDENTIAL_ID` | Constructing `CredentialId` with an empty value |
 | `CredentialAlreadyExistsError` | `CREDENTIAL_ALREADY_EXISTS` | Attempting to add a password to an account that already has one |
-| `OAuthProviderNotFoundError` | `OAUTH_PROVIDER_NOT_FOUND` | Removing an OAuth provider that isn't linked to the account |
+| `OAuthProviderNotFoundError` | `OAUTH_PROVIDER_NOT_FOUND` | Removing an OAuth provider that is not linked to the account |
 | `CannotRemoveLastCredentialError` | `CANNOT_REMOVE_LAST_CREDENTIAL` | Removing the last auth method would lock the account permanently |
-| `UnsupportedAuthMethodError` | `UNSUPPORTED_AUTH_METHOD` | `removeAuthMethod` is called for a method that isn't configured |
+| `UnsupportedAuthMethodError` | `UNSUPPORTED_AUTH_METHOD` | `removeAuthMethod` called for a method that is not configured |
 
-`WhoamiExceptionFilter` (NestJS adapter) maps these codes to HTTP status codes automatically — see [`adapter-nestjs` docs](../packages/adapter-nestjs/README.md#http-status-mapping) for the full mapping table.
+`WhoamiExceptionFilter` (NestJS adapter) maps these codes to HTTP status codes automatically.
 
 ## Port interfaces
 
-Ports are the boundary contracts that Zone 0 (domain) defines and Zone 3 (infrastructure) implements. You implement these in your data layer.
+Ports are the boundary contracts that Zone 0 defines and Zone 3 implements.
 
 ```mermaid
 graph LR
     subgraph "Zone 0 — Ports (interfaces)"
         AR["AccountRepository\n───────────────────\nsave(account)\nfindById(id)\nfindByEmail(email)\ndelete(id)"]
-        PCS["PasswordCredentialStore\n────────────────────────\nfindByEmail(email)\nfindByAccountId(accountId)\nsave(credential)\nupdate(credentialId, newHash)\ndelete(credentialId)\ndeleteByAccountId(accountId)\nexistsForAccount(accountId)"]
+        PCS["PasswordCredentialStore\n────────────────────────\nfindByAccountId(accountId)\nsave(credential)\nupdate(credentialId, newHash)\ndelete(credentialId)\nexistsForAccount(accountId)"]
         OCS["OAuthCredentialStore\n──────────────────────\nfindByProvider(provider, providerId)\nfindAllByAccountId(accountId)\nsave(credential)\ndelete(credentialId)\ndeleteByProvider(accountId, provider)\ndeleteAllForAccount(accountId)\nexistsForAccount(accountId)"]
-        PM["PasswordManager\n────────────────\nhash(plainText)\ncompare(plainText, hash)"]
+        PH["PasswordHasher\n────────────────\nhash(plainText)\ncompare(plainText, hash)"]
         RS["ReceiptSigner\n──────────────\nsign(accountId, expiresAt)"]
         RV["ReceiptVerifier\n────────────────\nverify(token)"]
-        LP["LoggerPort\n───────────\ninfo(...)\nwarn(...)\nerror(...)"]
+        LP["LoggerPort\n───────────\ninfo(message, meta?)\nwarn(message, meta?)\nerror(message, meta?)"]
+        IG["IdGeneratorPort\n────────────────\n() => string"]
+        CP["ClockPort\n──────────\nnow(): Date"]
     end
 
     subgraph "Zone 3 — Implementations"
@@ -160,13 +180,12 @@ graph LR
         Yours["Your implementations\n(in-memory, PostgreSQL, etc.)"]
     end
 
-    Argon2 -.->|implements| PM
+    Argon2 -.->|implements| PH
     Jose -.->|implements| RS
     Jose -.->|implements| RV
     Yours -.->|implements| AR
     Yours -.->|implements| PCS
     Yours -.->|implements| OCS
     Yours -.->|implements| LP
+    Yours -.->|implements| IG
 ```
-
-Note: `TokenHasher` is available as a port for consumers who need deterministic token hashing (e.g. API keys, opaque session tokens). `WebCryptoTokenHasher` (`@odysseon/whoami-adapter-webcrypto`) implements it using SHA-256 via the native `crypto.subtle` API.
