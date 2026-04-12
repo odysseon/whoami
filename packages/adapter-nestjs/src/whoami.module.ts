@@ -12,7 +12,7 @@ import {
 import {
   createAuth,
   type AuthConfig,
-  type AuthMethods,
+  type AnyAuthMethods,
   type ReceiptVerifier,
   InvalidConfigurationError,
 } from "@odysseon/whoami-core";
@@ -39,7 +39,7 @@ export { AUTH_METHODS, VERIFY_RECEIPT } from "./tokens.js";
  */
 export type WhoamiModuleOptions = (
   | (AuthConfig & { auth?: never })
-  | { auth: AuthMethods; receiptVerifier: ReceiptVerifier }
+  | { auth: AnyAuthMethods; receiptVerifier: ReceiptVerifier }
 ) & {
   /** Optional token extractor override. Defaults to {@link BearerTokenExtractor}. */
   tokenExtractor?: AuthTokenExtractor;
@@ -64,7 +64,7 @@ function isReceiptVerifier(obj: unknown): obj is ReceiptVerifier {
   );
 }
 
-function resolveAuth(opts: WhoamiModuleOptions): AuthMethods {
+function resolveAuth(opts: WhoamiModuleOptions): AnyAuthMethods {
   return "auth" in opts && opts.auth !== undefined
     ? opts.auth
     : createAuth(opts as AuthConfig);
@@ -109,7 +109,8 @@ export class WhoamiModule {
 
     const authMethodsProvider: FactoryProvider = {
       provide: AUTH_METHODS,
-      useFactory: (opts: WhoamiModuleOptions): AuthMethods => resolveAuth(opts),
+      useFactory: (opts: WhoamiModuleOptions): AnyAuthMethods =>
+        resolveAuth(opts),
       inject: ["WHOAMI_MODULE_OPTIONS"],
     };
 
@@ -153,7 +154,7 @@ export class WhoamiModule {
 
   private static buildProviders(
     options: WhoamiModuleOptions,
-    resolved?: { verifier: ReceiptVerifier; auth: AuthMethods },
+    resolved?: { verifier: ReceiptVerifier; auth: AnyAuthMethods },
   ): Provider[] {
     const verifier = resolved?.verifier ?? resolveVerifier(options);
     const auth = resolved?.auth ?? resolveAuth(options);
