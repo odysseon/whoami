@@ -154,7 +154,7 @@ type MethodsForConfig<T> = UnionToIntersection<
  * Final exposed API type — core methods plus the methods for every auth
  * type present in the config.
  */
-export type AuthMethods<T extends AuthConfig> = CoreAuthMethods &
+export type AuthMethods<T extends AuthConfig = AuthConfig> = CoreAuthMethods &
   MethodsForConfig<T>;
 
 // ── Type Guard ────────────────────────────────────────────────────────────────
