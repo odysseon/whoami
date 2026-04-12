@@ -46,7 +46,6 @@ export interface AuthenticateOAuthDeps {
    * Inject `crypto.randomUUID` or any UUID v4 factory.
    */
   idGenerator: () => string;
-  /** Structured logger. */
   logger: LoggerPort;
 }
 
