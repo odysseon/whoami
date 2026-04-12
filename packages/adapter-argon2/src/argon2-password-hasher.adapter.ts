@@ -1,10 +1,10 @@
 import * as argon2 from "argon2";
-import type { PasswordManager } from "@odysseon/whoami-core";
+import type { PasswordHasher } from "@odysseon/whoami-core";
 
 /**
  * Argon2-based password hasher for password credentials.
  */
-export class Argon2PasswordHasher implements PasswordManager {
+export class Argon2PasswordHasher implements PasswordHasher {
   constructor(private readonly options?: argon2.Options) {}
   /**
    * Hashes a plain-text password.
