@@ -1,5 +1,13 @@
 # @odysseon/whoami-adapter-argon2
 
+## 11.0.0-alpha.1
+
+### Patch Changes
+
+- Updated dependencies [efc9136]
+- Updated dependencies [fe6abbf]
+  - @odysseon/whoami-core@11.0.0-alpha.1
+
 ## 11.0.0-alpha.0
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 11.0.0-alpha.1
+
+### Patch Changes
+
+- 9ae2c63: Refactored NestJS adapter for better type safety and core alignment.
+- Updated dependencies [efc9136]
+- Updated dependencies [fe6abbf]
+  - @odysseon/whoami-core@11.0.0-alpha.1
+
 ## 11.0.0-alpha.0
 
 ### Patch Changes
