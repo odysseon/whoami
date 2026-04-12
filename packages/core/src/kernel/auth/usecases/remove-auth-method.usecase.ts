@@ -17,7 +17,8 @@ export interface AuthMethodRemover {
   /**
    * Deletes the credential(s) for this method.
    * For multi-credential methods, `provider` narrows to a single credential.
-   * Throws {@link OAuthProviderNotFoundError} if `provider` is given but not found.
+   * Provider existence is validated upstream (via {@link AuthMethodPort.countAfterRemoval})
+   * before this method is called.
    */
   remove(accountId: AccountId, provider?: string): Promise<void>;
 }
@@ -34,7 +35,13 @@ export interface RemoveAuthMethodInput {
  *
  * Lockout check is fully generic — no module names or types are referenced.
  * The kernel asks: would this removal leave the account with zero total credentials?
- * If so, it rejects. Otherwise it delegates blindly to the remover.
+ * If so, it rejects. Otherwise it delegates to the remover.
+ *
+ * Error precedence:
+ *   1. `UnsupportedAuthMethodError`  — no handler registered for the method.
+ *   2. `OAuthProviderNotFoundError`  — provider not linked (detected via
+ *      {@link AuthMethodPort.countAfterRemoval} before the lockout check).
+ *   3. `CannotRemoveLastCredentialError` — removal would leave zero credentials.
  *
  * @public
  */
@@ -64,28 +71,31 @@ export class RemoveAuthMethodUseCase {
     );
 
     // Count how many total credentials would remain after this removal.
+    //
     // For each active method:
-    //   - If it's a different method: all its credentials survive → add its count.
-    //   - If it's the same method AND we're removing a single credential (provider given):
-    //       remaining = count - 1
-    //   - If it's the same method AND we're removing all (no provider):
-    //       remaining = 0
+    //   - Different method: all its credentials survive → add its full count.
+    //   - Same method: delegate to countRemainingAfterRemoval, which:
+    //       • calls the port's countAfterRemoval (if implemented) — this lets
+    //         the port validate provider existence and throw the correct domain
+    //         error (e.g. OAuthProviderNotFoundError) before we reach the
+    //         lockout guard.
+    //       • falls back to Math.max(0, count - 1) / 0 for simple ports.
 
     let remainingTotal = 0;
 
     for (const method of activeMethods) {
-      const credCount = await this.orchestrator.countForMethod(
-        input.accountId,
-        method,
-      );
-
       if (method !== input.method) {
-        remainingTotal += credCount;
-      } else if (input.provider !== undefined) {
-        // Removing one credential from this method
-        remainingTotal += Math.max(0, credCount - 1);
+        remainingTotal += await this.orchestrator.countForMethod(
+          input.accountId,
+          method,
+        );
+      } else {
+        remainingTotal += await this.orchestrator.countRemainingAfterRemoval(
+          input.accountId,
+          method,
+          input.provider,
+        );
       }
-      // else: removing all credentials of this method → contributes 0
     }
 
     if (remainingTotal === 0) {
