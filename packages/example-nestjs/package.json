@@ -20,7 +20,6 @@
     "@odysseon/whoami-adapter-argon2": "workspace:*",
     "@odysseon/whoami-adapter-jose": "workspace:*",
     "@odysseon/whoami-adapter-nestjs": "workspace:*",
-    "@odysseon/whoami-adapter-webcrypto": "workspace:*",
     "@odysseon/whoami-core": "workspace:*",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
