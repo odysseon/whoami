@@ -76,7 +76,6 @@ web_modules/
 
 # Next.js build output
 .next
-log*
 out
 
 # Nuxt.js build / generate output
