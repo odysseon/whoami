@@ -99,6 +99,8 @@ export const PasswordModule: AuthModule<PasswordConfig, PasswordMethods> = {
       method: "password",
       exists: (accountId): Promise<boolean> =>
         config.passwordStore.existsForAccount(accountId),
+      count: async (accountId): Promise<1 | 0> =>
+        (await config.passwordStore.existsForAccount(accountId)) ? 1 : 0,
     };
   },
 

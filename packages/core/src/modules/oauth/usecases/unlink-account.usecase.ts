@@ -1,17 +1,12 @@
-import {
-  OAuthProviderNotFoundError,
-  CannotRemoveLastCredentialError,
-} from "../../../kernel/shared/index.js";
+import { OAuthProviderNotFoundError } from "../../../kernel/shared/index.js";
 import type { AccountId } from "../../../kernel/shared/index.js";
 import type { OAuthCredentialStore } from "../ports/oauth-credential.store.port.js";
-import type { PasswordCredentialStore } from "../../password/ports/password-credential.store.port.js";
 
 export interface UnlinkOAuthDeps {
   oauthStore: Pick<
     OAuthCredentialStore,
-    "findAllByAccountId" | "deleteByProvider" | "existsForAccount"
+    "findAllByAccountId" | "deleteByProvider"
   >;
-  passwordStore?: Pick<PasswordCredentialStore, "existsForAccount">;
 }
 
 export interface UnlinkOAuthInput {
@@ -19,6 +14,10 @@ export interface UnlinkOAuthInput {
   provider: string;
 }
 
+/**
+ * Unlinks a specific OAuth provider from an account.
+ * Does NOT enforce the last-credential invariant — that is the kernel's responsibility.
+ */
 export class UnlinkOAuthUseCase {
   private readonly deps: UnlinkOAuthDeps;
 
@@ -32,14 +31,6 @@ export class UnlinkOAuthUseCase {
     );
     const target = allOAuth.find((c) => c.oauthProvider === input.provider);
     if (!target) throw new OAuthProviderNotFoundError(input.provider);
-
-    const remainingOAuth = allOAuth.length - 1;
-    const hasPassword = this.deps.passwordStore
-      ? await this.deps.passwordStore.existsForAccount(input.accountId)
-      : false;
-
-    if (remainingOAuth === 0 && !hasPassword)
-      throw new CannotRemoveLastCredentialError();
 
     await this.deps.oauthStore.deleteByProvider(
       input.accountId,
