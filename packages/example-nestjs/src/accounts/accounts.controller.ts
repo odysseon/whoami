@@ -14,13 +14,13 @@ import {
   ApiConflictResponse,
 } from "@nestjs/swagger";
 import { Public, AUTH_METHODS } from "@odysseon/whoami-adapter-nestjs";
-import type { AuthMethods } from "@odysseon/whoami-core";
+import type { AnyAuthMethods } from "@odysseon/whoami-core";
 import { RegisterDto, RegisterResponse } from "./dto.js";
 
 @ApiTags("accounts")
 @Controller("accounts")
 export class AccountsController {
-  constructor(@Inject(AUTH_METHODS) private readonly auth: AuthMethods) {}
+  constructor(@Inject(AUTH_METHODS) private readonly auth: AnyAuthMethods) {}
 
   @ApiOperation({ summary: "Register a new account" })
   @ApiBody({ type: RegisterDto })
