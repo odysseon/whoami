@@ -18,7 +18,6 @@
   "dependencies": {
     "@odysseon/whoami-adapter-argon2": "workspace:*",
     "@odysseon/whoami-adapter-jose": "workspace:*",
-    "@odysseon/whoami-adapter-webcrypto": "workspace:*",
     "@odysseon/whoami-core": "workspace:*",
     "express": "^5.2.1",
     "swagger-jsdoc": "^6.2.8",

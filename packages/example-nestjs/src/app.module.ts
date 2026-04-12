@@ -24,9 +24,8 @@ import {
     WhoamiModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (
-        configService: ConfigService,
-      ): Promise<WhoamiModuleOptions> => {
+      useFactory: async (...args: unknown[]): Promise<WhoamiModuleOptions> => {
+        const configService = args[0] as ConfigService;
         const joseSecret = configService.get(
           "JOSE_SECRET",
           "this-is-a-very-long-secret-key-that-is-at-least-32-chars!!",
@@ -45,10 +44,10 @@ import {
           }),
           tokenLifespanMinutes: 60,
           logger: console,
-          generateId: () => crypto.randomUUID(),
+          idGenerator: () => crypto.randomUUID(),
 
           password: {
-            hashManager: new Argon2PasswordHasher(),
+            passwordHasher: new Argon2PasswordHasher(),
             passwordStore: new InMemoryPasswordCredentialStore(),
           },
           oauth: {
