@@ -1,58 +1,57 @@
-import type { AuthModule } from "../auth-module.interface.js";
-import type { CoreContext } from "../core-context.js";
-import type { PasswordAuthConfig, PasswordAuthMethods } from "../../types.js";
-import type { AuthMethodsProvider } from "../../shared/index.js";
+import type { AuthModule } from "../module.interface.js";
+import type { AuthMethodPort } from "../../kernel/auth/auth-method.port.js";
+import type { AuthMethodRemover } from "../../kernel/auth/usecases/remove-auth-method.usecase.js";
+import type { CoreContext } from "../../composition/context-builder.js";
+import type { PasswordCredentialStore } from "./ports/password-credential.store.port.js";
+import type { PasswordHasher } from "./ports/password-hasher.port.js";
+import type { AccountId } from "../../kernel/shared/index.js";
+import type { Receipt } from "../../kernel/receipt/receipt.entity.js";
 
-import { RegisterWithPasswordUseCase } from "../../features/credentials/application/register-password.usecase.js";
-import { AuthenticateWithPasswordUseCase } from "../../features/authentication/application/authenticate-password.usecase.js";
-import { AddPasswordAuthUseCase } from "../../features/authentication/application/add-password-auth.usecase.js";
-import { UpdatePasswordUseCase } from "../../features/credentials/application/update-password.usecase.js";
+import { RegisterWithPasswordUseCase } from "./usecases/register.usecase.js";
+import { AuthenticateWithPasswordUseCase } from "./usecases/authenticate.usecase.js";
+import { AddPasswordUseCase } from "./usecases/add-password.usecase.js";
+import { ChangePasswordUseCase } from "./usecases/change-password.usecase.js";
 
-import type { RegisterWithPasswordInput } from "../../features/credentials/application/register-password.usecase.js";
-import type { AuthenticateWithPasswordInput } from "../../features/authentication/application/authenticate-password.usecase.js";
-import type { AddPasswordAuthInput } from "../../features/authentication/application/add-password-auth.usecase.js";
-import type { UpdatePasswordInput } from "../../features/credentials/application/update-password.usecase.js";
-import type { Receipt } from "../../features/receipts/index.js";
+export interface PasswordConfig {
+  passwordStore: PasswordCredentialStore;
+  passwordHasher: PasswordHasher;
+}
 
-/**
- * Self-contained password authentication module.
- *
- * Wires all password-related use-cases from `PasswordAuthConfig` +
- * {@link CoreContext} and exposes the {@link PasswordAuthMethods} surface.
- *
- * @public
- */
-export const PasswordModule: AuthModule<
-  PasswordAuthConfig,
-  PasswordAuthMethods
-> = {
+export interface PasswordMethods {
+  registerWithPassword(input: {
+    email: string;
+    password: string;
+  }): Promise<Receipt>;
+  authenticateWithPassword(input: {
+    email: string;
+    password: string;
+  }): Promise<Receipt>;
+  addPasswordToAccount(input: {
+    accountId: AccountId;
+    password: string;
+  }): Promise<void>;
+  changePassword(input: {
+    receiptToken: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<void>;
+}
+
+export const PasswordModule: AuthModule<PasswordConfig, PasswordMethods> = {
   key: "password",
 
-  create(config: PasswordAuthConfig, ctx: CoreContext): PasswordAuthMethods {
-    const { passwordManager, passwordStore } = config;
-    const { accountRepo, issueReceipt, verifyReceipt, logger, generateId } =
+  create(config: PasswordConfig, ctx: CoreContext): PasswordMethods {
+    const { passwordStore, passwordHasher } = config;
+    const { accountRepo, issueReceipt, verifyReceipt, logger, idGenerator } =
       ctx;
-
-    // ── Shared authMethodsProvider (consumed by AddPasswordAuthUseCase) ──
-
-    const authMethodsProvider: AuthMethodsProvider = async (accountId) => {
-      const methods: import("../../shared/domain/auth-method.js").AuthMethod[] =
-        [];
-      if (await passwordStore.existsForAccount(accountId)) {
-        methods.push("password");
-      }
-      return methods;
-    };
-
-    // ── Use-case instantiation ────────────────────────────────────────────
 
     const registerUC = new RegisterWithPasswordUseCase({
       accountFinder: accountRepo,
       accountSaver: accountRepo,
       accountRemover: accountRepo,
       credentialSaver: passwordStore,
-      passwordHasher: passwordManager,
-      idGenerator: generateId,
+      passwordHasher,
+      idGenerator,
       receiptIssuer: issueReceipt,
     });
 
@@ -60,43 +59,56 @@ export const PasswordModule: AuthModule<
       accountFinder: accountRepo,
       credentialFinder: passwordStore,
       receiptIssuer: issueReceipt,
+      passwordVerifier: passwordHasher,
       logger,
-      passwordVerifier: passwordManager,
     });
 
-    const addPasswordUC = new AddPasswordAuthUseCase({
+    const addPasswordUC = new AddPasswordUseCase({
       accountFinder: accountRepo,
+      credentialChecker: passwordStore,
       credentialSaver: passwordStore,
-      passwordHasher: passwordManager,
-      idGenerator: generateId,
-      authMethodsProvider,
+      passwordHasher,
+      idGenerator,
     });
 
-    const updatePasswordUC = new UpdatePasswordUseCase({
+    const changePasswordUC = new ChangePasswordUseCase({
       credentialFinder: passwordStore,
       credentialUpdater: passwordStore,
-      passwordHasher: passwordManager,
-      passwordVerifier: passwordManager,
+      passwordHasher,
       receiptVerifier: verifyReceipt,
       logger,
     });
 
-    // ── Public method surface ─────────────────────────────────────────────
-
     return {
-      registerWithPassword: (
-        input: RegisterWithPasswordInput,
-      ): Promise<Receipt> => registerUC.execute(input),
-
-      authenticateWithPassword: (
-        input: AuthenticateWithPasswordInput,
-      ): Promise<Receipt> => authenticateUC.execute(input),
-
-      addPasswordToAccount: (input: AddPasswordAuthInput): Promise<void> =>
+      registerWithPassword: (input): Promise<Receipt> =>
+        registerUC.execute(input),
+      authenticateWithPassword: (input): Promise<Receipt> =>
+        authenticateUC.execute(input),
+      addPasswordToAccount: (input): Promise<void> =>
         addPasswordUC.execute(input),
+      changePassword: (input): Promise<void> => changePasswordUC.execute(input),
+    };
+  },
 
-      updatePassword: (input: UpdatePasswordInput): Promise<void> =>
-        updatePasswordUC.execute(input),
+  /**
+   * Exposes the password store as an {@link AuthMethodPort} so the kernel can
+   * query credential existence without importing the store directly.
+   */
+  buildAuthMethodPort(config: PasswordConfig): AuthMethodPort {
+    return {
+      method: "password",
+      exists: (accountId): Promise<boolean> =>
+        config.passwordStore.existsForAccount(accountId),
+    };
+  },
+
+  buildAuthMethodRemover(config: PasswordConfig): AuthMethodRemover {
+    return {
+      method: "password",
+      remove: async (accountId): Promise<void> => {
+        const cred = await config.passwordStore.findByAccountId(accountId);
+        if (cred) await config.passwordStore.delete(cred.id);
+      },
     };
   },
 };
