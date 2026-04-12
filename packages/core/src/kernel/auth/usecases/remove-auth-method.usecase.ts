@@ -81,7 +81,7 @@ export class RemoveAuthMethodUseCase {
 
       if (method !== input.method) {
         remainingTotal += credCount;
-      } else if (input.provider) {
+      } else if (input.provider !== undefined) {
         // Removing one credential from this method
         remainingTotal += Math.max(0, credCount - 1);
       }
