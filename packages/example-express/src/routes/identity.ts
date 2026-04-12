@@ -4,15 +4,14 @@ import {
   type Response,
   type NextFunction,
 } from "express";
-import type { Receipt } from "@odysseon/whoami-core";
-import type { InMemoryAccountRepository } from "../infrastructure/in-memory-repositories.js";
+import type { AccountRepository, Receipt } from "@odysseon/whoami-core";
 
 interface AuthenticatedRequest extends Request {
   identity?: Receipt;
 }
 
 export const createIdentityRouter = (
-  accountRepo: InMemoryAccountRepository,
+  accountRepo: AccountRepository,
   authMiddleware: (
     req: AuthenticatedRequest,
     res: Response,

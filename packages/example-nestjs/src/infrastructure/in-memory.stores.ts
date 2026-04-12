@@ -42,21 +42,13 @@ export class InMemoryAccountRepository implements AccountRepository {
  */
 export class InMemoryPasswordCredentialStore implements PasswordCredentialStore {
   private readonly byAccountId = new Map<string, Credential>();
-  private readonly byEmail = new Map<string, string>();
-
-  async findByEmail(email: EmailAddress): Promise<Credential | null> {
-    const key = this.byEmail.get(email.value);
-    if (!key) return null;
-    return this.byAccountId.get(key) ?? null;
-  }
 
   async findByAccountId(accountId: AccountId): Promise<Credential | null> {
     return this.byAccountId.get(String(accountId.value)) ?? null;
   }
 
-  async save(credential: Credential, email: EmailAddress): Promise<void> {
+  async save(credential: Credential): Promise<void> {
     this.byAccountId.set(String(credential.accountId.value), credential);
-    this.byEmail.set(email.value, String(credential.accountId.value));
   }
 
   async update(credentialId: CredentialId, newHash: string): Promise<void> {
@@ -90,10 +82,6 @@ export class InMemoryPasswordCredentialStore implements PasswordCredentialStore 
         return;
       }
     }
-  }
-
-  async deleteByAccountId(accountId: AccountId): Promise<void> {
-    this.byAccountId.delete(String(accountId.value));
   }
 
   async existsForAccount(accountId: AccountId): Promise<boolean> {

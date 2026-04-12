@@ -14,7 +14,7 @@ import {
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { Public, AUTH_METHODS } from "@odysseon/whoami-adapter-nestjs";
-import type { AuthMethods } from "@odysseon/whoami-core";
+import type { AnyAuthMethods } from "@odysseon/whoami-core";
 import {
   LoginPasswordDto,
   OAuthLoginDto,
@@ -24,7 +24,7 @@ import {
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
-  constructor(@Inject(AUTH_METHODS) private readonly auth: AuthMethods) {}
+  constructor(@Inject(AUTH_METHODS) private readonly auth: AnyAuthMethods) {}
 
   @ApiOperation({ summary: "Login with email + password" })
   @ApiBody({ type: LoginPasswordDto })

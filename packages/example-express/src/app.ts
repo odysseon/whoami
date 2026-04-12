@@ -6,7 +6,7 @@ import express, {
 } from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
-import { DomainError, type AuthMethods } from "@odysseon/whoami-core";
+import { DomainError, type AnyAuthMethods } from "@odysseon/whoami-core";
 import type { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 import { swaggerOptions } from "./swagger.js";
 import { createAccountsRouter } from "./routes/accounts.js";
@@ -16,7 +16,7 @@ import { createAuthMiddleware } from "./middleware/auth.js";
 import type { AccountRepository } from "@odysseon/whoami-core";
 
 interface AppDependencies {
-  auth: AuthMethods;
+  auth: AnyAuthMethods;
   verifyReceipt: VerifyReceiptUseCase;
   accountRepo: AccountRepository;
 }
