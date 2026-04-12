@@ -43,9 +43,9 @@ const auth = createAuth({
   receiptVerifier,
   tokenLifespanMinutes: 60,
   logger: consoleLogger,
-  generateId,
+  idGenerator: generateId,
   password: {
-    hashManager: passwordHasher,
+    passwordHasher,
     passwordStore,
   },
   oauth: {

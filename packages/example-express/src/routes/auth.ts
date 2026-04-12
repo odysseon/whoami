@@ -4,9 +4,9 @@ import {
   type Response,
   type NextFunction,
 } from "express";
-import { DomainError, type AuthMethods } from "@odysseon/whoami-core";
+import { DomainError, type AnyAuthMethods } from "@odysseon/whoami-core";
 
-export const createAuthRouter = (auth: AuthMethods): Router => {
+export const createAuthRouter = (auth: AnyAuthMethods): Router => {
   const router = Router();
 
   // POST /login
