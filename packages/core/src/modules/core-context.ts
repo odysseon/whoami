@@ -16,13 +16,11 @@ import { VerifyReceiptUseCase } from "../features/receipts/application/verify-re
  * @public
  */
 export interface CoreContext {
-  /** Persistence port for account aggregates. */
   accountRepo: AccountRepository;
   /** Issues signed receipts on successful authentication. */
   issueReceipt: IssueReceiptUseCase;
   /** Verifies previously issued receipt tokens. */
   verifyReceipt: VerifyReceiptUseCase;
-  /** Structured logger. */
   logger: LoggerPort;
   /**
    * Deterministic ID generator.

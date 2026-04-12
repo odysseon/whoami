@@ -8,7 +8,6 @@ import type { ReceiptSigner } from "../domain/ports/receipt-signer.port.js";
  * @public
  */
 export interface IssueReceiptConfig {
-  /** The receipt signer implementation. */
   signer: ReceiptSigner;
   /**
    * How long a receipt remains valid, in minutes.
@@ -26,9 +25,8 @@ export interface IssueReceiptConfig {
 /**
  * Issues a signed {@link Receipt} for a successfully authenticated account.
  *
- * Computes a single `now` snapshot and derives `expiresAt` from it so that the
- * token and the receipt metadata always agree — no skew between sign time and
- * validation time.
+ * Token sign time and receipt expiry metadata are always derived from the same
+ * clock snapshot, so they can never disagree.
  *
  * @public
  */

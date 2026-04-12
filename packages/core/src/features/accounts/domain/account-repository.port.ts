@@ -5,10 +5,10 @@ import {
 import { Account } from "./account.entity.js";
 
 /**
- * Persistence port for account aggregates.
+ * Storage contract for accounts.
  *
- * Implement this interface in your infrastructure layer to plug in any storage
- * backend (PostgreSQL, MongoDB, in-memory, etc.).
+ * Implement this interface in your infrastructure layer to plug in any backend
+ * (PostgreSQL, MongoDB, in-memory, etc.).
  *
  * @public
  */

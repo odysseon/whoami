@@ -8,33 +8,28 @@
  * @public
  */
 export type DomainErrorCode =
-  /** Emitted when an account with the supplied email already exists. */
+  /** The email is already registered — registration rejected. */
   | "ACCOUNT_ALREADY_EXISTS"
-  /** Emitted when credentials are invalid or the authentication flow fails. */
+  /** Credentials are invalid or the auth flow failed — intentionally vague to prevent enumeration. */
   | "AUTHENTICATION_ERROR"
-  /** Emitted when a receipt token is missing, expired, or malformed. */
+  /** The receipt token is missing, expired, or the signature is invalid. */
   | "INVALID_RECEIPT"
-  /** Emitted when a credential is accessed with the wrong proof type. */
+  /** A proof accessor (`passwordHash`, `oauthProvider`) was called on the wrong credential kind. */
   | "WRONG_CREDENTIAL_TYPE"
-  /** Emitted when an email address fails format validation. */
   | "INVALID_EMAIL"
-  /** Emitted when a required configuration value is absent or out of range. */
+  /** A required config value is absent or out of the accepted range (e.g. a non-positive token lifespan). */
   | "INVALID_CONFIGURATION"
-  /** Emitted when an {@link AccountId} value is empty or blank. */
   | "INVALID_ACCOUNT_ID"
-  /** Emitted when a {@link CredentialId} value is empty or blank. */
   | "INVALID_CREDENTIAL_ID"
-  /** Emitted when a credential proof field (hash, token, provider) is empty. */
+  /** A credential factory received an empty proof field (hash, provider, or providerId). */
   | "INVALID_CREDENTIAL"
-  /** Emitted when the requested account does not exist. */
   | "ACCOUNT_NOT_FOUND"
-  /** Emitted when a password credential already exists for the account. */
+  /** The account already has password auth — only one password credential is allowed. */
   | "CREDENTIAL_ALREADY_EXISTS"
-  /** Emitted when the specified OAuth provider is not linked to the account. */
   | "OAUTH_PROVIDER_NOT_FOUND"
-  /** Emitted when removing the last authentication method would lock the account. */
+  /** Removal was blocked — it would have left the account with no way to authenticate. */
   | "CANNOT_REMOVE_LAST_CREDENTIAL"
-  /** Emitted when no handler is registered for the requested auth method. */
+  /** The requested auth method has no registered handler in the current config. */
   | "UNSUPPORTED_AUTH_METHOD";
 
 /**
