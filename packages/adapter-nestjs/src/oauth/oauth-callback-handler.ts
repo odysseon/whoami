@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
-  type AuthMethods,
+  type AnyAuthMethods,
   type Receipt,
   InvalidConfigurationError,
 } from "@odysseon/whoami-core";
@@ -23,7 +23,7 @@ export interface OAuthProfile {
 /**
  * Composes the full OAuth authentication flow into a single injectable service.
  *
- * Delegates to the {@link AuthMethods} facade (`auth.authenticateWithOAuth`),
+ * Delegates to the {@link AnyAuthMethods} facade (`auth.authenticateWithOAuth`),
  * which requires `oauth` to be configured in {@link WhoamiModuleOptions}.
  * The consumer controller calls `handle(profile)` and receives a signed
  * `Receipt` ready to be returned to the client.
@@ -42,7 +42,7 @@ export interface OAuthProfile {
 export class OAuthCallbackHandler {
   constructor(
     @Inject(AUTH_METHODS)
-    private readonly auth: AuthMethods,
+    private readonly auth: AnyAuthMethods,
   ) {}
 
   /**
