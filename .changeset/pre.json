@@ -6,9 +6,14 @@
     "@odysseon/whoami-adapter-jose": "10.0.0",
     "@odysseon/whoami-adapter-nestjs": "10.0.0",
     "@odysseon/whoami-adapter-webcrypto": "10.0.0",
-    "@odysseon/whoami-core": "10.0.0"
+    "@odysseon/whoami-core": "10.0.0",
+    "@odysseon/whoami-example-express": "9.9.10",
+    "@odysseon/whoami-example-nestjs": "9.9.10"
   },
   "changesets": [
+    "mighty-seas-type",
+    "rich-roses-taste",
+    "shiny-roses-clap",
     "tired-peas-cover"
   ]
 }
