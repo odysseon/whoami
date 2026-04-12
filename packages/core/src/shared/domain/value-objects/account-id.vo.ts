@@ -31,7 +31,6 @@ export class InvalidAccountIdError extends DomainError {
  * @public
  */
 export class AccountId {
-  /** The underlying string identifier. */
   public readonly value: string;
 
   /**

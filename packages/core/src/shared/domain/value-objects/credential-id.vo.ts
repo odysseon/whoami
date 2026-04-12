@@ -31,7 +31,6 @@ export class InvalidCredentialIdError extends DomainError {
  * @public
  */
 export class CredentialId {
-  /** The underlying string identifier. */
   public readonly value: string;
 
   /**

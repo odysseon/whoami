@@ -19,7 +19,6 @@ export interface AuthenticateWithPasswordDeps {
   credentialFinder: Pick<PasswordCredentialStore, "findByAccountId">;
   /** Issues a signed receipt on successful authentication. */
   receiptIssuer: Pick<IssueReceiptUseCase, "execute">;
-  /** Structured logger. */
   logger: LoggerPort;
   /** Verifies plain-text passwords against stored hashes. */
   passwordVerifier: Pick<PasswordManager, "compare">;
