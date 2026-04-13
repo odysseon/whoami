@@ -47,6 +47,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
+          registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
 
       - name: 📥 Install Dependencies
@@ -65,5 +66,4 @@ jobs:
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          NPM_CONFIG_PROVENANCE: true
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
