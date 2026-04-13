@@ -1,14 +1,13 @@
 {
   "mode": "pre",
-  "tag": "alpha",
+  "tag": "beta",
   "initialVersions": {
-    "@odysseon/whoami-adapter-argon2": "10.0.0",
-    "@odysseon/whoami-adapter-jose": "10.0.0",
-    "@odysseon/whoami-adapter-nestjs": "10.0.0",
-    "@odysseon/whoami-adapter-webcrypto": "10.0.0",
-    "@odysseon/whoami-core": "10.0.0",
-    "@odysseon/whoami-example-express": "9.9.10",
-    "@odysseon/whoami-example-nestjs": "9.9.10"
+    "@odysseon/whoami-adapter-argon2": "11.0.0-alpha.1",
+    "@odysseon/whoami-adapter-jose": "11.0.0-alpha.1",
+    "@odysseon/whoami-adapter-nestjs": "11.0.0-alpha.1",
+    "@odysseon/whoami-core": "11.0.0-alpha.1",
+    "@odysseon/whoami-example-express": "9.9.11-alpha.0",
+    "@odysseon/whoami-example-nestjs": "9.9.11-alpha.0"
   },
   "changesets": [
     "mighty-seas-type",
