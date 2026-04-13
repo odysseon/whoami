@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "beta",
   "initialVersions": {
     "@odysseon/whoami-adapter-argon2": "11.0.0-alpha.1",
