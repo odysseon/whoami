@@ -1,4 +1,5 @@
 {
+  "private": false,
   "name": "@odysseon/whoami-adapter-jose",
   "version": "11.0.0",
   "description": "Jose receipt signing and verification adapter for Odysseon Whoami",
