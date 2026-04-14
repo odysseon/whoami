@@ -77,4 +77,10 @@ jobs:
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          NPM_CONFIG_PROVENANCE: true
+
+      - name: 🚨 Rescue npm Crash Logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pnpm-debug-logs
+          path: /home/runner/.npm/_logs/*.log
