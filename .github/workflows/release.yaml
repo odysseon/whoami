@@ -50,7 +50,9 @@ jobs:
           cache: "pnpm"
 
       - name: 🆙 Upgrade npm
-        run: npm install -g npm@latest
+        run: |
+          npm install -g npm@latest
+          npm config set provenance true
 
       - name: 📥 Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -58,21 +60,14 @@ jobs:
       - name: 🏗️ Build Packages
         run: pnpm build
 
-      - name: 🔍 Verify OIDC Trust
-        run: |
-          echo "Verifying OIDC handshake for @odysseon scope..."
-          npm access list packages odysseon
-        env:
-          NPM_CONFIG_PROVENANCE: true
-
       - name: 🚀 Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm run version
-          publish: npx changeset publish
+          publish: pnpm run release
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          NPM_CONFIG_PROVENANCE: true
+  
