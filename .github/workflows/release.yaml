@@ -72,7 +72,7 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm exec changeset version
-          publish: pnpm release
+          publish: npx @changesets/cli publish
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
