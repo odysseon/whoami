@@ -71,12 +71,12 @@ jobs:
         with:
           version: pnpm run version
           publish: |
-            for dir in packages/*; do
+            bash -c 'for dir in packages/*; do
               if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
                 echo "Publishing $dir..."
-                npm publish "$dir" --access public --provenance --no-git-checks || echo "Skipping $dir (likely already published or private)"
+                npm publish "$dir" --access public --provenance --no-git-checks || echo "Skipping $dir"
               fi
-            done
+            done'
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
