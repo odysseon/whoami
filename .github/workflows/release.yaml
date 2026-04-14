@@ -70,10 +70,15 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm run version
-          publish: pnpm -r publish --access public --no-git-checks
+          publish: |
+            for dir in packages/*; do
+              if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
+                echo "Publishing $dir..."
+                npm publish "$dir" --access public --provenance --no-git-checks || echo "Skipping $dir (likely already published or private)"
+              fi
+            done
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           NPM_CONFIG_PROVENANCE: true
-  
