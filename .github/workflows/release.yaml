@@ -70,7 +70,7 @@ jobs:
         uses: changesets/action@v1
         with:
           version: pnpm run version
-          publish: changeset publish --access public
+          publish: pnpm release
           commit: "chore(release): version packages"
           title: "chore(release): version packages"
         env:
