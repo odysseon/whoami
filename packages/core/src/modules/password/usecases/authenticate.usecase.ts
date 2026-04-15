@@ -8,6 +8,7 @@ import type { Receipt } from "../../../kernel/receipt/receipt.entity.js";
 import type { IssueReceiptUseCase } from "../../../kernel/receipt/usecases/issue-receipt.usecase.js";
 import type { PasswordCredentialStore } from "../ports/password-credential.store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
+import { PasswordCredential } from "../domain/password-credential.entity.js";
 
 export interface AuthenticateWithPasswordDeps {
   accountFinder: Pick<AccountRepository, "findByEmail">;
@@ -37,17 +38,16 @@ export class AuthenticateWithPasswordUseCase {
       throw new AuthenticationError();
     }
 
-    const credential = await this.deps.credentialFinder.findByAccountId(
-      account.id,
-    );
-    if (!credential) {
+    const raw = await this.deps.credentialFinder.findByAccountId(account.id);
+    if (!raw) {
       this.deps.logger.warn("Authentication failed: no password credential");
       throw new AuthenticationError();
     }
 
+    const credential = PasswordCredential.fromKernel(raw);
     const isValid = await this.deps.passwordVerifier.compare(
       input.password,
-      credential.passwordHash,
+      credential.hash,
     );
     if (!isValid) {
       this.deps.logger.warn("Authentication failed: wrong password");
