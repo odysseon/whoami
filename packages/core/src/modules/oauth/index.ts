@@ -5,7 +5,10 @@ import type { CoreContext } from "../../composition/context-builder.js";
 import type { OAuthCredentialStore } from "./ports/oauth-credential.store.port.js";
 import type { Receipt } from "../../kernel/receipt/receipt.entity.js";
 import type { AccountId } from "../../kernel/shared/index.js";
+import type { ProofDeserializer } from "../../kernel/credential/composite-deserializer.js";
 import { OAuthProviderNotFoundError } from "../../kernel/shared/index.js";
+import { OAuthCredential } from "./domain/oauth-credential.entity.js";
+import { OAuthProof } from "../../kernel/credential/credential.types.js";
 
 import { AuthenticateWithOAuthUseCase } from "./usecases/authenticate.usecase.js";
 import { LinkOAuthToAccountUseCase } from "./usecases/link-account.usecase.js";
@@ -90,7 +93,9 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
       ): Promise<number> => {
         const all = await config.oauthStore.findAllByAccountId(accountId);
         if (provider !== undefined) {
-          const linked = all.some((c): boolean => c.oauthProvider === provider);
+          const linked = all.some(
+            (c): boolean => OAuthCredential.fromKernel(c).provider === provider,
+          );
           if (!linked) throw new OAuthProviderNotFoundError(provider);
           return Math.max(0, all.length - 1);
         }
@@ -119,4 +124,31 @@ export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
       },
     };
   },
+
+  proofDeserializer: ((raw: string): OAuthProof | null => {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        parsed !== null &&
+        typeof parsed === "object" &&
+        "kind" in parsed &&
+        (parsed as Record<string, unknown>)["kind"] === "oauth" &&
+        "provider" in parsed &&
+        typeof (parsed as Record<string, unknown>)["provider"] === "string" &&
+        "providerId" in parsed &&
+        typeof (parsed as Record<string, unknown>)["providerId"] === "string"
+      ) {
+        const p = parsed as Record<string, unknown>;
+        const provider = p["provider"];
+        const providerId = p["providerId"];
+        if (typeof provider !== "string" || typeof providerId !== "string") {
+          return null;
+        }
+        return new OAuthProof(provider, providerId);
+      }
+    } catch {
+      // not JSON or wrong shape — not ours
+    }
+    return null;
+  }) satisfies ProofDeserializer,
 };
