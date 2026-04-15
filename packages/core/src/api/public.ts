@@ -5,6 +5,16 @@
  * Everything below is exported for consumers that need to type against ports,
  * entities, errors, or value objects.
  *
+ * ## Deprecation notice (v11.1.0)
+ *
+ * Module-specific symbols (configs, methods, ports) are now available from
+ * dedicated sub-path exports and will be **removed from this barrel in v12**:
+ * ```ts
+ * // Preferred (tree-shakable):
+ * import type { PasswordConfig } from '@odysseon/whoami-core/password';
+ * import type { OAuthConfig }    from '@odysseon/whoami-core/oauth';
+ * ```
+ *
  * @packageDocumentation
  */
 
@@ -40,16 +50,28 @@ export type {
 export type { AuthResult } from "../kernel/auth/auth-result.type.js";
 export { AuthOrchestrator } from "../kernel/auth/auth-orchestrator.js";
 
-// ── Module configs (for consumers wiring up modules) ─────────────────────────
-export type {
-  PasswordConfig,
-  PasswordMethods,
-} from "../modules/password/index.js";
-export type { OAuthConfig, OAuthMethods } from "../modules/oauth/index.js";
+// ── Module configs — @deprecated, use sub-path imports in v12 ────────────────
+//
+// These re-exports remain for backward compatibility but will be removed in
+// v12.0.0. Migrate to:
+//   import type { PasswordConfig, PasswordMethods, ... } from '@odysseon/whoami-core/password';
+//   import type { OAuthConfig, OAuthMethods, ... }       from '@odysseon/whoami-core/oauth';
 
-// ── Module-owned ports (implemented by infra adapters) ───────────────────────
+/** @deprecated Import from `@odysseon/whoami-core/password` instead. Removed in v12. */
+export type { PasswordConfig } from "../modules/password/index.js";
+/** @deprecated Import from `@odysseon/whoami-core/password` instead. Removed in v12. */
+export type { PasswordMethods } from "../modules/password/index.js";
+/** @deprecated Import from `@odysseon/whoami-core/oauth` instead. Removed in v12. */
+export type { OAuthConfig } from "../modules/oauth/index.js";
+/** @deprecated Import from `@odysseon/whoami-core/oauth` instead. Removed in v12. */
+export type { OAuthMethods } from "../modules/oauth/index.js";
+
+// ── Module-owned ports — @deprecated, use sub-path imports in v12 ────────────
+/** @deprecated Import from `@odysseon/whoami-core/password` instead. Removed in v12. */
 export type { PasswordCredentialStore } from "../modules/password/ports/password-credential.store.port.js";
+/** @deprecated Import from `@odysseon/whoami-core/password` instead. Removed in v12. */
 export type { PasswordHasher } from "../modules/password/ports/password-hasher.port.js";
+/** @deprecated Import from `@odysseon/whoami-core/oauth` instead. Removed in v12. */
 export type { OAuthCredentialStore } from "../modules/oauth/ports/oauth-credential.store.port.js";
 
 // ── Credential types ──────────────────────────────────────────────────────────
