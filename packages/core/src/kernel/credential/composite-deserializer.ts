@@ -52,7 +52,8 @@ export class CompositeDeserializer {
         "kind" in parsed &&
         typeof (parsed as Record<string, unknown>)["kind"] === "string"
       ) {
-        kind = (parsed as Record<string, string>)["kind"];
+        const kindValue = (parsed as Record<string, unknown>)["kind"];
+        kind = typeof kindValue === "string" ? kindValue : "<unknown>";
       }
     } catch {
       // raw was not valid JSON — leave kind as <unknown>
