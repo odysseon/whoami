@@ -1,7 +1,7 @@
 {
   "private": false,
   "name": "@odysseon/whoami-core",
-  "version": "11.1.0",
+  "version": "11.2.0",
   "description": "Framework-agnostic identity and authentication core",
   "keywords": [
     "authentication",
