@@ -1,5 +1,15 @@
 # @odysseon/whoami-example-nestjs
 
+## 9.9.13
+
+### Patch Changes
+
+- Updated dependencies [b1777a4]
+  - @odysseon/whoami-core@11.2.0
+  - @odysseon/whoami-adapter-argon2@13.0.0
+  - @odysseon/whoami-adapter-jose@13.0.0
+  - @odysseon/whoami-adapter-nestjs@13.0.0
+
 ## 9.9.12
 
 ### Patch Changes
