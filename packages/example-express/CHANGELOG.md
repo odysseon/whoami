@@ -1,5 +1,14 @@
 # @odysseon/whoami-example-express
 
+## 9.9.12
+
+### Patch Changes
+
+- Updated dependencies [98e4524]
+  - @odysseon/whoami-core@11.1.0
+  - @odysseon/whoami-adapter-argon2@12.0.0
+  - @odysseon/whoami-adapter-jose@12.0.0
+
 ## 9.9.11
 
 ### Patch Changes
