@@ -3,6 +3,7 @@ import type { LoggerPort } from "../../../kernel/shared/ports/logger.port.js";
 import type { PasswordCredentialStore } from "../ports/password-credential.store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
 import type { VerifyReceiptUseCase } from "../../../kernel/receipt/usecases/verify-receipt.usecase.js";
+import { PasswordCredential } from "../domain/password-credential.entity.js";
 
 export interface ChangePasswordDeps {
   credentialFinder: Pick<PasswordCredentialStore, "findByAccountId">;
@@ -29,9 +30,8 @@ export class ChangePasswordUseCase {
     const receipt = await this.deps.receiptVerifier.execute(input.receiptToken);
     const accountId = receipt.accountId;
 
-    const credential =
-      await this.deps.credentialFinder.findByAccountId(accountId);
-    if (!credential) {
+    const raw = await this.deps.credentialFinder.findByAccountId(accountId);
+    if (!raw) {
       this.deps.logger.error(
         `No password credential for account ${accountId.value}`,
       );
@@ -40,9 +40,10 @@ export class ChangePasswordUseCase {
       );
     }
 
+    const credential = PasswordCredential.fromKernel(raw);
     const valid = await this.deps.passwordHasher.compare(
       input.currentPassword,
-      credential.passwordHash,
+      credential.hash,
     );
     if (!valid) {
       this.deps.logger.warn(

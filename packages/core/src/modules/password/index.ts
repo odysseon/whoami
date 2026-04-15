@@ -6,6 +6,8 @@ import type { PasswordCredentialStore } from "./ports/password-credential.store.
 import type { PasswordHasher } from "./ports/password-hasher.port.js";
 import type { AccountId } from "../../kernel/shared/index.js";
 import type { Receipt } from "../../kernel/receipt/receipt.entity.js";
+import type { ProofDeserializer } from "../../kernel/credential/composite-deserializer.js";
+import { PasswordProof } from "../../kernel/credential/credential.types.js";
 
 import { RegisterWithPasswordUseCase } from "./usecases/register.usecase.js";
 import { AuthenticateWithPasswordUseCase } from "./usecases/authenticate.usecase.js";
@@ -113,4 +115,25 @@ export const PasswordModule: AuthModule<PasswordConfig, PasswordMethods> = {
       },
     };
   },
+
+  proofDeserializer: ((raw: string): PasswordProof | null => {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        parsed !== null &&
+        typeof parsed === "object" &&
+        "kind" in parsed &&
+        (parsed as Record<string, unknown>)["kind"] === "password" &&
+        "hash" in parsed &&
+        typeof (parsed as Record<string, unknown>)["hash"] === "string"
+      ) {
+        const hash = (parsed as Record<string, unknown>)["hash"];
+        if (typeof hash !== "string") return null;
+        return new PasswordProof(hash);
+      }
+    } catch {
+      // not JSON or wrong shape — not ours
+    }
+    return null;
+  }) satisfies ProofDeserializer,
 };
