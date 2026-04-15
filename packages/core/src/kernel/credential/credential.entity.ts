@@ -1,10 +1,10 @@
 import {
   AccountId,
   CredentialId,
-  WrongCredentialTypeError,
   InvalidCredentialError,
 } from "../shared/index.js";
-import type { CredentialProof } from "./credential.types.js";
+import type { CredentialProof } from "./credential.proof.port.js";
+import { PasswordProof, OAuthProof } from "./credential.types.js";
 
 /** @internal */
 interface CredentialProps {
@@ -36,8 +36,10 @@ export interface LoadExistingProps {
 /**
  * Authentication credential bound to a single account.
  *
- * Holds a typed proof (password or oauth). Accessing a proof field for the
- * wrong kind raises {@link WrongCredentialTypeError} so misuse is caught at runtime.
+ * The kernel treats the `proof` as an opaque {@link CredentialProof}. Typed
+ * fields (hash, provider, providerId) are no longer accessible here — use the
+ * module-level domain wrappers (`PasswordCredential`, `OAuthCredential`) which
+ * call `getProof()` and narrow the kind themselves.
  *
  * Use named static factories to create; {@link Credential.loadExisting} only
  * when rehydrating from a trusted store.
@@ -46,32 +48,25 @@ export interface LoadExistingProps {
 export class Credential {
   public readonly id: CredentialId;
   public readonly accountId: AccountId;
-  public readonly proofKind: CredentialProof["kind"];
-  private readonly proof: CredentialProof;
+  public readonly proofKind: string;
+  private readonly _proof: CredentialProof;
 
   private constructor(props: CredentialProps) {
     this.id = props.id;
     this.accountId = props.accountId;
-    this.proof = props.proof;
+    this._proof = props.proof;
     this.proofKind = props.proof.kind;
   }
 
-  public get passwordHash(): string {
-    if (this.proof.kind !== "password")
-      throw new WrongCredentialTypeError("password", this.proof.kind);
-    return this.proof.hash;
-  }
-
-  public get oauthProvider(): string {
-    if (this.proof.kind !== "oauth")
-      throw new WrongCredentialTypeError("oauth", this.proof.kind);
-    return this.proof.provider;
-  }
-
-  public get oauthProviderId(): string {
-    if (this.proof.kind !== "oauth")
-      throw new WrongCredentialTypeError("oauth", this.proof.kind);
-    return this.proof.providerId;
+  /**
+   * Returns the opaque proof for this credential.
+   *
+   * Callers must narrow on `proof.kind` before accessing module-specific
+   * fields. Prefer the module-level wrappers (`PasswordCredential.fromKernel`,
+   * `OAuthCredential.fromKernel`) over direct proof access.
+   */
+  public getProof(): CredentialProof {
+    return this._proof;
   }
 
   public static createPassword(props: CreatePasswordProps): Credential {
@@ -80,7 +75,7 @@ export class Credential {
     return new Credential({
       id: props.id,
       accountId: props.accountId,
-      proof: { kind: "password", hash: props.hash },
+      proof: new PasswordProof(props.hash),
     });
   }
 
@@ -92,11 +87,7 @@ export class Credential {
     return new Credential({
       id: props.id,
       accountId: props.accountId,
-      proof: {
-        kind: "oauth",
-        provider: props.provider,
-        providerId: props.providerId,
-      },
+      proof: new OAuthProof(props.provider, props.providerId),
     });
   }
 
