@@ -43,7 +43,18 @@
       "types": "./dist/internal/index.d.ts",
       "import": "./dist/internal/index.js",
       "require": "./dist/internal/index.cjs"
-    }
+    },
+    "./password": {
+      "types": "./dist/password/index.d.ts",
+      "import": "./dist/password/index.js",
+      "require": "./dist/password/index.cjs"
+    },
+    "./oauth": {
+      "types": "./dist/oauth/index.d.ts",
+      "import": "./dist/oauth/index.js",
+      "require": "./dist/oauth/index.cjs"
+    },
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public",
