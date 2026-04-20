@@ -1,3 +1,2 @@
-export * from "./value-objects/index.js";
-export * from "./errors/domain.error.js";
-export * from "./ports/index.js";
+export { CompositeDeserializer } from "./composite-deserializer.js";
+export { AuthOrchestrator } from "./auth-orchestrator.js";
