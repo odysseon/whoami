@@ -1,154 +1,29 @@
-import type { AuthModule } from "../module.interface.js";
-import type { AuthMethodPort } from "../../kernel/auth/auth-method.port.js";
-import type { AuthMethodRemover } from "../../kernel/auth/usecases/remove-auth-method.usecase.js";
-import type { CoreContext } from "../../composition/context-builder.js";
-import type { OAuthCredentialStore } from "./ports/oauth-credential.store.port.js";
-import type { Receipt } from "../../kernel/receipt/receipt.entity.js";
-import type { AccountId } from "../../kernel/shared/index.js";
-import type { ProofDeserializer } from "../../kernel/credential/composite-deserializer.js";
-import { OAuthProviderNotFoundError } from "../../kernel/shared/index.js";
-import { OAuthCredential } from "./domain/oauth-credential.entity.js";
-import { OAuthProof } from "../../kernel/credential/credential.types.js";
+// Module factory and types
+export {
+  OAuthModule,
+  type OAuthModuleConfig,
+  type OAuthMethods,
+} from "./oauth.module.js";
 
-import { AuthenticateWithOAuthUseCase } from "./usecases/authenticate.usecase.js";
-import { LinkOAuthToAccountUseCase } from "./usecases/link-account.usecase.js";
+// Entities
+export {
+  type OAuthProof,
+  isOAuthProof,
+  createOAuthProof,
+} from "./entities/oauth.proof.js";
 
-export interface OAuthConfig {
-  oauthStore: OAuthCredentialStore;
-}
+// Ports
+export type { OAuthCredentialStore } from "./ports/oauth-credential-store.port.js";
 
-export interface OAuthMethods {
-  authenticateWithOAuth(input: {
-    provider: string;
-    providerId: string;
-    email: string;
-  }): Promise<Receipt>;
-  linkOAuthToAccount(input: {
-    receiptToken: string;
-    provider: string;
-    providerId: string;
-    email: string;
-  }): Promise<void>;
-}
-
-export const OAuthModule: AuthModule<OAuthConfig, OAuthMethods> = {
-  key: "oauth",
-
-  create(config: OAuthConfig, ctx: CoreContext): OAuthMethods {
-    const { oauthStore } = config;
-    const { accountRepo, issueReceipt, verifyReceipt, logger, idGenerator } =
-      ctx;
-
-    const authenticateUC = new AuthenticateWithOAuthUseCase({
-      accountFinder: accountRepo,
-      accountSaver: accountRepo,
-      accountRemover: accountRepo,
-      credentialFinder: oauthStore,
-      credentialSaver: oauthStore,
-      receiptIssuer: issueReceipt,
-      idGenerator,
-      logger,
-    });
-
-    const linkUC = new LinkOAuthToAccountUseCase({
-      accountFinder: accountRepo,
-      credentialFinder: oauthStore,
-      credentialSaver: oauthStore,
-      receiptVerifier: verifyReceipt,
-      idGenerator,
-      logger,
-    });
-
-    return {
-      authenticateWithOAuth: (input): Promise<Receipt> =>
-        authenticateUC.execute(input),
-      linkOAuthToAccount: (input): Promise<void> => linkUC.execute(input),
-    };
-  },
-
-  buildAuthMethodPort(config: OAuthConfig): AuthMethodPort {
-    return {
-      method: "oauth",
-      exists: (accountId): Promise<boolean> =>
-        config.oauthStore.existsForAccount(accountId),
-      count: async (accountId): Promise<number> => {
-        const all = await config.oauthStore.findAllByAccountId(accountId);
-        return all.length;
-      },
-      /**
-       * Returns the number of OAuth credentials that would remain after the
-       * described removal, validating provider existence in the process.
-       *
-       * This is called by the kernel's last-credential guard so that
-       * `OAuthProviderNotFoundError` is raised before `CannotRemoveLastCredentialError`
-       * when the account has exactly one credential and the caller passes a
-       * non-linked provider.
-       *
-       * @throws {OAuthProviderNotFoundError} when `provider` is defined but not
-       * linked to the account.
-       */
-      countAfterRemoval: async (
-        accountId: AccountId,
-        provider?: string,
-      ): Promise<number> => {
-        const all = await config.oauthStore.findAllByAccountId(accountId);
-        if (provider !== undefined) {
-          const linked = all.some(
-            (c): boolean => OAuthCredential.fromKernel(c).provider === provider,
-          );
-          if (!linked) throw new OAuthProviderNotFoundError(provider);
-          return Math.max(0, all.length - 1);
-        }
-        return 0;
-      },
-    };
-  },
-
-  buildAuthMethodRemover(config: OAuthConfig): AuthMethodRemover {
-    return {
-      method: "oauth",
-      /**
-       * Deletes the credential(s) for this account.
-       * Provider existence is validated upstream via
-       * {@link AuthMethodPort.countAfterRemoval} — this method only deletes.
-       */
-      remove: async (
-        accountId: AccountId,
-        provider?: string,
-      ): Promise<void> => {
-        if (provider !== undefined) {
-          await config.oauthStore.deleteByProvider(accountId, provider);
-        } else {
-          await config.oauthStore.deleteAllForAccount(accountId);
-        }
-      },
-    };
-  },
-
-  proofDeserializer: ((raw: string): OAuthProof | null => {
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      if (
-        parsed !== null &&
-        typeof parsed === "object" &&
-        "kind" in parsed &&
-        (parsed as Record<string, unknown>)["kind"] === "oauth" &&
-        "provider" in parsed &&
-        typeof (parsed as Record<string, unknown>)["provider"] === "string" &&
-        "providerId" in parsed &&
-        typeof (parsed as Record<string, unknown>)["providerId"] === "string"
-      ) {
-        const p = parsed as Record<string, unknown>;
-        const provider = p["provider"];
-        const providerId = p["providerId"];
-        if (typeof provider !== "string" || typeof providerId !== "string") {
-          return null;
-        }
-        return new OAuthProof(provider, providerId);
-      }
-    } catch {
-      // not JSON or wrong shape — not ours
-    }
-    return null;
-  }) satisfies ProofDeserializer,
-};
+// Use cases
+export {
+  AuthenticateWithOAuthUseCase,
+  LinkOAuthToAccountUseCase,
+  UnlinkOAuthProviderUseCase,
+  type AuthenticateWithOAuthInput,
+  type AuthenticateWithOAuthOutput,
+  type LinkOAuthToAccountInput,
+  type LinkOAuthToAccountOutput,
+  type UnlinkOAuthProviderInput,
+  type UnlinkOAuthProviderOutput,
+} from "./use-cases/index.js";
