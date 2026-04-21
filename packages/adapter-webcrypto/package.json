@@ -1,49 +1,46 @@
 {
   "name": "@odysseon/whoami-adapter-webcrypto",
-  "version": "11.0.0-alpha.0",
-  "description": "Native WebCrypto deterministic hashing adapter for Odysseon Whoami",
-  "license": "ISC",
-  "author": "Hammed Anuoluwapo Pelumi",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/odysseon/whoami.git",
-    "directory": "packages/adapter-webcrypto"
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE"
-  ],
+  "version": "10.0.0",
+  "description": "WebCrypto adapter implementing SecureTokenPort for @odysseon/whoami-core",
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts"
     }
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc -b tsconfig.build.json",
-    "lint": "eslint \"src/**/*.ts\"",
-    "test": "node --import tsx --test src/**/*.spec.ts",
-    "test:cov": "node --import tsx --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test src/**/*.spec.ts"
+    "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs && pnpm run build:types",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:types": "tsc -p tsconfig.types.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-vm-modules --test tests/**/*.test.ts"
   },
-  "devDependencies": {
-    "@odysseon/whoami-core": "workspace:*"
+  "keywords": [
+    "authentication",
+    "webcrypto",
+    "crypto",
+    "token"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
   },
   "peerDependencies": {
-    "@odysseon/whoami-core": "11.0.0"
+    "@odysseon/whoami-core": ">=11.2.0"
   },
-  "engines": {
-    "node": ">=24.0.0"
+  "devDependencies": {
+    "@odysseon/whoami-core": "workspace:*",
+    "@types/node": "^20.19.39",
+    "typescript": "^6.0.3"
   }
 }
