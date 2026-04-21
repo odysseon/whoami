@@ -27,10 +27,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "baseUrl": ".",
+    "rootDir": "./src",
     "paths": {
-      "@kernel/*": ["src/kernel/*"],
-      "@modules/*": ["src/modules/*"]
+      "@kernel/*": ["./src/kernel/*"],
+      "@modules/*": ["./src/modules/*"]
     }
   },
   "include": ["src/**/*"],
