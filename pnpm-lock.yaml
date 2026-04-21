@@ -114,6 +114,18 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/adapter-webcrypto:
+    devDependencies:
+      '@odysseon/whoami-core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/node':
+        specifier: ^20.19.39
+        version: 20.19.39
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/core:
     devDependencies:
       '@types/node':

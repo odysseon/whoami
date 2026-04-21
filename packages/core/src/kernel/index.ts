@@ -52,4 +52,5 @@ export type {
   AuthModule,
   CredentialProofDeserializer,
   AuthModuleFactory,
+  SecureTokenPort,
 } from "./ports/index.js";
