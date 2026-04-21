@@ -1,1 +1,1 @@
-export { WebCryptoTokenHasher } from "./webcrypto-token-hasher.adapter.js";
+export { WebCryptoSecureTokenAdapter } from "./webcrypto-secure-token.adapter.js";
