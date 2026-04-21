@@ -11,6 +11,7 @@ import type {
   IdGeneratorPort,
   LoggerPort,
   ClockPort,
+  SecureTokenPort,
 } from "../../../kernel/ports/index.js";
 import type { MagicLinkCredentialStore } from "../ports/magiclink-credential-store.port.js";
 import { createMagicLinkProof } from "../entities/magiclink.proof.js";
@@ -51,6 +52,7 @@ export class RequestMagicLinkUseCase {
   readonly #idGenerator: IdGeneratorPort;
   readonly #logger: LoggerPort;
   readonly #clock: ClockPort;
+  readonly #secureToken: SecureTokenPort;
   readonly #config: MagicLinkConfig;
 
   constructor(deps: {
@@ -59,6 +61,7 @@ export class RequestMagicLinkUseCase {
     idGenerator: IdGeneratorPort;
     logger: LoggerPort;
     clock: ClockPort;
+    secureToken: SecureTokenPort;
     config: MagicLinkConfig;
   }) {
     this.#accountRepo = deps.accountRepo;
@@ -66,6 +69,7 @@ export class RequestMagicLinkUseCase {
     this.#idGenerator = deps.idGenerator;
     this.#logger = deps.logger;
     this.#clock = deps.clock;
+    this.#secureToken = deps.secureToken;
     this.#config = deps.config;
   }
 
@@ -107,10 +111,10 @@ export class RequestMagicLinkUseCase {
     }
 
     // Generate cryptographically secure token
-    const plainTextToken = this.#generateSecureToken();
+    const plainTextToken = this.#secureToken.generateToken();
 
     // Hash the token with SHA-256 for storage
-    const tokenHash = await this.#hashToken(plainTextToken);
+    const tokenHash = await this.#secureToken.hashToken(plainTextToken);
 
     // Calculate expiration
     const expiresAt = new Date(
@@ -141,34 +145,5 @@ export class RequestMagicLinkUseCase {
       expiresAt,
       isNewAccount,
     };
-  }
-
-  /**
-   * Generates a cryptographically secure random token
-   */
-  #generateSecureToken(): string {
-    const buffer = new Uint8Array(32);
-    crypto.getRandomValues(buffer);
-    return this.#bufferToBase64Url(buffer);
-  }
-
-  /**
-   * Hashes a token using SHA-256
-   */
-  async #hashToken(token: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return this.#bufferToBase64Url(new Uint8Array(hashBuffer));
-  }
-
-  /**
-   * Converts a Uint8Array to base64url string
-   */
-  #bufferToBase64Url(buffer: Uint8Array): string {
-    const bytes = Array.from(buffer);
-    const binary = bytes.map((b) => String.fromCharCode(b)).join("");
-    const base64 = btoa(binary);
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
 }

@@ -1,7 +1,10 @@
 import type { Receipt } from "../../../kernel/domain/entities/index.js";
 import type { AccountId } from "../../../kernel/domain/value-objects/index.js";
 import { InvalidMagicLinkError } from "../../../kernel/domain/errors/index.js";
-import type { ReceiptSigner } from "../../../kernel/ports/index.js";
+import type {
+  ReceiptSigner,
+  SecureTokenPort,
+} from "../../../kernel/ports/index.js";
 import type { MagicLinkCredentialStore } from "../ports/magiclink-credential-store.port.js";
 import {
   isMagicLinkProof,
@@ -38,15 +41,18 @@ export interface AuthenticateWithMagicLinkConfig {
 export class AuthenticateWithMagicLinkUseCase {
   readonly #magicLinkStore: MagicLinkCredentialStore;
   readonly #receiptSigner: ReceiptSigner;
+  readonly #secureToken: SecureTokenPort;
   readonly #config: AuthenticateWithMagicLinkConfig;
 
   constructor(deps: {
     magicLinkStore: MagicLinkCredentialStore;
     receiptSigner: ReceiptSigner;
+    secureToken: SecureTokenPort;
     config: AuthenticateWithMagicLinkConfig;
   }) {
     this.#magicLinkStore = deps.magicLinkStore;
     this.#receiptSigner = deps.receiptSigner;
+    this.#secureToken = deps.secureToken;
     this.#config = deps.config;
   }
 
@@ -60,7 +66,7 @@ export class AuthenticateWithMagicLinkUseCase {
     input: AuthenticateWithMagicLinkInput,
   ): Promise<AuthenticateWithMagicLinkOutput> {
     // Hash the provided token to look it up
-    const tokenHash = await this.#hashToken(input.token);
+    const tokenHash = await this.#secureToken.hashToken(input.token);
 
     // Find the MagicLink credential by token hash
     const credential = await this.#magicLinkStore.findByTokenHash(tokenHash);
@@ -103,25 +109,5 @@ export class AuthenticateWithMagicLinkUseCase {
       accountId: credential.accountId,
       email: proof.email,
     };
-  }
-
-  /**
-   * Hashes a token using SHA-256
-   */
-  async #hashToken(token: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return this.#bufferToBase64Url(new Uint8Array(hashBuffer));
-  }
-
-  /**
-   * Converts a Uint8Array to base64url string
-   */
-  #bufferToBase64Url(buffer: Uint8Array): string {
-    const bytes = Array.from(buffer);
-    const binary = bytes.map((b) => String.fromCharCode(b)).join("");
-    const base64 = btoa(binary);
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
 }

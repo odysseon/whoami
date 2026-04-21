@@ -13,6 +13,7 @@ import type {
   IdGeneratorPort,
   LoggerPort,
   ClockPort,
+  SecureTokenPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { PasswordCredentialStore } from "./ports/password-credential-store.port.js";
 import type { PasswordHasher } from "./ports/password-hasher.port.js";
@@ -40,6 +41,7 @@ export interface PasswordModuleConfig {
   readonly idGenerator: IdGeneratorPort;
   readonly logger: LoggerPort;
   readonly clock: ClockPort;
+  readonly secureToken: SecureTokenPort;
   readonly tokenLifespanMinutes?: number;
   readonly resetTokenLifespanMinutes?: number;
 }
@@ -190,12 +192,14 @@ export function PasswordModule(
     idGenerator: config.idGenerator,
     logger: config.logger,
     clock: config.clock,
+    secureToken: config.secureToken,
     config: { tokenLifespanMinutes: resetTokenLifespanMinutes },
   });
 
   const verifyResetUseCase = new VerifyPasswordResetUseCase({
     passwordStore: config.passwordStore,
     receiptSigner: config.receiptSigner,
+    secureToken: config.secureToken,
     config: { receiptLifespanMinutes: 10 },
   });
 

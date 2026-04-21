@@ -13,6 +13,7 @@ import type {
   IdGeneratorPort,
   LoggerPort,
   ClockPort,
+  SecureTokenPort,
 } from "../../../kernel/ports/index.js";
 import type { PasswordCredentialStore } from "../ports/password-credential-store.port.js";
 import { createPasswordResetProof } from "../entities/password.proof.js";
@@ -51,6 +52,7 @@ export class RequestPasswordResetUseCase {
   readonly #idGenerator: IdGeneratorPort;
   readonly #logger: LoggerPort;
   readonly #clock: ClockPort;
+  readonly #secureToken: SecureTokenPort;
   readonly #config: PasswordResetConfig;
 
   constructor(deps: {
@@ -59,6 +61,7 @@ export class RequestPasswordResetUseCase {
     idGenerator: IdGeneratorPort;
     logger: LoggerPort;
     clock: ClockPort;
+    secureToken: SecureTokenPort;
     config: PasswordResetConfig;
   }) {
     this.#accountRepo = deps.accountRepo;
@@ -66,6 +69,7 @@ export class RequestPasswordResetUseCase {
     this.#idGenerator = deps.idGenerator;
     this.#logger = deps.logger;
     this.#clock = deps.clock;
+    this.#secureToken = deps.secureToken;
     this.#config = deps.config;
   }
 
@@ -100,10 +104,10 @@ export class RequestPasswordResetUseCase {
     }
 
     // Generate cryptographically secure token
-    const plainTextToken = this.#generateSecureToken();
+    const plainTextToken = this.#secureToken.generateToken();
 
     // Hash the token with SHA-256 for storage
-    const tokenHash = await this.#hashToken(plainTextToken);
+    const tokenHash = await this.#secureToken.hashToken(plainTextToken);
 
     // Calculate expiration
     const expiresAt = new Date(
@@ -133,37 +137,5 @@ export class RequestPasswordResetUseCase {
       plainTextToken,
       expiresAt,
     };
-  }
-
-  /**
-   * Generates a cryptographically secure random token
-   * Uses Web Crypto API for security
-   */
-  #generateSecureToken(): string {
-    // Generate 32 bytes of random data (256 bits of entropy)
-    const buffer = new Uint8Array(32);
-    crypto.getRandomValues(buffer);
-    // Convert to base64url encoding
-    return this.#bufferToBase64Url(buffer);
-  }
-
-  /**
-   * Hashes a token using SHA-256
-   */
-  async #hashToken(token: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return this.#bufferToBase64Url(new Uint8Array(hashBuffer));
-  }
-
-  /**
-   * Converts a Uint8Array to base64url string
-   */
-  #bufferToBase64Url(buffer: Uint8Array): string {
-    const bytes = Array.from(buffer);
-    const binary = bytes.map((b) => String.fromCharCode(b)).join("");
-    const base64 = btoa(binary);
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
 }

@@ -1,7 +1,10 @@
 import type { Receipt } from "../../../kernel/domain/entities/index.js";
 import type { AccountId } from "../../../kernel/domain/value-objects/index.js";
 import { InvalidResetTokenError } from "../../../kernel/domain/errors/index.js";
-import type { ReceiptSigner } from "../../../kernel/ports/index.js";
+import type {
+  ReceiptSigner,
+  SecureTokenPort,
+} from "../../../kernel/ports/index.js";
 import type { PasswordCredentialStore } from "../ports/password-credential-store.port.js";
 import {
   isPasswordResetProof,
@@ -37,15 +40,18 @@ export interface VerifyPasswordResetConfig {
 export class VerifyPasswordResetUseCase {
   readonly #passwordStore: PasswordCredentialStore;
   readonly #receiptSigner: ReceiptSigner;
+  readonly #secureToken: SecureTokenPort;
   readonly #config: VerifyPasswordResetConfig;
 
   constructor(deps: {
     passwordStore: PasswordCredentialStore;
     receiptSigner: ReceiptSigner;
+    secureToken: SecureTokenPort;
     config: VerifyPasswordResetConfig;
   }) {
     this.#passwordStore = deps.passwordStore;
     this.#receiptSigner = deps.receiptSigner;
+    this.#secureToken = deps.secureToken;
     this.#config = deps.config;
   }
 
@@ -59,7 +65,7 @@ export class VerifyPasswordResetUseCase {
     input: VerifyPasswordResetInput,
   ): Promise<VerifyPasswordResetOutput> {
     // Hash the provided token to look it up
-    const tokenHash = await this.#hashToken(input.token);
+    const tokenHash = await this.#secureToken.hashToken(input.token);
 
     // Find the reset credential by token hash
     const credential = await this.#passwordStore.findByTokenHash(tokenHash);
@@ -101,25 +107,5 @@ export class VerifyPasswordResetUseCase {
       receipt,
       accountId: credential.accountId,
     };
-  }
-
-  /**
-   * Hashes a token using SHA-256
-   */
-  async #hashToken(token: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return this.#bufferToBase64Url(new Uint8Array(hashBuffer));
-  }
-
-  /**
-   * Converts a Uint8Array to base64url string
-   */
-  #bufferToBase64Url(buffer: Uint8Array): string {
-    const bytes = Array.from(buffer);
-    const binary = bytes.map((b) => String.fromCharCode(b)).join("");
-    const base64 = btoa(binary);
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
   }
 }

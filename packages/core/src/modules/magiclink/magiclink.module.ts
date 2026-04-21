@@ -13,6 +13,7 @@ import type {
   IdGeneratorPort,
   LoggerPort,
   ClockPort,
+  SecureTokenPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { MagicLinkCredentialStore } from "./ports/magiclink-credential-store.port.js";
 import {
@@ -31,6 +32,7 @@ export interface MagicLinkModuleConfig {
   readonly idGenerator: IdGeneratorPort;
   readonly logger: LoggerPort;
   readonly clock: ClockPort;
+  readonly secureToken: SecureTokenPort;
   readonly tokenLifespanMinutes?: number;
   readonly receiptLifespanMinutes?: number;
 }
@@ -121,12 +123,14 @@ export function MagicLinkModule(
     idGenerator: config.idGenerator,
     logger: config.logger,
     clock: config.clock,
+    secureToken: config.secureToken,
     config: { tokenLifespanMinutes },
   });
 
   const authenticateUseCase = new AuthenticateWithMagicLinkUseCase({
     magicLinkStore: config.magicLinkStore,
     receiptSigner: config.receiptSigner,
+    secureToken: config.secureToken,
     config: { receiptLifespanMinutes },
   });
 

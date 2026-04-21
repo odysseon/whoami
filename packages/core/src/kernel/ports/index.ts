@@ -6,6 +6,7 @@ export type {
   LoggerPort,
   IdGeneratorPort,
   ClockPort,
+  SecureTokenPort,
 } from "./shared-ports.port.js";
 
 export type {
