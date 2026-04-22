@@ -1,6 +1,10 @@
 import { jwtVerify } from "jose";
 import type { ReceiptVerifier } from "@odysseon/whoami-core";
-import { AccountId, InvalidReceiptError, Receipt } from "@odysseon/whoami-core";
+import {
+  createAccountId,
+  InvalidReceiptError,
+  Receipt,
+} from "@odysseon/whoami-core";
 import {
   JoseReceiptConfig,
   RECEIPT_KIND_CLAIM,
@@ -40,8 +44,9 @@ export class JoseReceiptVerifier implements ReceiptVerifier {
         throw new InvalidReceiptError("The receipt token is malformed.");
       }
 
-      return Receipt.loadExisting(token, {
-        accountId: new AccountId(payload.sub),
+      return Receipt.load({
+        token,
+        accountId: createAccountId(payload.sub),
         expiresAt: new Date(payload.exp * 1000),
       });
     } catch (error) {
@@ -50,9 +55,7 @@ export class JoseReceiptVerifier implements ReceiptVerifier {
 
       // Handle JOSE-specific errors
       if (validateJoseError(error)) {
-        throw new InvalidReceiptError(
-          "The receipt token is expired, malformed, or invalid.",
-        );
+        throw new InvalidReceiptError();
       }
 
       // Fallback for unexpected errors
