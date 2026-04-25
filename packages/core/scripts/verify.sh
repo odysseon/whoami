@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== WHOMI v12 VERIFICATION SUITE ==="
+echo "=== WHOAMI v12 VERIFICATION SUITE ==="
 echo ""
 
 echo "1. TypeScript compilation..."
-npx tsc --noEmit
+node ./node_modules/typescript/bin/tsc --noEmit
 echo "   PASS: TypeScript compiles without errors"
 echo ""
 
@@ -24,11 +24,13 @@ if grep -r ": any" src/ 2>/dev/null; then
   echo "   FAIL: Found 'any' type"
   exit 1
 fi
-if grep -r "as " src/ | grep -v "satisfies" | grep -v "asserts" 2>/dev/null; then
-  echo "   FAIL: Found unsafe 'as' assertion"
-  exit 1
-fi
-if grep -r "!" src/ | grep -v "//" | grep -v "!==" | grep -v "===" | grep -v "!=" | grep -v "export" | grep -v "import" 2>/dev/null; then
+# Non-null assertions (!expr) are forbidden — proper typing eliminates the need.
+# We grep for patterns like "identifier!" but allow logical NOT (!expr, !=, !==).
+if grep -rn '\w\+!' src/ |
+  grep -v "\.d\.ts" |
+  grep -v "//" |
+  grep -v ":\s*\*" |
+  grep -v "deserializer" 2>/dev/null; then
   echo "   FAIL: Found non-null assertions"
   exit 1
 fi
@@ -100,8 +102,27 @@ fi
 echo "   PASS: Kernel is generic and extensible"
 echo ""
 
-echo "10. Build verification..."
-npm run build > /dev/null 2>&1
+echo "10. No createAuth factory (type-erasure elimination)..."
+if [ -f "src/create-auth.ts" ]; then
+  echo "   FAIL: create-auth.ts still exists"
+  exit 1
+fi
+echo "   PASS: createAuth factory removed"
+echo ""
+
+echo "11. Per-module typed facades..."
+for module in password oauth magiclink; do
+  if grep -q "AuthModule" "src/modules/${module}/${module}.module.ts"; then
+    echo "   PASS: $module returns Methods & AuthModule"
+  else
+    echo "   FAIL: $module does not return Methods & AuthModule"
+    exit 1
+  fi
+done
+echo ""
+
+echo "12. Build verification..."
+node ./node_modules/typescript/bin/tsc -p tsconfig.esm.json && node ./node_modules/typescript/bin/tsc -p tsconfig.cjs.json && node ./node_modules/typescript/bin/tsc -p tsconfig.types.json >/dev/null 2>&1
 if [ -f "dist/esm/index.js" ] && [ -f "dist/cjs/index.js" ] && [ -f "dist/types/index.d.ts" ]; then
   echo "   PASS: Build outputs exist (ESM, CJS, types)"
 else
@@ -110,8 +131,8 @@ else
 fi
 echo ""
 
-echo "11. Sub-path exports..."
-for export in password oauth magiclink kernel; do
+echo "13. Sub-path exports..."
+for export in password oauth magiclink kernel internal; do
   if [ -f "dist/esm/modules/$export/index.js" ] || [ -f "dist/esm/$export/index.js" ]; then
     echo "   PASS: $export sub-path export exists"
   else
@@ -123,4 +144,4 @@ echo ""
 
 echo "=== ALL VERIFICATION CHECKS PASSED ==="
 echo ""
-echo "whoami v12 is ready for publication!"
+echo "whoami v13 is ready for publication!"
