@@ -3,9 +3,9 @@ import type {
   CredentialProofDeserializer,
 } from "../../kernel/ports/auth-module.port.js";
 import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
-import type {
-  CredentialId,
-  AccountId,
+import {
+  type CredentialId,
+  createAccountId,
 } from "../../kernel/domain/value-objects/index.js";
 import type { AccountRepository } from "../../kernel/ports/account-repository.port.js";
 import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
@@ -55,6 +55,16 @@ export interface OAuthMethods {
   ) => Promise<void>;
 }
 
+function assertObject(data: unknown): asserts data is Record<string, unknown> {
+  if (data === null || typeof data !== "object") {
+    throw new Error("OAuth proof must be an object");
+  }
+}
+
+function credentialProof<T extends CredentialProof>(proof: T): CredentialProof {
+  return proof;
+}
+
 /**
  * Deserializer for OAuth proofs
  */
@@ -62,29 +72,25 @@ class OAuthProofDeserializer implements CredentialProofDeserializer {
   readonly kind = "oauth";
 
   deserialize(data: unknown): CredentialProof {
-    if (data === null || typeof data !== "object") {
-      throw new Error("OAuth proof must be an object");
+    assertObject(data);
+
+    if (data.kind !== "oauth") {
+      throw new Error(`Expected kind 'oauth' but got '${String(data.kind)}'`);
     }
 
-    const proof = data as Record<string, unknown>;
-
-    if (proof.kind !== "oauth") {
-      throw new Error(`Expected kind 'oauth' but got '${proof.kind}'`);
-    }
-
-    if (typeof proof.provider !== "string") {
+    if (typeof data.provider !== "string") {
       throw new Error("OAuth proof must have a provider string");
     }
 
-    if (typeof proof.providerId !== "string") {
+    if (typeof data.providerId !== "string") {
       throw new Error("OAuth proof must have a providerId string");
     }
 
-    return {
+    return credentialProof({
       kind: "oauth",
-      provider: proof.provider,
-      providerId: proof.providerId,
-    } as CredentialProof;
+      provider: data.provider,
+      providerId: data.providerId,
+    });
   }
 }
 
@@ -94,7 +100,7 @@ class OAuthProofDeserializer implements CredentialProofDeserializer {
  */
 export function OAuthModule(
   config: OAuthModuleConfig,
-): AuthModule<OAuthMethods> {
+): OAuthMethods & AuthModule {
   const tokenLifespanMinutes = config.tokenLifespanMinutes ?? 60;
 
   // Create use cases
@@ -118,39 +124,37 @@ export function OAuthModule(
     oauthStore: config.oauthStore,
   });
 
-  // Create methods object
-  const methods: OAuthMethods = {
-    authenticateWithOAuth: async (input) => {
+  return {
+    kind: "oauth",
+    proofDeserializer: new OAuthProofDeserializer(),
+
+    authenticateWithOAuth: async (
+      input,
+    ): Promise<AuthenticateWithOAuthOutput> => {
       const result = await authenticateUseCase.execute(input);
       return result;
     },
 
-    linkOAuthToAccount: async (input) => {
+    linkOAuthToAccount: async (input): Promise<{ success: true }> => {
       const result = await linkUseCase.execute({
-        accountId: input.accountId as unknown as AccountId,
+        accountId: createAccountId(input.accountId),
         provider: input.provider,
         providerId: input.providerId,
       });
       return result;
     },
 
-    unlinkProvider: async (accountId, provider) => {
+    unlinkProvider: async (accountId, provider): Promise<void> => {
       await unlinkUseCase.execute({
-        accountId: accountId as unknown as AccountId,
+        accountId: createAccountId(accountId),
         provider,
       });
     },
-  };
 
-  return {
-    kind: "oauth",
-    proofDeserializer: new OAuthProofDeserializer(),
-    methods,
-
-    // Implement AuthModule interface
+    // AuthModule lifecycle interface
     async countCredentialsForAccount(accountId: string): Promise<number> {
       return await config.oauthStore.countForAccount(
-        accountId as unknown as AccountId,
+        createAccountId(accountId),
       );
     },
 
@@ -158,10 +162,18 @@ export function OAuthModule(
       await config.oauthStore.delete(credentialId);
     },
 
-    async removeAllCredentialsForAccount(accountId: string): Promise<void> {
-      await config.oauthStore.deleteAllForAccount(
-        accountId as unknown as AccountId,
-      );
+    async removeAllCredentialsForAccount(
+      accountId: string,
+      options?: { provider?: string },
+    ): Promise<void> {
+      if (options?.provider) {
+        await config.oauthStore.deleteByProvider(
+          createAccountId(accountId),
+          options.provider,
+        );
+      } else {
+        await config.oauthStore.deleteAllForAccount(createAccountId(accountId));
+      }
     },
   };
 }

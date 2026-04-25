@@ -2,6 +2,18 @@
   "name": "@odysseon/whoami-core",
   "version": "11.2.0",
   "description": "Framework-agnostic identity and authentication core",
+  "keywords": [
+    "auth",
+    "authentication",
+    "magic-link",
+    "oauth",
+    "password",
+    "typescript"
+  ],
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -31,11 +43,13 @@
       "import": "./dist/esm/kernel/index.js",
       "require": "./dist/cjs/kernel/index.js",
       "types": "./dist/types/kernel/index.d.ts"
+    },
+    "./internal": {
+      "import": "./dist/esm/internal/index.js",
+      "require": "./dist/cjs/internal/index.js",
+      "types": "./dist/types/internal/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs && pnpm run build:types",
     "build:esm": "tsc -p tsconfig.esm.json",
@@ -46,20 +60,11 @@
     "typecheck": "tsc --noEmit",
     "verify": "bash scripts/verify.sh"
   },
-  "keywords": [
-    "authentication",
-    "auth",
-    "password",
-    "oauth",
-    "magic-link",
-    "typescript"
-  ],
-  "license": "MIT",
-  "engines": {
-    "node": ">=20.0.0"
-  },
   "devDependencies": {
     "@types/node": "^20.19.39",
     "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

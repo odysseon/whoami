@@ -3,9 +3,9 @@ import type {
   CredentialProofDeserializer,
 } from "../../kernel/ports/auth-module.port.js";
 import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
-import type {
-  CredentialId,
-  AccountId,
+import {
+  type CredentialId,
+  createAccountId,
 } from "../../kernel/domain/value-objects/index.js";
 import type { AccountRepository } from "../../kernel/ports/account-repository.port.js";
 import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
@@ -89,6 +89,16 @@ export interface PasswordMethods {
   }) => Promise<{ success: true }>;
 }
 
+function assertObject(data: unknown): asserts data is Record<string, unknown> {
+  if (data === null || typeof data !== "object") {
+    throw new Error("Password proof must be an object");
+  }
+}
+
+function credentialProof<T extends CredentialProof>(proof: T): CredentialProof {
+  return proof;
+}
+
 /**
  * Deserializer for password proofs
  */
@@ -96,49 +106,45 @@ class PasswordProofDeserializer implements CredentialProofDeserializer {
   readonly kind = "password";
 
   deserialize(data: unknown): CredentialProof {
-    if (data === null || typeof data !== "object") {
-      throw new Error("Password proof must be an object");
-    }
+    assertObject(data);
 
-    const proof = data as Record<string, unknown>;
-
-    if (proof.kind === "password_hash") {
-      if (typeof proof.hash !== "string") {
+    if (data.kind === "password_hash") {
+      if (typeof data.hash !== "string") {
         throw new Error("Password hash proof must have a hash string");
       }
-      return {
+      return credentialProof({
         kind: "password_hash",
-        hash: proof.hash,
-      } as CredentialProof;
+        hash: data.hash,
+      });
     }
 
-    if (proof.kind === "password_reset") {
-      if (typeof proof.tokenHash !== "string") {
+    if (data.kind === "password_reset") {
+      if (typeof data.tokenHash !== "string") {
         throw new Error("Password reset proof must have a tokenHash string");
       }
       if (
-        !(proof.expiresAt instanceof Date) &&
-        typeof proof.expiresAt !== "string"
+        !(data.expiresAt instanceof Date) &&
+        typeof data.expiresAt !== "string"
       ) {
         throw new Error("Password reset proof must have an expiresAt date");
       }
-      return {
+      return credentialProof({
         kind: "password_reset",
-        tokenHash: proof.tokenHash,
+        tokenHash: data.tokenHash,
         expiresAt:
-          proof.expiresAt instanceof Date
-            ? proof.expiresAt
-            : new Date(proof.expiresAt),
+          data.expiresAt instanceof Date
+            ? data.expiresAt
+            : new Date(data.expiresAt),
         usedAt:
-          proof.usedAt instanceof Date
-            ? proof.usedAt
-            : typeof proof.usedAt === "string"
-              ? new Date(proof.usedAt)
+          data.usedAt instanceof Date
+            ? data.usedAt
+            : typeof data.usedAt === "string"
+              ? new Date(data.usedAt)
               : undefined,
-      } as CredentialProof;
+      });
     }
 
-    throw new Error(`Unknown password proof kind: ${proof.kind}`);
+    throw new Error(`Unknown password proof kind: ${String(data.kind)}`);
   }
 }
 
@@ -148,7 +154,7 @@ class PasswordProofDeserializer implements CredentialProofDeserializer {
  */
 export function PasswordModule(
   config: PasswordModuleConfig,
-): AuthModule<PasswordMethods> {
+): PasswordMethods & AuthModule {
   const tokenLifespanMinutes = config.tokenLifespanMinutes ?? 60;
   const resetTokenLifespanMinutes = config.resetTokenLifespanMinutes ?? 15;
 
@@ -207,9 +213,16 @@ export function PasswordModule(
     passwordStore: config.passwordStore,
   });
 
-  // Create methods object with bound functions
-  const methods: PasswordMethods = {
-    registerWithPassword: async (input) => {
+  return {
+    kind: "password",
+    proofDeserializer: new PasswordProofDeserializer(),
+
+    // Standard password operations
+    registerWithPassword: async (
+      input,
+    ): Promise<{
+      account: { id: string; email: string; createdAt: Date };
+    }> => {
       const result = await registerUseCase.execute(input);
       return {
         account: {
@@ -220,7 +233,12 @@ export function PasswordModule(
       };
     },
 
-    authenticateWithPassword: async (input) => {
+    authenticateWithPassword: async (
+      input,
+    ): Promise<{
+      receipt: { token: string; accountId: string; expiresAt: Date };
+      account: { id: string; email: string; createdAt: Date };
+    }> => {
       const result = await authenticateUseCase.execute(input);
       return {
         receipt: {
@@ -238,14 +256,14 @@ export function PasswordModule(
 
     changePassword: (input) =>
       changePasswordUseCase.execute({
-        accountId: input.accountId as unknown as AccountId,
+        accountId: createAccountId(input.accountId),
         currentPassword: input.currentPassword,
         newPassword: input.newPassword,
       }),
 
     addPasswordToAccount: (input) =>
       addPasswordUseCase.execute({
-        accountId: input.accountId as unknown as AccountId,
+        accountId: createAccountId(input.accountId),
         password: input.password,
       }),
 
@@ -254,19 +272,13 @@ export function PasswordModule(
     verifyPasswordReset: (input) => verifyResetUseCase.execute(input),
     revokeAllPasswordResets: (input) =>
       revokeAllResetsUseCase.execute({
-        accountId: input.accountId as unknown as AccountId,
+        accountId: createAccountId(input.accountId),
       }),
-  };
 
-  return {
-    kind: "password",
-    proofDeserializer: new PasswordProofDeserializer(),
-    methods,
-
-    // Implement AuthModule interface
+    // AuthModule lifecycle interface
     async countCredentialsForAccount(accountId: string): Promise<number> {
       return await config.passwordStore.countForAccount(
-        accountId as unknown as AccountId,
+        createAccountId(accountId),
       );
     },
 
@@ -274,9 +286,12 @@ export function PasswordModule(
       await config.passwordStore.delete(credentialId);
     },
 
-    async removeAllCredentialsForAccount(accountId: string): Promise<void> {
+    async removeAllCredentialsForAccount(
+      accountId: string,
+      _options?: { provider?: string },
+    ): Promise<void> {
       const credential = await config.passwordStore.findByAccountId(
-        accountId as unknown as AccountId,
+        createAccountId(accountId),
       );
       if (credential && !isPasswordResetProof(credential.proof)) {
         await config.passwordStore.delete(credential.id);

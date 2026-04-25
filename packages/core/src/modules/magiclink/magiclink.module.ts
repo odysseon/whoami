@@ -52,6 +52,16 @@ export interface MagicLinkMethods {
   }>;
 }
 
+function assertObject(data: unknown): asserts data is Record<string, unknown> {
+  if (data === null || typeof data !== "object") {
+    throw new Error("MagicLink proof must be an object");
+  }
+}
+
+function credentialProof<T extends CredentialProof>(proof: T): CredentialProof {
+  return proof;
+}
+
 /**
  * Deserializer for MagicLink proofs
  */
@@ -59,46 +69,44 @@ class MagicLinkProofDeserializer implements CredentialProofDeserializer {
   readonly kind = "magiclink";
 
   deserialize(data: unknown): CredentialProof {
-    if (data === null || typeof data !== "object") {
-      throw new Error("MagicLink proof must be an object");
+    assertObject(data);
+
+    if (data.kind !== "magiclink") {
+      throw new Error(
+        `Expected kind 'magiclink' but got '${String(data.kind)}'`,
+      );
     }
 
-    const proof = data as Record<string, unknown>;
-
-    if (proof.kind !== "magiclink") {
-      throw new Error(`Expected kind 'magiclink' but got '${proof.kind}'`);
-    }
-
-    if (typeof proof.tokenHash !== "string") {
+    if (typeof data.tokenHash !== "string") {
       throw new Error("MagicLink proof must have a tokenHash string");
     }
 
-    if (typeof proof.email !== "string") {
+    if (typeof data.email !== "string") {
       throw new Error("MagicLink proof must have an email string");
     }
 
     if (
-      !(proof.expiresAt instanceof Date) &&
-      typeof proof.expiresAt !== "string"
+      !(data.expiresAt instanceof Date) &&
+      typeof data.expiresAt !== "string"
     ) {
       throw new Error("MagicLink proof must have an expiresAt date");
     }
 
-    return {
+    return credentialProof({
       kind: "magiclink",
-      tokenHash: proof.tokenHash,
-      email: proof.email,
+      tokenHash: data.tokenHash,
+      email: data.email,
       expiresAt:
-        proof.expiresAt instanceof Date
-          ? proof.expiresAt
-          : new Date(proof.expiresAt),
+        data.expiresAt instanceof Date
+          ? data.expiresAt
+          : new Date(data.expiresAt),
       usedAt:
-        proof.usedAt instanceof Date
-          ? proof.usedAt
-          : typeof proof.usedAt === "string"
-            ? new Date(proof.usedAt)
+        data.usedAt instanceof Date
+          ? data.usedAt
+          : typeof data.usedAt === "string"
+            ? new Date(data.usedAt)
             : undefined,
-    } as CredentialProof;
+    });
   }
 }
 
@@ -106,13 +114,13 @@ class MagicLinkProofDeserializer implements CredentialProofDeserializer {
  * Creates the MagicLink authentication module.
  *
  * EXTENSIBILITY PROOF: This module was added WITHOUT any changes to kernel files.
- * It implements the AuthModule interface and registers via the modules array.
+ * It implements the AuthModule interface and is composed at the application layer.
  *
  * Zero kernel changes required for new auth methods.
  */
 export function MagicLinkModule(
   config: MagicLinkModuleConfig,
-): AuthModule<MagicLinkMethods> {
+): MagicLinkMethods & AuthModule {
   const tokenLifespanMinutes = config.tokenLifespanMinutes ?? 15;
   const receiptLifespanMinutes = config.receiptLifespanMinutes ?? 60;
 
@@ -134,11 +142,19 @@ export function MagicLinkModule(
     config: { receiptLifespanMinutes },
   });
 
-  // Create methods object
-  const methods: MagicLinkMethods = {
+  return {
+    kind: "magiclink",
+    proofDeserializer: new MagicLinkProofDeserializer(),
+
     requestMagicLink: (input) => requestUseCase.execute(input),
 
-    authenticateWithMagicLink: async (input) => {
+    authenticateWithMagicLink: async (
+      input,
+    ): Promise<{
+      receipt: { token: string; accountId: string; expiresAt: Date };
+      accountId: string;
+      email: string;
+    }> => {
       const result = await authenticateUseCase.execute(input);
       return {
         receipt: {
@@ -150,14 +166,8 @@ export function MagicLinkModule(
         email: result.email,
       };
     },
-  };
 
-  return {
-    kind: "magiclink",
-    proofDeserializer: new MagicLinkProofDeserializer(),
-    methods,
-
-    // Implement AuthModule interface
+    // AuthModule lifecycle interface
     async countCredentialsForAccount(accountId: string): Promise<number> {
       return await config.magicLinkStore.countForAccount(
         accountId as unknown as AccountId,
@@ -168,7 +178,10 @@ export function MagicLinkModule(
       await config.magicLinkStore.delete(credentialId);
     },
 
-    async removeAllCredentialsForAccount(accountId: string): Promise<void> {
+    async removeAllCredentialsForAccount(
+      accountId: string,
+      _options?: { provider?: string },
+    ): Promise<void> {
       await config.magicLinkStore.deleteAllForAccount(
         accountId as unknown as AccountId,
       );
