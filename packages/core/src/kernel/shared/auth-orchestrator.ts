@@ -8,6 +8,13 @@ import {
  * Orchestrates multiple authentication modules.
  * Handles cross-module operations like counting total credentials
  * and enforcing the last-credential invariant.
+ *
+ * Consumers instantiate this directly when they need cross-module policy:
+ * @example
+ * ```typescript
+ * const orchestrator = new AuthOrchestrator([password, oauth]);
+ * await orchestrator.removeAuthMethod(accountId, "password");
+ * ```
  */
 export class AuthOrchestrator {
   readonly #modules: Map<string, AuthModule>;
@@ -85,13 +92,12 @@ export class AuthOrchestrator {
     );
 
     // For OAuth with specific provider, we need to check if there are other credentials
-    // from the same provider or other providers
+    // from the same module or other modules
     let remainingAfterRemoval: number;
 
-    if (method === "oauth" && options?.provider) {
-      // When removing a specific OAuth provider, we can't easily count
-      // remaining credentials from that provider, so we assume at least 1
-      // would be removed. This is a conservative approach.
+    if (options?.provider) {
+      // When removing a specific provider, we assume at least 1 would be removed.
+      // This is a conservative approach.
       remainingAfterRemoval = otherModulesCount + Math.max(0, currentCount - 1);
     } else {
       // Removing all credentials of this type
@@ -103,18 +109,8 @@ export class AuthOrchestrator {
     }
 
     // Perform the removal
-    if (method === "oauth" && options?.provider) {
-      // For OAuth, we need to handle provider-specific removal
-      // This is delegated to the OAuth module's methods
-      const oauthModule = module as AuthModule & {
-        methods: {
-          unlinkProvider: (
-            accountId: string,
-            provider: string,
-          ) => Promise<void>;
-        };
-      };
-      await oauthModule.methods.unlinkProvider(accountId, options.provider);
+    if (options?.provider) {
+      await module.removeAllCredentialsForAccount(accountId, options);
     } else {
       await module.removeAllCredentialsForAccount(accountId);
     }
