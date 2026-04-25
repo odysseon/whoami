@@ -29,7 +29,7 @@ export class CompositeDeserializer implements CredentialProofDeserializer {
     }
 
     const proofData = data as Record<string, unknown>;
-    const kind = proofData.kind;
+    const kind = proofData["kind"];
 
     if (typeof kind !== "string") {
       throw new InvalidCredentialError("Proof must have a kind property");

@@ -74,22 +74,24 @@ class OAuthProofDeserializer implements CredentialProofDeserializer {
   deserialize(data: unknown): CredentialProof {
     assertObject(data);
 
-    if (data.kind !== "oauth") {
-      throw new Error(`Expected kind 'oauth' but got '${String(data.kind)}'`);
+    if (data["kind"] !== "oauth") {
+      throw new Error(
+        `Expected kind 'oauth' but got '${String(data["kind"])}'`,
+      );
     }
 
-    if (typeof data.provider !== "string") {
+    if (typeof data["provider"] !== "string") {
       throw new Error("OAuth proof must have a provider string");
     }
 
-    if (typeof data.providerId !== "string") {
+    if (typeof data["providerId"] !== "string") {
       throw new Error("OAuth proof must have a providerId string");
     }
 
     return credentialProof({
       kind: "oauth",
-      provider: data.provider,
-      providerId: data.providerId,
+      provider: data["provider"],
+      providerId: data["providerId"],
     });
   }
 }
