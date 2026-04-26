@@ -40,11 +40,11 @@ export interface WhoamiModuleAsyncOptions {
 @Module({})
 export class WhoamiModule {
   static register(options: WhoamiModuleOptions): DynamicModule {
-    const providers = this.buildProviders(options);
+    const { providers, exports } = this.buildProviders(options);
     return {
       module: WhoamiModule,
       providers,
-      exports: providers,
+      exports,
     };
   }
 
@@ -55,20 +55,23 @@ export class WhoamiModule {
       inject: options.inject ?? [],
     };
 
-    const providers = this.buildAsyncProviders(optionsProvider);
+    const { providers, exports } = this.buildAsyncProviders(optionsProvider);
 
     return {
       module: WhoamiModule,
       imports: options.imports ?? [],
       providers,
-      exports: providers,
+      exports,
     };
   }
 
-  private static buildProviders(options: WhoamiModuleOptions): Provider[] {
+  private static buildProviders(options: WhoamiModuleOptions): {
+    providers: Provider[];
+    exports: Provider[];
+  } {
     const extractor = options.tokenExtractor ?? new BearerTokenExtractor();
 
-    return [
+    const coreProviders: Provider[] = [
       // Core port: receipt verifier
       { provide: WHOAMI_RECEIPT_VERIFIER, useValue: options.receiptVerifier },
 
@@ -81,21 +84,34 @@ export class WhoamiModule {
         useValue: mod,
       })),
 
+      {
+        provide: moduleToken("oauth"),
+        useValue: options.modules.find((mod) => mod.kind === "oauth") ?? null,
+      },
+
+      // OAuth handler — injectable anywhere, gracefully no-ops if OAuth is unconfigured
+      OAuthCallbackHandler,
+    ];
+
+    const autoProviders: Provider[] = [
       // Guard — auto-registered globally. Consumer does NOT touch APP_GUARD.
       { provide: APP_GUARD, useClass: WhoamiAuthGuard },
 
       // Global exception filter
       { provide: APP_FILTER, useClass: WhoamiExceptionFilter },
-
-      // OAuth handler — injectable anywhere, no consumer registration needed
-      OAuthCallbackHandler,
     ];
+
+    return {
+      providers: [...coreProviders, ...autoProviders],
+      exports: coreProviders,
+    };
   }
 
-  private static buildAsyncProviders(
-    optionsProvider: FactoryProvider,
-  ): Provider[] {
-    return [
+  private static buildAsyncProviders(optionsProvider: FactoryProvider): {
+    providers: Provider[];
+    exports: Provider[];
+  } {
+    const coreProviders: Provider[] = [
       optionsProvider,
 
       {
@@ -117,12 +133,39 @@ export class WhoamiModule {
         inject: ["WHOAMI_OPTIONS"],
       },
 
+      // Per-module injection tokens for async configuration
+      {
+        provide: moduleToken("password"),
+        useFactory: (opts: WhoamiModuleOptions) =>
+          opts.modules.find((mod) => mod.kind === "password") ?? null,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+      {
+        provide: moduleToken("oauth"),
+        useFactory: (opts: WhoamiModuleOptions) =>
+          opts.modules.find((mod) => mod.kind === "oauth") ?? null,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+      {
+        provide: moduleToken("magiclink"),
+        useFactory: (opts: WhoamiModuleOptions) =>
+          opts.modules.find((mod) => mod.kind === "magiclink") ?? null,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+
+      // OAuth handler — auto-wired, optional dependency
+      OAuthCallbackHandler,
+    ];
+
+    const autoProviders: Provider[] = [
       // Auto-registered guard & filter
       { provide: APP_GUARD, useClass: WhoamiAuthGuard },
       { provide: APP_FILTER, useClass: WhoamiExceptionFilter },
-
-      // OAuth handler — auto-wired
-      OAuthCallbackHandler,
     ];
+
+    return {
+      providers: [...coreProviders, ...autoProviders],
+      exports: coreProviders,
+    };
   }
 }

@@ -10,16 +10,21 @@ export interface OAuthProfile {
 
 @Injectable()
 export class OAuthCallbackHandler {
-  readonly #oauth: OAuthMethods;
+  readonly #oauth: OAuthMethods | null;
 
   constructor(
     @Inject(moduleToken("oauth"))
-    oauth: OAuthMethods,
+    oauth: OAuthMethods | null,
   ) {
     this.#oauth = oauth;
   }
 
   async handle(profile: OAuthProfile): Promise<Receipt> {
+    if (!this.#oauth) {
+      throw new Error(
+        "OAuth module not configured. Please include OAuthModule in WhoamiModule options.",
+      );
+    }
     const result = await this.#oauth.authenticateWithOAuth({
       provider: profile.provider,
       providerId: profile.providerId,
