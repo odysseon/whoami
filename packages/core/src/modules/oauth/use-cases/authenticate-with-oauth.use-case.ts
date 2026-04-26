@@ -1,4 +1,4 @@
-import { Credential } from "../../../kernel/domain/entities/index.js";
+import { Credential, Receipt } from "../../../kernel/domain/entities/index.js";
 import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
 import {
   createAccountId,
@@ -32,7 +32,7 @@ export interface AuthenticateWithOAuthInput {
  * Output from authenticating with OAuth
  */
 export interface AuthenticateWithOAuthOutput {
-  readonly receipt: { token: string; accountId: string; expiresAt: Date };
+  readonly receipt: Receipt;
   readonly account: { id: string; email: string; createdAt: Date };
   readonly isNewAccount: boolean;
 }
@@ -112,11 +112,7 @@ export class AuthenticateWithOAuthUseCase {
       });
 
       return {
-        receipt: {
-          token: receipt.token,
-          accountId: receipt.accountId.toString(),
-          expiresAt: receipt.expiresAt,
-        },
+        receipt,
         account: {
           id: account.id.toString(),
           email: account.email.toString(),
@@ -166,11 +162,7 @@ export class AuthenticateWithOAuthUseCase {
     });
 
     return {
-      receipt: {
-        token: receipt.token,
-        accountId: receipt.accountId.toString(),
-        expiresAt: receipt.expiresAt,
-      },
+      receipt,
       account: {
         id: newAccount.id.toString(),
         email: newAccount.email.toString(),
@@ -183,19 +175,13 @@ export class AuthenticateWithOAuthUseCase {
   /**
    * Issues a receipt for the given account ID
    */
-  async #issueReceipt(accountId: ReturnType<typeof createAccountId>): Promise<{
-    token: string;
-    accountId: ReturnType<typeof createAccountId>;
-    expiresAt: Date;
-  }> {
+  async #issueReceipt(
+    accountId: ReturnType<typeof createAccountId>,
+  ): Promise<Receipt> {
     const expiresAt = new Date(
       Date.now() + this.#tokenLifespanMinutes * 60 * 1000,
     );
     const receipt = await this.#receiptSigner.sign(accountId, expiresAt);
-    return {
-      token: receipt.token,
-      accountId: receipt.accountId,
-      expiresAt: receipt.expiresAt,
-    };
+    return receipt;
   }
 }
