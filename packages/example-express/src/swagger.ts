@@ -1,4 +1,7 @@
 import type { OAS3Options } from "swagger-jsdoc";
+import { env } from "./utils.js";
+
+const port = Number(env("PORT", "3030"));
 
 /**
  * OpenAPI 3.0 specification for the Whoami Express example API.
@@ -18,7 +21,7 @@ export const swaggerOptions: OAS3Options = {
       license: { name: "ISC" },
     },
     servers: [
-      { url: "http://localhost:3000", description: "Local dev server" },
+      { url: `http://localhost:${port}`, description: "Local dev server" },
     ],
     tags: [
       { name: "accounts", description: "Account registration" },

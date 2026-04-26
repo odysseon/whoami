@@ -4,9 +4,13 @@ import {
   type Response,
   type NextFunction,
 } from "express";
-import { DomainError, type AnyAuthMethods } from "@odysseon/whoami-core";
+import { DomainError } from "@odysseon/whoami-core";
+import { type PasswordMethods, type OAuthMethods } from "@odysseon/whoami-core";
 
-export const createAuthRouter = (auth: AnyAuthMethods): Router => {
+export const createAuthRouter = (
+  password: PasswordMethods,
+  oauth: OAuthMethods,
+): Router => {
   const router = Router();
 
   // POST /login
@@ -14,20 +18,23 @@ export const createAuthRouter = (auth: AnyAuthMethods): Router => {
     "/",
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const { email, password } = req.body as {
+        const { email, password: plainPassword } = req.body as {
           email?: string;
           password?: string;
         };
-        if (!email || !password) {
+        if (!email || !plainPassword) {
           res.status(400).json({ error: "email and password are required." });
           return;
         }
 
-        const receipt = await auth.authenticateWithPassword!({
+        const receipt = await password.authenticateWithPassword({
           email,
-          password,
+          password: plainPassword,
         });
-        res.json({ token: receipt.token, expiresAt: receipt.expiresAt });
+        res.json({
+          token: receipt.receipt.token,
+          expiresAt: receipt.receipt.expiresAt,
+        });
       } catch (err) {
         if (err instanceof DomainError) {
           res.status(401).json({ error: err.message });
@@ -55,12 +62,15 @@ export const createAuthRouter = (auth: AnyAuthMethods): Router => {
           return;
         }
 
-        const receipt = await auth.authenticateWithOAuth!({
+        const receipt = await oauth.authenticateWithOAuth({
           email,
           provider,
           providerId,
         });
-        res.json({ token: receipt.token, expiresAt: receipt.expiresAt });
+        res.json({
+          token: receipt.receipt.token,
+          expiresAt: receipt.receipt.expiresAt,
+        });
       } catch (err) {
         if (err instanceof DomainError) {
           res.status(401).json({ error: err.message });

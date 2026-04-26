@@ -5,7 +5,7 @@ import { AppModule } from "./app.module.js";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-  const port = Number(process.env["PORT"] ?? 3000);
+  const port = Number(process.env["PORT"] ?? 3040);
 
   // ── Swagger / OpenAPI ──────────────────────────────────────────────────────
   const swaggerConfig = new DocumentBuilder()

@@ -1,33 +1,23 @@
 import { Injectable } from "@nestjs/common";
 import { AuthTokenExtractor } from "./auth-token-extractor.port.js";
 
-type RequestWithHeaders = {
-  headers?: {
-    authorization?: string;
-  };
-};
-
-function hasRequestHeaders(value: unknown): value is RequestWithHeaders {
-  return typeof value === "object" && value !== null && "headers" in value;
-}
-
 /**
  * Extracts bearer tokens from an HTTP Authorization header.
  */
 @Injectable()
-export class BearerTokenExtractor implements AuthTokenExtractor {
-  /**
-   * Extracts a bearer token from the supplied request object.
-   *
-   * @param request - The incoming request.
-   * @returns The bearer token, or `null` when none is present.
-   */
-  public extract(request: unknown): string | null {
-    const authorization = hasRequestHeaders(request)
-      ? request.headers?.authorization
-      : undefined;
-    const [type, token] = authorization?.split(" ") ?? [];
+export class BearerTokenExtractor extends AuthTokenExtractor {
+  readonly #headerName = "authorization";
+  readonly #scheme = "Bearer";
 
-    return type === "Bearer" && token ? token : null;
+  extract(request: unknown): string | null {
+    const req = request as {
+      headers?: Record<string, string | string[] | undefined>;
+    };
+
+    const header = req.headers?.[this.#headerName];
+    if (typeof header !== "string") return null;
+
+    const [scheme, token] = header.split(" ");
+    return scheme === this.#scheme && token ? token : null;
   }
 }

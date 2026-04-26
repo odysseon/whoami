@@ -7,6 +7,8 @@ import {
   EmailAddress,
   OAuthCredentialStore,
   PasswordCredentialStore,
+  type PasswordProof,
+  type OAuthProof,
 } from "@odysseon/whoami-core";
 
 /**
@@ -15,24 +17,31 @@ import {
  */
 export class InMemoryAccountRepository implements AccountRepository {
   private readonly store = new Map<string, Account>();
+  private readonly emailIndex = new Map<string, Account>();
 
   async save(account: Account): Promise<void> {
-    this.store.set(String(account.id.value), account);
+    this.store.set(String(account.id), account);
+    this.emailIndex.set(String(account.email), account);
   }
 
   async findById(id: AccountId): Promise<Account | null> {
-    return this.store.get(String(id.value)) ?? null;
+    return this.store.get(String(id)) ?? null;
   }
 
   async findByEmail(email: EmailAddress): Promise<Account | null> {
-    for (const account of this.store.values()) {
-      if (account.email.value === email.value) return account;
-    }
-    return null;
+    return this.emailIndex.get(String(email)) ?? null;
   }
 
   async delete(id: AccountId): Promise<void> {
-    this.store.delete(String(id.value));
+    const account = this.store.get(String(id));
+    if (account) {
+      this.emailIndex.delete(String(account.email));
+    }
+    this.store.delete(String(id));
+  }
+
+  async existsByEmail(email: EmailAddress): Promise<boolean> {
+    return this.emailIndex.has(String(email));
   }
 }
 
@@ -41,51 +50,94 @@ export class InMemoryAccountRepository implements AccountRepository {
  * For demonstration purposes only — not for production use.
  */
 export class InMemoryPasswordCredentialStore implements PasswordCredentialStore {
-  private readonly byAccountId = new Map<string, Credential>();
+  private readonly byAccountId = new Map<string, Credential<PasswordProof>>();
+  private readonly byId = new Map<string, Credential<PasswordProof>>();
+  private readonly byTokenHash = new Map<string, Credential<PasswordProof>>();
 
-  async findByAccountId(accountId: AccountId): Promise<Credential | null> {
-    return this.byAccountId.get(String(accountId.value)) ?? null;
+  async findByAccountId(
+    accountId: AccountId,
+  ): Promise<Credential<PasswordProof> | null> {
+    return this.byAccountId.get(String(accountId)) ?? null;
   }
 
-  async save(credential: Credential): Promise<void> {
-    this.byAccountId.set(String(credential.accountId.value), credential);
+  async findById(
+    credentialId: CredentialId,
+  ): Promise<Credential<PasswordProof> | null> {
+    return this.byId.get(String(credentialId)) ?? null;
   }
 
-  async update(credentialId: CredentialId, newHash: string): Promise<void> {
-    // Find the credential by its ID
-    let found: Credential | undefined;
-    for (const cred of this.byAccountId.values()) {
-      if (cred.id.value === credentialId.value) {
-        found = cred;
-        break;
-      }
+  async findByTokenHash(
+    tokenHash: string,
+  ): Promise<Credential<PasswordProof> | null> {
+    return this.byTokenHash.get(tokenHash) ?? null;
+  }
+
+  async save(credential: Credential<PasswordProof>): Promise<void> {
+    this.byAccountId.set(String(credential.accountId), credential);
+    this.byId.set(String(credential.id), credential);
+    const proof = credential.proof;
+    if (proof.kind === "password_reset") {
+      this.byTokenHash.set(proof.tokenHash, credential);
     }
+  }
 
+  async update(
+    credentialId: CredentialId,
+    proof: PasswordProof,
+  ): Promise<void> {
+    const found = this.byId.get(String(credentialId));
     if (!found) {
-      throw new Error(`Credential with id ${credentialId.value} not found`);
+      throw new Error(`Credential ${String(credentialId)} not found`);
     }
-
-    // Credential is immutable; create a new one with the same id and accountId
-    const updated = Credential.loadExisting({
+    const updated = Credential.load<PasswordProof>({
       id: found.id,
       accountId: found.accountId,
-      proof: { kind: "password", hash: newHash },
+      proof,
+      createdAt: found.createdAt,
     });
-
-    this.byAccountId.set(String(found.accountId.value), updated);
+    this.byId.set(String(updated.id), updated);
+    this.byAccountId.set(String(updated.accountId), updated);
+    if (proof.kind === "password_reset") {
+      this.byTokenHash.set(proof.tokenHash, updated);
+    }
   }
 
   async delete(credentialId: CredentialId): Promise<void> {
-    for (const [key, cred] of this.byAccountId.entries()) {
-      if (cred.id.value === credentialId.value) {
-        this.byAccountId.delete(key);
-        return;
-      }
+    const cred = this.byId.get(String(credentialId));
+    if (!cred) return;
+    this.byId.delete(String(credentialId));
+    this.byAccountId.delete(String(cred.accountId));
+    if (cred.proof.kind === "password_reset") {
+      this.byTokenHash.delete(cred.proof.tokenHash);
     }
   }
 
   async existsForAccount(accountId: AccountId): Promise<boolean> {
-    return this.byAccountId.has(String(accountId.value));
+    return this.byAccountId.has(String(accountId));
+  }
+
+  async countForAccount(accountId: AccountId): Promise<number> {
+    return this.byAccountId.has(String(accountId)) ? 1 : 0;
+  }
+
+  async deleteAllResetCredentialsForAccount(
+    accountId: AccountId,
+  ): Promise<void> {
+    const cred = this.byAccountId.get(String(accountId));
+    if (cred && cred.proof.kind === "password_reset") {
+      await this.delete(cred.id);
+    }
+  }
+
+  async deleteExpiredResetCredentials(before: Date): Promise<void> {
+    for (const cred of this.byId.values()) {
+      if (
+        cred.proof.kind === "password_reset" &&
+        cred.proof.expiresAt <= before
+      ) {
+        await this.delete(cred.id);
+      }
+    }
   }
 }
 
@@ -94,8 +146,9 @@ export class InMemoryPasswordCredentialStore implements PasswordCredentialStore 
  * For demonstration purposes only — not for production use.
  */
 export class InMemoryOAuthCredentialStore implements OAuthCredentialStore {
-  private readonly byProvider = new Map<string, Credential>();
-  private readonly byAccountId = new Map<string, Credential[]>();
+  private readonly byProvider = new Map<string, Credential<OAuthProof>>();
+  private readonly byAccountId = new Map<string, Credential<OAuthProof>[]>();
+  private readonly byId = new Map<string, Credential<OAuthProof>>();
 
   private providerKey(provider: string, providerId: string): string {
     return `${provider}:${providerId}`;
@@ -104,26 +157,25 @@ export class InMemoryOAuthCredentialStore implements OAuthCredentialStore {
   async findByProvider(
     provider: string,
     providerId: string,
-  ): Promise<Credential | null> {
+  ): Promise<Credential<OAuthProof> | null> {
     return this.byProvider.get(this.providerKey(provider, providerId)) ?? null;
   }
 
-  async findAllByAccountId(accountId: AccountId): Promise<Credential[]> {
-    return this.byAccountId.get(String(accountId.value)) ?? [];
+  async findAllByAccountId(
+    accountId: AccountId,
+  ): Promise<Credential<OAuthProof>[]> {
+    return this.byAccountId.get(String(accountId)) ?? [];
   }
 
-  async save(credential: Credential): Promise<void> {
-    const pk = this.providerKey(
-      credential.oauthProvider,
-      credential.oauthProviderId,
-    );
+  async save(credential: Credential<OAuthProof>): Promise<void> {
+    const { provider, providerId } = credential.proof;
+    const pk = this.providerKey(provider, providerId);
     this.byProvider.set(pk, credential);
-    const accountKey = String(credential.accountId.value);
+    this.byId.set(String(credential.id), credential);
+    const accountKey = String(credential.accountId);
     const existing = this.byAccountId.get(accountKey) ?? [];
     const idx = existing.findIndex(
-      (c) =>
-        c.oauthProvider === credential.oauthProvider &&
-        c.oauthProviderId === credential.oauthProviderId,
+      (c) => c.proof.provider === provider && c.proof.providerId === providerId,
     );
     if (idx >= 0) existing[idx] = credential;
     else existing.push(credential);
@@ -131,48 +183,45 @@ export class InMemoryOAuthCredentialStore implements OAuthCredentialStore {
   }
 
   async delete(credentialId: CredentialId): Promise<void> {
-    for (const [key, cred] of this.byProvider.entries()) {
-      if (cred.id.value === credentialId.value) {
-        const accountKey = String(cred.accountId.value);
-        this.byAccountId.set(
-          accountKey,
-          (this.byAccountId.get(accountKey) ?? []).filter(
-            (c) => c.id.value !== credentialId.value,
-          ),
-        );
-        this.byProvider.delete(key);
-        return;
-      }
-    }
+    const cred = this.byId.get(String(credentialId));
+    if (!cred) return;
+    const { provider, providerId } = cred.proof;
+    this.byProvider.delete(this.providerKey(provider, providerId));
+    this.byId.delete(String(credentialId));
+    const accountKey = String(cred.accountId);
+    const list = this.byAccountId.get(accountKey) ?? [];
+    this.byAccountId.set(
+      accountKey,
+      list.filter((c) => String(c.id) !== String(credentialId)),
+    );
   }
 
   async deleteByProvider(
     accountId: AccountId,
     provider: string,
   ): Promise<void> {
-    const list = this.byAccountId.get(String(accountId.value)) ?? [];
-    const target = list.find((c) => c.oauthProvider === provider);
+    const list = this.byAccountId.get(String(accountId)) ?? [];
+    const target = list.find((c) => c.proof.provider === provider);
     if (!target) return;
-    this.byProvider.delete(
-      this.providerKey(target.oauthProvider, target.oauthProviderId),
-    );
-    this.byAccountId.set(
-      String(accountId.value),
-      list.filter((c) => c.oauthProvider !== provider),
-    );
+    await this.delete(target.id);
   }
 
   async deleteAllForAccount(accountId: AccountId): Promise<void> {
-    const list = this.byAccountId.get(String(accountId.value)) ?? [];
+    const list = this.byAccountId.get(String(accountId)) ?? [];
     for (const cred of list) {
       this.byProvider.delete(
-        this.providerKey(cred.oauthProvider, cred.oauthProviderId),
+        this.providerKey(cred.proof.provider, cred.proof.providerId),
       );
+      this.byId.delete(String(cred.id));
     }
-    this.byAccountId.delete(String(accountId.value));
+    this.byAccountId.delete(String(accountId));
   }
 
   async existsForAccount(accountId: AccountId): Promise<boolean> {
-    return (this.byAccountId.get(String(accountId.value)) ?? []).length > 0;
+    return (this.byAccountId.get(String(accountId)) ?? []).length > 0;
+  }
+
+  async countForAccount(accountId: AccountId): Promise<number> {
+    return (this.byAccountId.get(String(accountId)) ?? []).length;
   }
 }

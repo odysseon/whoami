@@ -4,7 +4,7 @@
 
 ## Overview
 
-Because `jose` has no Node.js native dependencies, this adapter is fully compatible with edge runtimes such as Cloudflare Workers, Vercel Edge, and Deno.
+Because `jose` has no Node.js native dependencies, this adapter is fully compatible with edge runtimes — Cloudflare Workers, Vercel Edge, Deno.
 
 ## Installation
 
@@ -19,26 +19,28 @@ import {
   JoseReceiptSigner,
   JoseReceiptVerifier,
 } from "@odysseon/whoami-adapter-jose";
-import {
-  IssueReceiptUseCase,
-  VerifyReceiptUseCase,
-} from "@odysseon/whoami-core/internal";
+import { PasswordModule } from "@odysseon/whoami-core/password";
+import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 
 const config = {
-  secret: process.env.JWT_SECRET!, // must be at least 32 characters
+  secret: process.env.JWT_SECRET!, // minimum 32 characters
   issuer: "my-app", // optional
   audience: "my-app-users", // optional
 };
 
-const tokenSigner = new IssueReceiptUseCase({
-  signer: new JoseReceiptSigner(config),
-  tokenLifespanMinutes: 60,
+const signer = new JoseReceiptSigner(config);
+const verifier = new JoseReceiptVerifier(config);
+
+// Pass signer to module factory
+const password = PasswordModule({
+  // ...
+  receiptSigner: signer,
 });
 
-const verifyReceipt = new VerifyReceiptUseCase(new JoseReceiptVerifier(config));
+// Pass verifier to WhoamiModule (NestJS) or use directly
+const verify = new VerifyReceiptUseCase(verifier);
+const receipt = await verify.execute(token);
 ```
-
-Pass `tokenSigner` and `verifyReceipt` to `createAuth` (or `WhoamiModule.registerAsync` in NestJS).
 
 ## JWT structure
 

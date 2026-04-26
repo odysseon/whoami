@@ -13,8 +13,8 @@ import {
   ApiOkResponse,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-import { Public, AUTH_METHODS } from "@odysseon/whoami-adapter-nestjs";
-import type { AnyAuthMethods } from "@odysseon/whoami-core";
+import { Public, moduleToken } from "@odysseon/whoami-adapter-nestjs";
+import type { PasswordMethods, OAuthMethods } from "@odysseon/whoami-core";
 import {
   LoginPasswordDto,
   OAuthLoginDto,
@@ -24,7 +24,12 @@ import {
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
-  constructor(@Inject(AUTH_METHODS) private readonly auth: AnyAuthMethods) {}
+  constructor(
+    @Inject(moduleToken("password"))
+    private readonly password: PasswordMethods,
+    @Inject(moduleToken("oauth"))
+    private readonly oauth: OAuthMethods,
+  ) {}
 
   @ApiOperation({ summary: "Login with email + password" })
   @ApiBody({ type: LoginPasswordDto })
@@ -36,7 +41,7 @@ export class AuthController {
   async loginPassword(
     @Body() dto: LoginPasswordDto,
   ): Promise<ReceiptTokenResponse> {
-    const receipt = await this.auth.authenticateWithPassword!({
+    const { receipt } = await this.password.authenticateWithPassword({
       email: dto.email,
       password: dto.password,
     });
@@ -51,11 +56,11 @@ export class AuthController {
   @Post("oauth")
   @HttpCode(HttpStatus.OK)
   async loginOAuth(@Body() dto: OAuthLoginDto): Promise<ReceiptTokenResponse> {
-    const receipt = await this.auth.authenticateWithOAuth!({
+    const result = await this.oauth.authenticateWithOAuth({
       email: dto.email,
       provider: dto.provider,
       providerId: dto.providerId,
     });
-    return { token: receipt.token, expiresAt: receipt.expiresAt };
+    return { token: result.receipt.token, expiresAt: result.receipt.expiresAt };
   }
 }

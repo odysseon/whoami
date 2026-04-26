@@ -1,10 +1,16 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
     "outDir": "./dist",
-    "rootDir": "."
+    "rootDir": ".",
+    "paths": {
+      "@odysseon/whoami-core": [
+        "./node_modules/@odysseon/whoami-core/src/index.ts"
+      ],
+      "@odysseon/whoami-core/*": [
+        "./node_modules/@odysseon/whoami-core/src/*.ts"
+      ]
+    }
   },
-  "include": ["src/**/*", "tsup.config.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"]
 }

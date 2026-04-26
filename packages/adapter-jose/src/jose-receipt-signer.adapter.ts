@@ -1,5 +1,5 @@
 import { SignJWT } from "jose";
-import type { ReceiptSigner, AccountId } from "@odysseon/whoami-core";
+import { ReceiptSigner, AccountId, Receipt } from "@odysseon/whoami-core";
 import {
   JoseReceiptConfig,
   RECEIPT_KIND_CLAIM,
@@ -44,7 +44,7 @@ export class JoseReceiptSigner implements ReceiptSigner {
    * Only custom claims go in the base payload. Standard claims like `sub` and `exp`
    * are handled by the chain methods to ensure proper JWT structure and validation.
    */
-  public async sign(accountId: AccountId, expiresAt: Date): Promise<string> {
+  public async sign(accountId: AccountId, expiresAt: Date): Promise<Receipt> {
     // Set the custom receipt kind claim in the payload
     const payload = {
       [RECEIPT_KIND_CLAIM]: RECEIPT_KIND_VALUE,
@@ -53,7 +53,7 @@ export class JoseReceiptSigner implements ReceiptSigner {
     // Build the JWT with standard claims
     let jwt = new SignJWT(payload)
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .setSubject(String(accountId.value))
+      .setSubject(String(accountId))
       .setExpirationTime(Math.floor(expiresAt.getTime() / 1000));
 
     // Add optional issuer if configured
@@ -67,6 +67,12 @@ export class JoseReceiptSigner implements ReceiptSigner {
     }
 
     // Sign the JWT with the secret key
-    return await jwt.sign(this.encodedSecret);
+    const token = await jwt.sign(this.encodedSecret);
+
+    return Receipt.create({
+      token,
+      accountId,
+      expiresAt,
+    });
   }
 }

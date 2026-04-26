@@ -9,176 +9,163 @@ import {
   InjectionToken,
   OptionalFactoryDependency,
 } from "@nestjs/common";
-import {
-  createAuth,
-  type AuthConfig,
-  type AnyAuthMethods,
-  type ReceiptVerifier,
-  InvalidConfigurationError,
-} from "@odysseon/whoami-core";
+import { APP_GUARD, APP_FILTER } from "@nestjs/core";
+import type { AuthModule, ReceiptVerifier } from "@odysseon/whoami-core";
 import { WhoamiAuthGuard } from "./guards/whoami-auth.guard.js";
 import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
 import { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
 import { OAuthCallbackHandler } from "./oauth/oauth-callback-handler.js";
-import { AUTH_METHODS, VERIFY_RECEIPT } from "./tokens.js";
-export { AUTH_METHODS, VERIFY_RECEIPT } from "./tokens.js";
+import { WHOAMI_RECEIPT_VERIFIER, moduleToken } from "./tokens.js";
 
-/**
- * Supply the full {@link AuthConfig} and let {@link WhoamiModule} call
- * `createAuth` internally, **or** supply a pre-built {@link AuthMethods}
- * facade (e.g. one already composed in another module) via `auth`.
- *
- * The second form avoids re-constructing use-cases when the facade is already
- * available in the DI container.
- *
- * In both cases `receiptVerifier` must be supplied so the guard can verify
- * tokens independently of the facade.
- *
- * @public
- */
-export type WhoamiModuleOptions = (
-  | (AuthConfig & { auth?: never })
-  | { auth: AnyAuthMethods; receiptVerifier: ReceiptVerifier }
-) & {
-  /** Optional token extractor override. Defaults to {@link BearerTokenExtractor}. */
-  tokenExtractor?: AuthTokenExtractor;
-};
+export * from "./tokens.js";
+
+export interface WhoamiModuleOptions {
+  readonly modules: readonly AuthModule[];
+  readonly receiptVerifier: ReceiptVerifier;
+  readonly tokenExtractor?: AuthTokenExtractor;
+}
 
 export interface WhoamiModuleAsyncOptions {
-  imports?: Array<
+  readonly imports?: Array<
     Type<unknown> | ForwardReference | DynamicModule | Promise<DynamicModule>
   >;
-  inject?: Array<InjectionToken | OptionalFactoryDependency>;
-  useFactory: (
+  readonly inject?: Array<InjectionToken | OptionalFactoryDependency>;
+  readonly useFactory: (
     ...args: unknown[]
   ) => Promise<WhoamiModuleOptions> | WhoamiModuleOptions;
-}
-
-function isReceiptVerifier(obj: unknown): obj is ReceiptVerifier {
-  return (
-    obj !== null &&
-    typeof obj === "object" &&
-    "verify" in obj &&
-    typeof (obj as Record<string, unknown>)["verify"] === "function"
-  );
-}
-
-function resolveAuth(opts: WhoamiModuleOptions): AnyAuthMethods {
-  return "auth" in opts && opts.auth !== undefined
-    ? opts.auth
-    : createAuth(opts as AuthConfig);
-}
-
-function resolveVerifier(opts: WhoamiModuleOptions): ReceiptVerifier {
-  const verifier =
-    "receiptVerifier" in opts
-      ? opts.receiptVerifier
-      : (opts as AuthConfig).receiptVerifier;
-
-  if (!isReceiptVerifier(verifier)) {
-    throw new InvalidConfigurationError(
-      "receiptVerifier must be a valid ReceiptVerifier implementation with a verify() method. " +
-        "Example: new JoseReceiptVerifier({ secret, issuer })",
-    );
-  }
-
-  return verifier;
 }
 
 @Global()
 @Module({})
 export class WhoamiModule {
   static register(options: WhoamiModuleOptions): DynamicModule {
-    const verifier = resolveVerifier(options);
-    const auth = resolveAuth(options);
-    const providers = WhoamiModule.buildProviders(options, { verifier, auth });
+    const { providers, exports } = this.buildProviders(options);
     return {
       module: WhoamiModule,
       providers,
-      exports: providers,
+      exports,
     };
   }
 
   static registerAsync(options: WhoamiModuleAsyncOptions): DynamicModule {
-    const asyncProvider: FactoryProvider = {
-      provide: "WHOAMI_MODULE_OPTIONS",
+    const optionsProvider: FactoryProvider = {
+      provide: "WHOAMI_OPTIONS",
       useFactory: options.useFactory,
       inject: options.inject ?? [],
     };
 
-    const authMethodsProvider: FactoryProvider = {
-      provide: AUTH_METHODS,
-      useFactory: (opts: WhoamiModuleOptions): AnyAuthMethods =>
-        resolveAuth(opts),
-      inject: ["WHOAMI_MODULE_OPTIONS"],
-    };
-
-    const receiptVerifierProvider: FactoryProvider = {
-      provide: VERIFY_RECEIPT,
-      useFactory: (opts: WhoamiModuleOptions): ReceiptVerifier =>
-        resolveVerifier(opts),
-      inject: ["WHOAMI_MODULE_OPTIONS"],
-    };
-
-    const tokenExtractorProvider: FactoryProvider = {
-      provide: AuthTokenExtractor,
-      useFactory: (opts: WhoamiModuleOptions): AuthTokenExtractor =>
-        opts.tokenExtractor ?? new BearerTokenExtractor(),
-      inject: ["WHOAMI_MODULE_OPTIONS"],
-    };
-
-    const bearerTokenExtractorAliasProvider: Provider = {
-      provide: BearerTokenExtractor,
-      useExisting: AuthTokenExtractor,
-    };
-
-    const providers: Provider[] = [
-      asyncProvider,
-      authMethodsProvider,
-      receiptVerifierProvider,
-      tokenExtractorProvider,
-      bearerTokenExtractorAliasProvider,
-      WhoamiAuthGuard,
-      WhoamiExceptionFilter,
-      OAuthCallbackHandler,
-    ];
+    const { providers, exports } = this.buildAsyncProviders(optionsProvider);
 
     return {
       module: WhoamiModule,
       imports: options.imports ?? [],
       providers,
-      exports: providers,
+      exports,
     };
   }
 
-  private static buildProviders(
-    options: WhoamiModuleOptions,
-    resolved?: { verifier: ReceiptVerifier; auth: AnyAuthMethods },
-  ): Provider[] {
-    const verifier = resolved?.verifier ?? resolveVerifier(options);
-    const auth = resolved?.auth ?? resolveAuth(options);
+  private static buildProviders(options: WhoamiModuleOptions): {
+    providers: Provider[];
+    exports: Provider[];
+  } {
+    const extractor = options.tokenExtractor ?? new BearerTokenExtractor();
 
-    return [
+    const coreProviders: Provider[] = [
+      // Core port: receipt verifier
+      { provide: WHOAMI_RECEIPT_VERIFIER, useValue: options.receiptVerifier },
+
+      // Token extraction
+      { provide: AuthTokenExtractor, useValue: extractor },
+
+      // Per-module injection tokens — consumer injects PasswordMethods, OAuthMethods, etc.
+      ...options.modules.map((mod) => ({
+        provide: moduleToken(mod.kind),
+        useValue: mod,
+      })),
+
       {
-        provide: AUTH_METHODS,
-        useValue: auth,
+        provide: moduleToken("oauth"),
+        useValue: options.modules.find((mod) => mod.kind === "oauth") ?? null,
       },
-      {
-        provide: VERIFY_RECEIPT,
-        useValue: verifier,
-      },
-      {
-        provide: AuthTokenExtractor,
-        useValue: options.tokenExtractor ?? new BearerTokenExtractor(),
-      },
-      {
-        provide: BearerTokenExtractor,
-        useExisting: AuthTokenExtractor,
-      },
-      WhoamiAuthGuard,
-      WhoamiExceptionFilter,
+
+      // OAuth handler — injectable anywhere, gracefully no-ops if OAuth is unconfigured
       OAuthCallbackHandler,
     ];
+
+    const autoProviders: Provider[] = [
+      // Guard — auto-registered globally. Consumer does NOT touch APP_GUARD.
+      { provide: APP_GUARD, useClass: WhoamiAuthGuard },
+
+      // Global exception filter
+      { provide: APP_FILTER, useClass: WhoamiExceptionFilter },
+    ];
+
+    return {
+      providers: [...coreProviders, ...autoProviders],
+      exports: coreProviders,
+    };
+  }
+
+  private static buildAsyncProviders(optionsProvider: FactoryProvider): {
+    providers: Provider[];
+    exports: Provider[];
+  } {
+    const coreProviders: Provider[] = [
+      optionsProvider,
+
+      {
+        provide: WHOAMI_RECEIPT_VERIFIER,
+        useFactory: (opts: WhoamiModuleOptions) => opts.receiptVerifier,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+
+      {
+        provide: AuthTokenExtractor,
+        useFactory: (opts: WhoamiModuleOptions) =>
+          opts.tokenExtractor ?? new BearerTokenExtractor(),
+        inject: ["WHOAMI_OPTIONS"],
+      },
+
+      {
+        provide: "WHOAMI_MODULES",
+        useFactory: (opts: WhoamiModuleOptions) => opts.modules,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+
+      // Per-module injection tokens for async configuration
+      {
+        provide: moduleToken("password"),
+        useFactory: (opts: WhoamiModuleOptions) =>
+          opts.modules.find((mod) => mod.kind === "password") ?? null,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+      {
+        provide: moduleToken("oauth"),
+        useFactory: (opts: WhoamiModuleOptions) =>
+          opts.modules.find((mod) => mod.kind === "oauth") ?? null,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+      {
+        provide: moduleToken("magiclink"),
+        useFactory: (opts: WhoamiModuleOptions) =>
+          opts.modules.find((mod) => mod.kind === "magiclink") ?? null,
+        inject: ["WHOAMI_OPTIONS"],
+      },
+
+      // OAuth handler — auto-wired, optional dependency
+      OAuthCallbackHandler,
+    ];
+
+    const autoProviders: Provider[] = [
+      // Auto-registered guard & filter
+      { provide: APP_GUARD, useClass: WhoamiAuthGuard },
+      { provide: APP_FILTER, useClass: WhoamiExceptionFilter },
+    ];
+
+    return {
+      providers: [...coreProviders, ...autoProviders],
+      exports: coreProviders,
+    };
   }
 }

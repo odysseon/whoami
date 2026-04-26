@@ -1,4 +1,5 @@
-export const createIdGenerator = (): (() => string) => {
-  let counter = 1;
-  return (): string => String(counter++);
-};
+export class UuidGenerator {
+  generate(): string {
+    return crypto.randomUUID();
+  }
+}
