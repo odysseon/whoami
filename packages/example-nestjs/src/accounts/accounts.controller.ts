@@ -13,14 +13,17 @@ import {
   ApiCreatedResponse,
   ApiConflictResponse,
 } from "@nestjs/swagger";
-import { Public, AUTH_METHODS } from "@odysseon/whoami-adapter-nestjs";
-import type { AnyAuthMethods } from "@odysseon/whoami-core";
+import { Public, moduleToken } from "@odysseon/whoami-adapter-nestjs";
+import type { PasswordMethods } from "@odysseon/whoami-core";
 import { RegisterDto, RegisterResponse } from "./dto.js";
 
 @ApiTags("accounts")
 @Controller("accounts")
 export class AccountsController {
-  constructor(@Inject(AUTH_METHODS) private readonly auth: AnyAuthMethods) {}
+  constructor(
+    @Inject(moduleToken("password"))
+    private readonly password: PasswordMethods,
+  ) {}
 
   @ApiOperation({ summary: "Register a new account" })
   @ApiBody({ type: RegisterDto })
@@ -30,10 +33,14 @@ export class AccountsController {
   @Post("register")
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto): Promise<RegisterResponse> {
-    const receipt = await this.auth.registerWithPassword!({
+    const { account } = await this.password.registerWithPassword({
       email: dto.email,
       password: dto.password,
     });
-    return { token: receipt.token, expiresAt: receipt.expiresAt };
+    return {
+      accountId: account.id,
+      email: account.email,
+      createdAt: account.createdAt,
+    };
   }
 }

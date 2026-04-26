@@ -9,9 +9,12 @@ export class RegisterDto {
 }
 
 export class RegisterResponse {
-  @ApiProperty({ type: String, example: "eyJhbGciOiJIUzI1NiJ9..." })
-  token!: string;
+  @ApiProperty({ type: String, example: "01J..." })
+  accountId!: string;
+
+  @ApiProperty({ type: String, example: "ada@example.com", format: "email" })
+  email!: string;
 
   @ApiProperty({ type: Date, format: "date-time" })
-  expiresAt!: Date;
+  createdAt!: Date;
 }
