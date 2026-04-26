@@ -93,6 +93,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
+          branch: ${{ github.event.workflow_run.head_branch }}
           version: pnpm exec changeset version
           publish: pnpm run release
           commit: "chore(release): version packages"
