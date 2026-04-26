@@ -15,9 +15,9 @@ import type {
   ClockPort,
   SecureTokenPort,
 } from "../../kernel/ports/shared-ports.port.js";
-import type { PasswordCredentialStore } from "./ports/password-credential-store.port.js";
+import type { PasswordHashStore } from "./ports/password-hash-store.port.js";
+import type { PasswordResetTokenStore } from "./ports/password-reset-token-store.port.js";
 import type { PasswordHasher } from "./ports/password-hasher.port.js";
-import { isPasswordResetProof } from "./entities/password.proof.js";
 import {
   RegisterWithPasswordUseCase,
   AuthenticateWithPasswordUseCase,
@@ -28,14 +28,21 @@ import {
   RevokeAllPasswordResetsUseCase,
   type RequestPasswordResetOutput,
   type VerifyPasswordResetOutput,
+  type RegisterWithPasswordOutput,
+  type AuthenticateWithPasswordOutput,
 } from "./use-cases/index.js";
 
 /**
- * Configuration for the password module
+ * Configuration for the password module.
+ *
+ * Two stores are required because they have fundamentally different invariants:
+ * - passwordHashStore: unique per account, permanent until changed
+ * - resetTokenStore: many per account, short-lived, expirable
  */
 export interface PasswordModuleConfig {
   readonly accountRepo: AccountRepository;
-  readonly passwordStore: PasswordCredentialStore;
+  readonly passwordHashStore: PasswordHashStore;
+  readonly resetTokenStore: PasswordResetTokenStore;
   readonly passwordHasher: PasswordHasher;
   readonly receiptSigner: ReceiptSigner;
   readonly idGenerator: IdGeneratorPort;
@@ -50,7 +57,6 @@ export interface PasswordModuleConfig {
  * Methods exposed by the password module
  */
 export interface PasswordMethods {
-  // Standard password operations
   readonly registerWithPassword: (input: {
     email: string;
     password: string;
@@ -75,7 +81,6 @@ export interface PasswordMethods {
     password: string;
   }) => Promise<{ success: true }>;
 
-  // Password recovery operations (INSIDE password module)
   readonly requestPasswordReset: (input: {
     email: string;
   }) => Promise<RequestPasswordResetOutput | null>;
@@ -99,9 +104,6 @@ function credentialProof<T extends CredentialProof>(proof: T): CredentialProof {
   return proof;
 }
 
-/**
- * Deserializer for password proofs
- */
 class PasswordProofDeserializer implements CredentialProofDeserializer {
   readonly kind = "password";
 
@@ -112,10 +114,7 @@ class PasswordProofDeserializer implements CredentialProofDeserializer {
       if (typeof data["hash"] !== "string") {
         throw new Error("Password hash proof must have a hash string");
       }
-      return credentialProof({
-        kind: "password_hash",
-        hash: data["hash"],
-      });
+      return credentialProof({ kind: "password_hash", hash: data["hash"] });
     }
 
     if (data["kind"] === "password_reset") {
@@ -150,7 +149,6 @@ class PasswordProofDeserializer implements CredentialProofDeserializer {
 
 /**
  * Creates the password authentication module.
- * Includes standard password operations AND recovery (no orphan module!)
  */
 export function PasswordModule(
   config: PasswordModuleConfig,
@@ -158,10 +156,9 @@ export function PasswordModule(
   const tokenLifespanMinutes = config.tokenLifespanMinutes ?? 60;
   const resetTokenLifespanMinutes = config.resetTokenLifespanMinutes ?? 15;
 
-  // Create use cases
   const registerUseCase = new RegisterWithPasswordUseCase({
     accountRepo: config.accountRepo,
-    passwordStore: config.passwordStore,
+    passwordStore: config.passwordHashStore,
     passwordHasher: config.passwordHasher,
     idGenerator: config.idGenerator,
     logger: config.logger,
@@ -169,7 +166,7 @@ export function PasswordModule(
 
   const authenticateUseCase = new AuthenticateWithPasswordUseCase({
     accountRepo: config.accountRepo,
-    passwordStore: config.passwordStore,
+    passwordStore: config.passwordHashStore,
     passwordHasher: config.passwordHasher,
     receiptSigner: config.receiptSigner,
     logger: config.logger,
@@ -178,23 +175,22 @@ export function PasswordModule(
 
   const changePasswordUseCase = new ChangePasswordUseCase({
     accountRepo: config.accountRepo,
-    passwordStore: config.passwordStore,
+    passwordStore: config.passwordHashStore,
     passwordHasher: config.passwordHasher,
     logger: config.logger,
   });
 
   const addPasswordUseCase = new AddPasswordToAccountUseCase({
     accountRepo: config.accountRepo,
-    passwordStore: config.passwordStore,
+    passwordStore: config.passwordHashStore,
     passwordHasher: config.passwordHasher,
     idGenerator: config.idGenerator,
     logger: config.logger,
   });
 
-  // Recovery use cases (INSIDE password module)
   const requestResetUseCase = new RequestPasswordResetUseCase({
     accountRepo: config.accountRepo,
-    passwordStore: config.passwordStore,
+    resetTokenStore: config.resetTokenStore,
     idGenerator: config.idGenerator,
     logger: config.logger,
     clock: config.clock,
@@ -203,54 +199,36 @@ export function PasswordModule(
   });
 
   const verifyResetUseCase = new VerifyPasswordResetUseCase({
-    passwordStore: config.passwordStore,
+    resetTokenStore: config.resetTokenStore,
     receiptSigner: config.receiptSigner,
     secureToken: config.secureToken,
     config: { receiptLifespanMinutes: 10 },
   });
 
   const revokeAllResetsUseCase = new RevokeAllPasswordResetsUseCase({
-    passwordStore: config.passwordStore,
+    resetTokenStore: config.resetTokenStore,
   });
 
   return {
     kind: "password",
     proofDeserializer: new PasswordProofDeserializer(),
 
-    // Standard password operations
     registerWithPassword: async (
       input,
-    ): Promise<{
-      account: { id: string; email: string; createdAt: Date };
-    }> => {
+    ): Promise<RegisterWithPasswordOutput> => {
       const result = await registerUseCase.execute(input);
       return {
-        account: {
-          id: result.account.id.toString(),
-          email: result.account.email.toString(),
-          createdAt: result.account.createdAt,
-        },
+        account: result.account,
       };
     },
 
     authenticateWithPassword: async (
       input,
-    ): Promise<{
-      receipt: { token: string; accountId: string; expiresAt: Date };
-      account: { id: string; email: string; createdAt: Date };
-    }> => {
+    ): Promise<AuthenticateWithPasswordOutput> => {
       const result = await authenticateUseCase.execute(input);
       return {
-        receipt: {
-          token: result.receipt.token,
-          accountId: result.receipt.accountId.toString(),
-          expiresAt: result.receipt.expiresAt,
-        },
-        account: {
-          id: result.account.id.toString(),
-          email: result.account.email.toString(),
-          createdAt: result.account.createdAt,
-        },
+        receipt: result.receipt,
+        account: result.account,
       };
     },
 
@@ -267,7 +245,6 @@ export function PasswordModule(
         password: input.password,
       }),
 
-    // Recovery methods (INSIDE password module)
     requestPasswordReset: (input) => requestResetUseCase.execute(input),
     verifyPasswordReset: (input) => verifyResetUseCase.execute(input),
     revokeAllPasswordResets: (input) =>
@@ -275,26 +252,26 @@ export function PasswordModule(
         accountId: createAccountId(input.accountId),
       }),
 
-    // AuthModule lifecycle interface
+    // AuthModule lifecycle — only counts/removes hash credentials
     async countCredentialsForAccount(accountId: string): Promise<number> {
-      return await config.passwordStore.countForAccount(
+      return await config.passwordHashStore.countForAccount(
         createAccountId(accountId),
       );
     },
 
     async removeCredential(credentialId: CredentialId): Promise<void> {
-      await config.passwordStore.delete(credentialId);
+      await config.passwordHashStore.delete(credentialId);
     },
 
     async removeAllCredentialsForAccount(
       accountId: string,
       _options?: { provider?: string },
     ): Promise<void> {
-      const credential = await config.passwordStore.findByAccountId(
+      const credential = await config.passwordHashStore.findByAccountId(
         createAccountId(accountId),
       );
-      if (credential && !isPasswordResetProof(credential.proof)) {
-        await config.passwordStore.delete(credential.id);
+      if (credential) {
+        await config.passwordHashStore.delete(credential.id);
       }
     },
   };

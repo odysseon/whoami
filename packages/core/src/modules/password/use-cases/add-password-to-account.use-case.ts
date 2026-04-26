@@ -10,7 +10,7 @@ import type {
   IdGeneratorPort,
   LoggerPort,
 } from "../../../kernel/ports/index.js";
-import type { PasswordCredentialStore } from "../ports/password-credential-store.port.js";
+import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
 import { createPasswordHashProof } from "../entities/password.proof.js";
 
@@ -34,14 +34,14 @@ export interface AddPasswordToAccountOutput {
  */
 export class AddPasswordToAccountUseCase {
   readonly #accountRepo: AccountRepository;
-  readonly #passwordStore: PasswordCredentialStore;
+  readonly #passwordStore: PasswordHashStore;
   readonly #passwordHasher: PasswordHasher;
   readonly #idGenerator: IdGeneratorPort;
   readonly #logger: LoggerPort;
 
   constructor(deps: {
     accountRepo: AccountRepository;
-    passwordStore: PasswordCredentialStore;
+    passwordStore: PasswordHashStore;
     passwordHasher: PasswordHasher;
     idGenerator: IdGeneratorPort;
     logger: LoggerPort;
