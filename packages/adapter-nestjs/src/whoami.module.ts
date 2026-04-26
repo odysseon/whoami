@@ -15,6 +15,7 @@ import { WhoamiAuthGuard } from "./guards/whoami-auth.guard.js";
 import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
 import { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
+import { OAuthCallbackHandler } from "./oauth/oauth-callback-handler.js";
 import { WHOAMI_RECEIPT_VERIFIER, moduleToken } from "./tokens.js";
 
 export * from "./tokens.js";
@@ -54,11 +55,13 @@ export class WhoamiModule {
       inject: options.inject ?? [],
     };
 
+    const providers = this.buildAsyncProviders(optionsProvider);
+
     return {
       module: WhoamiModule,
       imports: options.imports ?? [],
-      providers: this.buildAsyncProviders(optionsProvider),
-      exports: this.buildAsyncProviders(optionsProvider),
+      providers,
+      exports: providers,
     };
   }
 
@@ -66,24 +69,26 @@ export class WhoamiModule {
     const extractor = options.tokenExtractor ?? new BearerTokenExtractor();
 
     return [
-      // Core port
+      // Core port: receipt verifier
       { provide: WHOAMI_RECEIPT_VERIFIER, useValue: options.receiptVerifier },
 
       // Token extraction
       { provide: AuthTokenExtractor, useValue: extractor },
 
-      // Per-module injection tokens
+      // Per-module injection tokens — consumer injects PasswordMethods, OAuthMethods, etc.
       ...options.modules.map((mod) => ({
         provide: moduleToken(mod.kind),
         useValue: mod,
       })),
 
-      // Guard — auto-registered globally via APP_GUARD
-      // Consumer does NOT add this to their AppModule providers
+      // Guard — auto-registered globally. Consumer does NOT touch APP_GUARD.
       { provide: APP_GUARD, useClass: WhoamiAuthGuard },
 
       // Global exception filter
       { provide: APP_FILTER, useClass: WhoamiExceptionFilter },
+
+      // OAuth handler — injectable anywhere, no consumer registration needed
+      OAuthCallbackHandler,
     ];
   }
 
@@ -115,6 +120,9 @@ export class WhoamiModule {
       // Auto-registered guard & filter
       { provide: APP_GUARD, useClass: WhoamiAuthGuard },
       { provide: APP_FILTER, useClass: WhoamiExceptionFilter },
+
+      // OAuth handler — auto-wired
+      OAuthCallbackHandler,
     ];
   }
 }
