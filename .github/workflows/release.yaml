@@ -5,7 +5,7 @@ on:
     workflows: ["Continuous Integration"]
     types:
       - completed
-    branches: [main, develop]
+    branches: [main]
 
 concurrency:
   group: release
@@ -67,33 +67,10 @@ jobs:
         env:
           NPM_CONFIG_PROVENANCE: true
 
-      # =========================================================
-      # ADDED: Failsafe to enforce branch publishing rules
-      # =========================================================
-      - name: 🛡️ Enforce Branch Publishing Rules
-        run: |
-          HEAD_BRANCH="${{ github.event.workflow_run.head_branch }}"
-          echo "Triggering branch is $HEAD_BRANCH"
-
-          if [ "$HEAD_BRANCH" == "develop" ]; then
-            if [ ! -f ".changeset/pre.json" ]; then
-              echo "🚨 FATAL ERROR: On 'develop' but not in pre-release mode!"
-              echo "Run 'pnpm changeset pre enter <tag>' locally and commit."
-              exit 1
-            fi
-          elif [ "$HEAD_BRANCH" == "main" ]; then
-            if [ -f ".changeset/pre.json" ]; then
-              echo "🚨 FATAL ERROR: On 'main' but pre-release mode is active!"
-              echo "Run 'pnpm changeset pre exit' before merging to main."
-              exit 1
-            fi
-          fi
-
       - name: 🚀 Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
-          branch: ${{ github.event.workflow_run.head_branch }}
           version: pnpm exec changeset version
           publish: pnpm run release
           commit: "chore(release): version packages"
