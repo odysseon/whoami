@@ -2,6 +2,21 @@
   "name": "@odysseon/whoami-adapter-webcrypto",
   "version": "11.0.0-dev.0",
   "description": "WebCrypto adapter implementing SecureTokenPort for @odysseon/whoami-core",
+  "keywords": [
+    "authentication",
+    "crypto",
+    "token",
+    "webcrypto"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/odysseon/whoami.git",
+    "directory": "packages/adapter-webcrypto"
+  },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -13,9 +28,10 @@
       "types": "./dist/types/index.d.ts"
     }
   },
-  "files": [
-    "dist"
-  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs && pnpm run build:types",
     "build:esm": "tsc -p tsconfig.esm.json",
@@ -25,22 +41,15 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-vm-modules --test tests/**/*.test.ts"
   },
-  "keywords": [
-    "authentication",
-    "webcrypto",
-    "crypto",
-    "token"
-  ],
-  "license": "MIT",
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "peerDependencies": {
-    "@odysseon/whoami-core": ">=12.0.0-dev.0"
-  },
   "devDependencies": {
     "@odysseon/whoami-core": "workspace:*",
     "@types/node": "^20.19.39",
     "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "@odysseon/whoami-core": ">=12.0.0-dev.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

@@ -11,6 +11,11 @@
     "typescript"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/odysseon/whoami.git",
+    "directory": "packages/core"
+  },
   "files": [
     "dist"
   ],
@@ -49,6 +54,10 @@
       "require": "./dist/cjs/internal/index.js",
       "types": "./dist/types/internal/index.d.ts"
     }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs && pnpm run build:types",
