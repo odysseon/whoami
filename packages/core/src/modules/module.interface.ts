@@ -2,5 +2,4 @@
 export type {
   AuthModule,
   CredentialProofDeserializer,
-  AuthModuleFactory,
 } from "../kernel/ports/auth-module.port.js";

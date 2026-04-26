@@ -12,5 +12,4 @@ export type {
 export type {
   AuthModule,
   CredentialProofDeserializer,
-  AuthModuleFactory,
 } from "./auth-module.port.js";

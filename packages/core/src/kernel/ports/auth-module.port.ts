@@ -69,10 +69,3 @@ export interface AuthModule {
     options?: { provider?: string },
   ): Promise<void>;
 }
-
-/**
- * Factory function type for creating AuthModules
- */
-export type AuthModuleFactory<Config, Methods extends object> = (
-  config: Config,
-) => Methods & AuthModule;
