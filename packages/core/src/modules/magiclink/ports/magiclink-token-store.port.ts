@@ -9,7 +9,7 @@ import type { MagicLinkProof } from "../entities/magiclink.proof.js";
  * Port for MagicLink credential persistence operations.
  * Implemented by infrastructure adapters (e.g., database repositories).
  */
-export interface MagicLinkCredentialStore {
+export interface MagicLinkTokenStore {
   /**
    * Finds a MagicLink credential by token hash
    * @param tokenHash - The SHA-256 hash of the token

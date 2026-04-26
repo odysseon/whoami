@@ -13,7 +13,7 @@ import type {
   ClockPort,
   SecureTokenPort,
 } from "../../../kernel/ports/index.js";
-import type { MagicLinkCredentialStore } from "../ports/magiclink-credential-store.port.js";
+import type { MagicLinkTokenStore } from "../ports/magiclink-token-store.port.js";
 import { createMagicLinkProof } from "../entities/magiclink.proof.js";
 import { Account } from "../../../kernel/domain/entities/account.js";
 
@@ -48,7 +48,7 @@ export interface MagicLinkConfig {
  */
 export class RequestMagicLinkUseCase {
   readonly #accountRepo: AccountRepository;
-  readonly #magicLinkStore: MagicLinkCredentialStore;
+  readonly #magicLinkStore: MagicLinkTokenStore;
   readonly #idGenerator: IdGeneratorPort;
   readonly #logger: LoggerPort;
   readonly #clock: ClockPort;
@@ -57,7 +57,7 @@ export class RequestMagicLinkUseCase {
 
   constructor(deps: {
     accountRepo: AccountRepository;
-    magicLinkStore: MagicLinkCredentialStore;
+    magicLinkStore: MagicLinkTokenStore;
     idGenerator: IdGeneratorPort;
     logger: LoggerPort;
     clock: ClockPort;

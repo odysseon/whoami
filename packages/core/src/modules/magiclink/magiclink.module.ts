@@ -15,7 +15,7 @@ import type {
   ClockPort,
   SecureTokenPort,
 } from "../../kernel/ports/shared-ports.port.js";
-import type { MagicLinkCredentialStore } from "./ports/magiclink-credential-store.port.js";
+import type { MagicLinkTokenStore } from "./ports/magiclink-token-store.port.js";
 import {
   RequestMagicLinkUseCase,
   AuthenticateWithMagicLinkUseCase,
@@ -27,7 +27,7 @@ import {
  */
 export interface MagicLinkModuleConfig {
   readonly accountRepo: AccountRepository;
-  readonly magicLinkStore: MagicLinkCredentialStore;
+  readonly magicLinkStore: MagicLinkTokenStore;
   readonly receiptSigner: ReceiptSigner;
   readonly idGenerator: IdGeneratorPort;
   readonly logger: LoggerPort;

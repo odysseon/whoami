@@ -5,7 +5,7 @@ import type {
   ReceiptSigner,
   SecureTokenPort,
 } from "../../../kernel/ports/index.js";
-import type { MagicLinkCredentialStore } from "../ports/magiclink-credential-store.port.js";
+import type { MagicLinkTokenStore } from "../ports/magiclink-token-store.port.js";
 import {
   isMagicLinkProof,
   markMagicLinkAsUsed,
@@ -39,13 +39,13 @@ export interface AuthenticateWithMagicLinkConfig {
  * Verifies the token and issues a receipt for session management.
  */
 export class AuthenticateWithMagicLinkUseCase {
-  readonly #magicLinkStore: MagicLinkCredentialStore;
+  readonly #magicLinkStore: MagicLinkTokenStore;
   readonly #receiptSigner: ReceiptSigner;
   readonly #secureToken: SecureTokenPort;
   readonly #config: AuthenticateWithMagicLinkConfig;
 
   constructor(deps: {
-    magicLinkStore: MagicLinkCredentialStore;
+    magicLinkStore: MagicLinkTokenStore;
     receiptSigner: ReceiptSigner;
     secureToken: SecureTokenPort;
     config: AuthenticateWithMagicLinkConfig;
