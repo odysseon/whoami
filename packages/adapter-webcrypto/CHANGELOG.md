@@ -1,5 +1,27 @@
 # @odysseon/whoami-adapter-webcrypto
 
+## 11.0.0-dev.0
+
+### Major Changes
+
+- 5254b01: - Add SecureTokenPort interface for cryptographically secure token operations
+  - Inject SecureTokenPort into MagicLinkModule and PasswordModule
+  - Remove direct Web Crypto calls from use cases (now behind port boundary)
+  - Rename WebCryptoTokenHasher → WebCryptoSecureTokenAdapter
+  - Implement full SecureTokenPort (generateToken + hashToken)
+  - Use base64url encoding (RFC 4648 §5) instead of hex
+  - Generate 256-bit (32-byte) secure tokens
+  - Migrate build from tsup to native TypeScript (ESM + CJS)
+  - Reset version to 1.0.0 for new package lifecycle
+  - Add DOM lib for Web Crypto API type definitions
+
+### Patch Changes
+
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+  - @odysseon/whoami-core@12.0.0-dev.0
+
 ## 11.0.0-alpha.0
 
 ### Patch Changes

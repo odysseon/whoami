@@ -1,5 +1,14 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 14.0.0-dev.0
+
+### Patch Changes
+
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+  - @odysseon/whoami-core@12.0.0-dev.0
+
 ## 13.0.0
 
 ### Patch Changes

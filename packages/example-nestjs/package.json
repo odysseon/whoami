@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-example-nestjs",
-  "version": "9.9.13",
+  "version": "9.9.14-dev.0",
   "private": true,
   "description": "NestJS example app demonstrating all @odysseon/whoami-* adapters",
   "type": "module",
