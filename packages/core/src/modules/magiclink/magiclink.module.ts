@@ -3,9 +3,9 @@ import type {
   CredentialProofDeserializer,
 } from "../../kernel/ports/auth-module.port.js";
 import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
-import type {
-  CredentialId,
-  AccountId,
+import {
+  type CredentialId,
+  createAccountId,
 } from "../../kernel/domain/value-objects/index.js";
 import type { AccountRepository } from "../../kernel/ports/account-repository.port.js";
 import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
@@ -170,7 +170,7 @@ export function MagicLinkModule(
     // AuthModule lifecycle interface
     async countCredentialsForAccount(accountId: string): Promise<number> {
       return await config.magicLinkStore.countForAccount(
-        accountId as unknown as AccountId,
+        createAccountId(accountId),
       );
     },
 
@@ -183,7 +183,7 @@ export function MagicLinkModule(
       _options?: { provider?: string },
     ): Promise<void> {
       await config.magicLinkStore.deleteAllForAccount(
-        accountId as unknown as AccountId,
+        createAccountId(accountId),
       );
     },
   };

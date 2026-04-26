@@ -51,6 +51,5 @@ export type {
   ClockPort,
   AuthModule,
   CredentialProofDeserializer,
-  AuthModuleFactory,
   SecureTokenPort,
 } from "./ports/index.js";
