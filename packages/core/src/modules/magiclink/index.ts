@@ -16,7 +16,7 @@ export {
 } from "./entities/magiclink.proof.js";
 
 // Ports
-export type { MagicLinkCredentialStore } from "./ports/magiclink-credential-store.port.js";
+export type { MagicLinkTokenStore } from "./ports/magiclink-token-store.port.js";
 
 // Use cases
 export {

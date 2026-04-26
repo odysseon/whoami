@@ -93,6 +93,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.6
 
+  packages/adapter-prisma: {}
+
   packages/adapter-webcrypto:
     devDependencies:
       '@odysseon/whoami-core':
