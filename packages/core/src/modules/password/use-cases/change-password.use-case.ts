@@ -5,12 +5,9 @@ import {
 } from "../../../kernel/domain/errors/index.js";
 import type { AccountRepository } from "../../../kernel/ports/account-repository.port.js";
 import type { LoggerPort } from "../../../kernel/ports/index.js";
-import type { PasswordCredentialStore } from "../ports/password-credential-store.port.js";
+import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
-import {
-  createPasswordHashProof,
-  isPasswordHashProof,
-} from "../entities/password.proof.js";
+import { createPasswordHashProof } from "../entities/password.proof.js";
 
 /**
  * Input for changing password
@@ -33,13 +30,13 @@ export interface ChangePasswordOutput {
  */
 export class ChangePasswordUseCase {
   readonly #accountRepo: AccountRepository;
-  readonly #passwordStore: PasswordCredentialStore;
+  readonly #passwordStore: PasswordHashStore;
   readonly #passwordHasher: PasswordHasher;
   readonly #logger: LoggerPort;
 
   constructor(deps: {
     accountRepo: AccountRepository;
-    passwordStore: PasswordCredentialStore;
+    passwordStore: PasswordHashStore;
     passwordHasher: PasswordHasher;
     logger: LoggerPort;
   }) {
@@ -70,14 +67,6 @@ export class ChangePasswordUseCase {
 
     // Verify current password
     const proof = credential.proof;
-    if (!isPasswordHashProof(proof)) {
-      this.#logger.error("Credential has wrong proof type", {
-        accountId: input.accountId.toString(),
-        kind: proof.kind,
-      });
-      throw new AuthenticationError("Invalid credentials");
-    }
-
     const isValid = await this.#passwordHasher.compare(
       input.currentPassword,
       proof.hash,

@@ -20,7 +20,11 @@ export {
 } from "./entities/password.proof.js";
 
 // Ports
-export type { PasswordCredentialStore, PasswordHasher } from "./ports/index.js";
+export type {
+  PasswordHashStore,
+  PasswordResetTokenStore,
+  PasswordHasher,
+} from "./ports/index.js";
 
 // Use cases (for advanced users who need direct access)
 export {

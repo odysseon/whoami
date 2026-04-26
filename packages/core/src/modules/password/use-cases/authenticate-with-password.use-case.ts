@@ -12,9 +12,8 @@ import {
 } from "../../../kernel/domain/errors/index.js";
 import type { AccountRepository } from "../../../kernel/ports/account-repository.port.js";
 import type { ReceiptSigner, LoggerPort } from "../../../kernel/ports/index.js";
-import type { PasswordCredentialStore } from "../ports/password-credential-store.port.js";
+import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
-import { isPasswordHashProof } from "../entities/password.proof.js";
 
 /**
  * Input for authenticating with password
@@ -37,7 +36,7 @@ export interface AuthenticateWithPasswordOutput {
  */
 export class AuthenticateWithPasswordUseCase {
   readonly #accountRepo: AccountRepository;
-  readonly #passwordStore: PasswordCredentialStore;
+  readonly #passwordStore: PasswordHashStore;
   readonly #passwordHasher: PasswordHasher;
   readonly #receiptSigner: ReceiptSigner;
   readonly #logger: LoggerPort;
@@ -45,7 +44,7 @@ export class AuthenticateWithPasswordUseCase {
 
   constructor(deps: {
     accountRepo: AccountRepository;
-    passwordStore: PasswordCredentialStore;
+    passwordStore: PasswordHashStore;
     passwordHasher: PasswordHasher;
     receiptSigner: ReceiptSigner;
     logger: LoggerPort;
@@ -95,14 +94,6 @@ export class AuthenticateWithPasswordUseCase {
 
     // Verify password
     const proof = credential.proof;
-    if (!isPasswordHashProof(proof)) {
-      this.#logger.error("Credential has wrong proof type", {
-        accountId: account.id.toString(),
-        kind: proof.kind,
-      });
-      throw new AuthenticationError("Invalid credentials");
-    }
-
     const isValid = await this.#passwordHasher.compare(
       input.password,
       proof.hash,
