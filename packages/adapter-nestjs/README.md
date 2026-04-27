@@ -8,7 +8,8 @@ NestJS integration for `@odysseon/whoami-core`. Provides `WhoamiModule`, a globa
 npm install @odysseon/whoami-core @odysseon/whoami-adapter-nestjs
 npm install @odysseon/whoami-adapter-jose          # receipt signing
 npm install @odysseon/whoami-adapter-argon2         # password hashing (if using password auth)
-npm install @odysseon/whoami-adapter-webcrypto      # secure token hashing (if using magic links or password reset)
+npm install @odysseon/whoami-adapter-webcrypto      # secure token hashing (if using password reset or magic links)
+npm install @odysseon/whoami-adapter-prisma         # Prisma store implementations (recommended)
 ```
 
 ---
@@ -29,7 +30,10 @@ import {
   JoseReceiptVerifier,
 } from "@odysseon/whoami-adapter-jose";
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
-import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
+import { WebCryptoSecureTokenAdapter } from "@odysseon/whoami-adapter-webcrypto";
+import { createPrismaAdapters } from "@odysseon/whoami-adapter-prisma";
+import { PrismaClient } from "./generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 @Module({
   imports: [
@@ -38,25 +42,39 @@ import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const secret = config.get("JWT_SECRET")!;
+        const secret = config.get<string>("JWT_SECRET")!;
         const signer = new JoseReceiptSigner({ secret, issuer: "my-app" });
         const verifier = new JoseReceiptVerifier({ secret, issuer: "my-app" });
+
+        const prisma = new PrismaClient({
+          adapter: new PrismaPg({
+            connectionString: config.get("DATABASE_URL")!,
+          }),
+        });
+        const { accountRepo, passwordHashStore, resetTokenStore, oauthStore } =
+          createPrismaAdapters(prisma);
+
+        const secureToken = new WebCryptoSecureTokenAdapter();
+        const clock = { now: () => new Date() };
 
         return {
           modules: [
             PasswordModule({
-              accountRepo: new MyAccountRepository(),
-              passwordStore: new MyPasswordCredentialStore(),
+              accountRepo,
+              passwordHashStore,
+              resetTokenStore,
               passwordHasher: new Argon2PasswordHasher(),
               receiptSigner: signer,
-              idGenerator: () => crypto.randomUUID(),
+              idGenerator: { generate: () => crypto.randomUUID() },
               logger: console,
+              clock,
+              secureToken,
             }),
             OAuthModule({
-              accountRepo: new MyAccountRepository(),
-              oauthStore: new MyOAuthCredentialStore(),
+              accountRepo,
+              oauthStore,
               receiptSigner: signer,
-              idGenerator: () => crypto.randomUUID(),
+              idGenerator: { generate: () => crypto.randomUUID() },
               logger: console,
             }),
           ],
@@ -69,7 +87,7 @@ import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
 export class AppModule {}
 ```
 
-`WhoamiModule` is `@Global()`. `WhoamiAuthGuard` and `WhoamiExceptionFilter` are registered automatically — do **not** add them via `APP_GUARD` or `APP_FILTER` yourself.
+`WhoamiModule` is `@Global()`. `WhoamiAuthGuard` and `WhoamiExceptionFilter` are registered automatically via `APP_GUARD` / `APP_FILTER` — do **not** add them yourself.
 
 ---
 
