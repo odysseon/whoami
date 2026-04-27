@@ -35,6 +35,8 @@ your DB:
 | [`core`](packages/core/README.md) | `@odysseon/whoami-core` | Domain logic, port interfaces, module factories, `AuthOrchestrator` |
 | [`adapter-argon2`](packages/adapter-argon2/README.md) | `@odysseon/whoami-adapter-argon2` | `PasswordHasher` via argon2 |
 | [`adapter-jose`](packages/adapter-jose/README.md) | `@odysseon/whoami-adapter-jose` | `ReceiptSigner` / `ReceiptVerifier` via jose (HS256 JWT) |
+| [`adapter-webcrypto`](packages/adapter-webcrypto/README.md) | `@odysseon/whoami-adapter-webcrypto` | `SecureTokenPort` via native Web Crypto API |
+| [`adapter-prisma`](packages/adapter-prisma/README.md) | `@odysseon/whoami-adapter-prisma` | Prisma implementations of all whoami store ports |
 | [`adapter-nestjs`](packages/adapter-nestjs/README.md) | `@odysseon/whoami-adapter-nestjs` | NestJS module, guard, decorators, exception filter, OAuth handler |
 
 ## Examples

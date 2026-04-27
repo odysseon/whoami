@@ -1,14 +1,19 @@
 # @odysseon/whoami-adapter-webcrypto
 
-`TokenHasher` implementation using the native [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) (SHA-256).
+`SecureTokenPort` implementation using the native [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) (SHA-256 + CSPRNG).
 
 ## Overview
 
-Provides deterministic, dependency-free hashing via `globalThis.crypto.subtle`. Runs natively in Node.js ≥ 20, Deno, Bun, and modern browsers and edge runtimes — **zero external dependencies**.
+`WebCryptoSecureTokenAdapter` implements the `SecureTokenPort` interface from `@odysseon/whoami-core`. It provides two operations:
 
-**When to use:** Hashing opaque tokens before storing them (e.g. API keys). The same token always produces the same hash, so you can compare a candidate hash against the stored value on every request.
+- **`generateToken()`** — produces a 256-bit cryptographically secure random token, base64url-encoded.
+- **`hashToken(token)`** — deterministically hashes a token with SHA-256 (base64url output).
 
-**When not to use:** Passwords. SHA-256 is fast and deterministic — it must not be used for password hashing. Use `@odysseon/whoami-adapter-argon2` for passwords.
+Because it uses only `globalThis.crypto`, it runs natively in Node.js ≥ 20, Deno, Bun, Cloudflare Workers, and modern browsers — **zero external dependencies**.
+
+**When to use:** You need to generate and store opaque one-time tokens — magic-link tokens, password reset tokens — and verify them later by hashing the candidate and comparing against the stored hash.
+
+**When not to use:** Passwords. SHA-256 is fast and deterministic — it must never be used for password hashing. Use `@odysseon/whoami-adapter-argon2` for passwords.
 
 ## Installation
 
@@ -18,17 +23,59 @@ npm install @odysseon/whoami-core @odysseon/whoami-adapter-webcrypto
 
 ## Usage
 
+Pass the adapter to any module factory that accepts a `SecureTokenPort`:
+
 ```ts
-import { WebCryptoTokenHasher } from "@odysseon/whoami-adapter-webcrypto";
+import { WebCryptoSecureTokenAdapter } from "@odysseon/whoami-adapter-webcrypto";
+import { PasswordModule } from "@odysseon/whoami-core/password";
+import { MagicLinkModule } from "@odysseon/whoami-core/magiclink";
 
-const tokenHasher = new WebCryptoTokenHasher();
+const secureToken = new WebCryptoSecureTokenAdapter();
 
-// Hash a raw token before storing it
-const storedHash = await tokenHasher.hash(rawToken);
+// PasswordModule uses it for password reset tokens
+const password = PasswordModule({
+  accountRepo,
+  passwordStore,
+  resetTokenStore,
+  passwordHasher,
+  receiptSigner,
+  idGenerator: () => crypto.randomUUID(),
+  logger: console,
+  secureToken,
+});
 
-// On verify: hash the candidate and compare to the stored value
-const candidateHash = await tokenHasher.hash(providedToken);
+// MagicLinkModule uses it for magic-link tokens
+const magicLink = MagicLinkModule({
+  accountRepo,
+  magicLinkStore,
+  receiptSigner,
+  idGenerator: () => crypto.randomUUID(),
+  logger: console,
+  secureToken,
+});
+```
+
+## How the token flow works
+
+`generateToken()` produces the raw plaintext token you hand to the user (via email, URL, etc). `hashToken()` produces what you store in the database. On verification, you hash the candidate token and compare hashes — the plaintext never touches your database.
+
+```ts
+// On issuance:
+const rawToken = secureToken.generateToken(); // send to user
+const storedHash = await secureToken.hashToken(rawToken); // store this
+
+// On verification:
+const candidateHash = await secureToken.hashToken(userProvidedToken);
 const isValid = candidateHash === storedHash;
 ```
 
-Pass the instance to any component that accepts a `TokenHasher` port.
+whoami modules handle this flow internally — you do not need to call these methods directly.
+
+## Token properties
+
+| Property              | Value                                          |
+| --------------------- | ---------------------------------------------- |
+| Entropy               | 256 bits (32 bytes)                            |
+| Encoding              | base64url (RFC 4648 §5) — URL-safe, no padding |
+| Hash algorithm        | SHA-256                                        |
+| External dependencies | None                                           |

@@ -121,13 +121,13 @@ graph LR
         PH["PasswordHasher\n────────────────\nhash(plainText)\ncompare(plainText, hash)"]
         RS["ReceiptSigner\n──────────────\nsign(accountId, expiresAt)"]
         RV["ReceiptVerifier\n────────────────\nverify(token)"]
-        ST["SecureTokenPort\n────────────────\ngenerate(): string\nhash(token): string"]
+        ST["SecureTokenPort\n────────────────\ngenerateToken(): string\nhashToken(token): Promise‹string›"]
     end
 
     subgraph "Implementations"
         Argon2["Argon2PasswordHasher\n(@odysseon/whoami-adapter-argon2)"]
         Jose["JoseReceiptSigner\nJoseReceiptVerifier\n(@odysseon/whoami-adapter-jose)"]
-        WC["WebCryptoTokenHasher\n(@odysseon/whoami-adapter-webcrypto)"]
+        WC["WebCryptoSecureTokenAdapter\n(@odysseon/whoami-adapter-webcrypto)"]
         Yours["Your implementations\n(in-memory, PostgreSQL, etc.)"]
     end
 
