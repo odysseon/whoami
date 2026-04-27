@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-adapter-webcrypto",
-  "version": "11.0.0-dev.0",
+  "version": "11.0.0-dev.1",
   "description": "WebCrypto adapter implementing SecureTokenPort for @odysseon/whoami-core",
   "keywords": [
     "authentication",
@@ -47,7 +47,7 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@odysseon/whoami-core": ">=12.0.0-dev.0"
+    "@odysseon/whoami-core": ">=12.0.0-dev.1"
   },
   "engines": {
     "node": ">=20.0.0"

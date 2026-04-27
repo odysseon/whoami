@@ -1,7 +1,7 @@
 {
   "private": false,
   "name": "@odysseon/whoami-adapter-nestjs",
-  "version": "14.0.0-dev.0",
+  "version": "14.0.0-dev.1",
   "description": "NestJS receipt-auth integration adapter for Odysseon Whoami core",
   "license": "ISC",
   "author": "Hammed Anuoluwapo Pelumi",
@@ -52,7 +52,7 @@
   "peerDependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@odysseon/whoami-core": "12.0.0-dev.0"
+    "@odysseon/whoami-core": "12.0.0-dev.1"
   },
   "engines": {
     "node": ">=24.0.0"
