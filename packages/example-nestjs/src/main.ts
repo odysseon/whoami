@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
     .setTitle("Whoami — NestJS Example")
     .setDescription(
       "Demonstrates all `@odysseon/whoami-*` adapters wired into a NestJS 11 application " +
-        "with in-memory stores. **Not for production use.**",
+        "with Prisma database backing. **Not for production use.**",
     )
     .setVersion("0.0.0")
     .addBearerAuth({
@@ -22,7 +22,7 @@ async function bootstrap(): Promise<void> {
       description: "Receipt token issued by any `/auth/*` endpoint.",
     })
     .addTag("accounts", "Account registration")
-    .addTag("auth", "Authentication — password, OAuth")
+    .addTag("auth", "Authentication — password, OAuth, magic link")
     .addTag("identity", "Authenticated identity endpoints")
     .build();
 
@@ -43,9 +43,13 @@ async function bootstrap(): Promise<void> {
   console.info(`[whoami] Swagger UI  → http://localhost:${port}/docs`);
   console.info(`[whoami] OpenAPI JSON → http://localhost:${port}/docs.json`);
   console.info("[whoami] Public routes:");
-  console.info("  POST /accounts/register   { email, password }");
-  console.info("  POST /auth/login          { email, password }");
-  console.info("  POST /auth/oauth          { email, provider, providerId }");
+  console.info("  POST /accounts/register        { email, password }");
+  console.info("  POST /auth/login               { email, password }");
+  console.info(
+    "  POST /auth/oauth               { email, provider, providerId }",
+  );
+  console.info("  POST /auth/magic-link/request  { email }");
+  console.info("  POST /auth/magic-link/verify   { token }");
   console.info("[whoami] Protected routes (Bearer <token> required):");
   console.info("  GET  /me");
 }
