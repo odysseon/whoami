@@ -10,6 +10,7 @@ import { DomainError } from "@odysseon/whoami-core";
 import type {
   PasswordMethods,
   OAuthMethods,
+  MagicLinkMethods,
   AccountRepository,
   ReceiptVerifier,
 } from "@odysseon/whoami-core";
@@ -22,6 +23,7 @@ import { createAuthMiddleware } from "./middleware/auth.js";
 interface AppDependencies {
   password: PasswordMethods;
   oauth: OAuthMethods;
+  magicLink: MagicLinkMethods;
   receiptVerifier: ReceiptVerifier;
   accountRepo: AccountRepository;
 }
@@ -43,7 +45,11 @@ export const createApp = (dependencies: AppDependencies): Express => {
   app.use(createAccountsRouter(dependencies.password));
   app.use(
     "/login",
-    createAuthRouter(dependencies.password, dependencies.oauth),
+    createAuthRouter(
+      dependencies.password,
+      dependencies.oauth,
+      dependencies.magicLink,
+    ),
   );
   app.use(createIdentityRouter(dependencies.accountRepo, authMiddleware));
 

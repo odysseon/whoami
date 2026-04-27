@@ -1,6 +1,11 @@
+import "dotenv/config";
 import { pathToFileURL } from "node:url";
 import type { Server } from "node:http";
-import { PasswordModule, OAuthModule } from "@odysseon/whoami-core";
+import {
+  PasswordModule,
+  OAuthModule,
+  MagicLinkModule,
+} from "@odysseon/whoami-core";
 import {
   JoseReceiptSigner,
   JoseReceiptVerifier,
@@ -8,14 +13,10 @@ import {
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
 import { WebCryptoSecureTokenAdapter } from "@odysseon/whoami-adapter-webcrypto";
 import { createApp } from "./app.js";
-import {
-  InMemoryAccountRepository,
-  InMemoryPasswordCredentialStore,
-  InMemoryOAuthCredentialStore,
-} from "./infrastructure/in-memory-repositories.js";
 import { UuidGenerator } from "./infrastructure/id-generator.js";
 import { consoleLogger } from "./infrastructure/logger.js";
 import { env, SystemClock } from "./utils.js";
+import { prismaAdapters } from "./infrastructure/prisma-repositories.js";
 
 const JOSE_SECRET = env("JOSE_SECRET", "dev-secret-at-least-32-chars-long!!");
 const joseConfig = { secret: JOSE_SECRET, issuer: "whoami-express-example" };
@@ -24,21 +25,20 @@ const joseConfig = { secret: JOSE_SECRET, issuer: "whoami-express-example" };
 const receiptSigner = new JoseReceiptSigner(joseConfig);
 const receiptVerifier = new JoseReceiptVerifier(joseConfig);
 const passwordHasher = new Argon2PasswordHasher();
-const accountRepo = new InMemoryAccountRepository();
-const passwordStore = new InMemoryPasswordCredentialStore();
-const oauthStore = new InMemoryOAuthCredentialStore();
 const secureToken = new WebCryptoSecureTokenAdapter();
 const idGenerator = new UuidGenerator();
 const resetTokenLifespanMinutes = 15;
 const tokenLifespanMinutes = 60;
+const magicLinkLifespanMinutes = 15;
 const logger = consoleLogger;
 const clock = new SystemClock();
 
 // Create fully-typed module facades — no type erasure
 const password = PasswordModule({
-  accountRepo,
+  accountRepo: prismaAdapters.accountRepo,
   passwordHasher,
-  passwordStore,
+  passwordHashStore: prismaAdapters.passwordHashStore,
+  resetTokenStore: prismaAdapters.resetTokenStore,
   receiptSigner,
   logger,
   resetTokenLifespanMinutes,
@@ -49,15 +49,32 @@ const password = PasswordModule({
 });
 
 const oauth = OAuthModule({
-  accountRepo,
-  oauthStore,
+  accountRepo: prismaAdapters.accountRepo,
+  oauthStore: prismaAdapters.oauthStore,
   receiptSigner,
   idGenerator,
   logger,
   tokenLifespanMinutes,
 });
 
-const app = createApp({ password, oauth, receiptVerifier, accountRepo });
+const magicLink = MagicLinkModule({
+  accountRepo: prismaAdapters.accountRepo,
+  magicLinkStore: prismaAdapters.magicLinkStore,
+  receiptSigner,
+  idGenerator,
+  logger,
+  clock,
+  secureToken,
+  tokenLifespanMinutes: magicLinkLifespanMinutes,
+});
+
+const app = createApp({
+  password,
+  oauth,
+  magicLink,
+  receiptVerifier,
+  accountRepo: prismaAdapters.accountRepo,
+});
 
 export function startServer(port: number): Server {
   const server = app.listen(port, () => {
@@ -69,6 +86,8 @@ export function startServer(port: number): Server {
     console.info("  POST   /register");
     console.info("  POST   /login");
     console.info("  POST   /login/oauth");
+    console.info("  POST   /login/magic-link/request");
+    console.info("  POST   /login/magic-link/verify");
     console.info("  GET    /me");
   });
   return server;
