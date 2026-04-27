@@ -5,12 +5,12 @@
     "rootDir": ".",
     "paths": {
       "@odysseon/whoami-core": [
-        "./node_modules/@odysseon/whoami-core/src/index.ts"
+        "./node_modules/@odysseon/whoami-core/dist/types/index.d.ts"
       ],
       "@odysseon/whoami-core/*": [
-        "./node_modules/@odysseon/whoami-core/src/*.ts"
+        "./node_modules/@odysseon/whoami-core/dist/types/*"
       ]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "prisma.config.ts"]
 }

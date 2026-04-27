@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@odysseon/whoami-core": [
+        "./node_modules/@odysseon/whoami-core/src/index.ts"
+      ],
+      "@odysseon/whoami-core/*": [
+        "./node_modules/@odysseon/whoami-core/src/*.ts"
+      ]
+    }
+  }
+}
