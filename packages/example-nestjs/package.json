@@ -5,6 +5,7 @@
   "description": "NestJS example app demonstrating all @odysseon/whoami-* adapters",
   "type": "module",
   "scripts": {
+    "prebuild": "prisma generate",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\"",
