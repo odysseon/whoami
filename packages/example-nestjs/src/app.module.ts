@@ -9,15 +9,16 @@ import {
   JoseReceiptVerifier,
 } from "@odysseon/whoami-adapter-jose";
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
-import { PasswordModule, OAuthModule } from "@odysseon/whoami-core";
+import { WebCryptoSecureTokenAdapter } from "@odysseon/whoami-adapter-webcrypto";
+import {
+  PasswordModule,
+  OAuthModule,
+  MagicLinkModule,
+} from "@odysseon/whoami-core";
 import { AccountsModule } from "./accounts/accounts.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { IdentityModule } from "./identity/identity.module.js";
-import {
-  InMemoryAccountRepository,
-  InMemoryOAuthCredentialStore,
-  InMemoryPasswordCredentialStore,
-} from "./infrastructure/in-memory.stores.js";
+import { prismaAdapters } from "./infrastructure/prisma-repositories.js";
 
 @Module({
   imports: [
@@ -32,7 +33,6 @@ import {
           "this-is-a-very-long-secret-key-that-is-at-least-32-chars!!",
         );
 
-        const accountRepo = new InMemoryAccountRepository();
         const receiptSigner = new JoseReceiptSigner({
           secret,
           issuer: "whoami-example",
@@ -41,41 +41,48 @@ import {
           secret,
           issuer: "whoami-example",
         });
+        const passwordHasher = new Argon2PasswordHasher();
+        const secureToken = new WebCryptoSecureTokenAdapter();
         const idGenerator = { generate: (): string => crypto.randomUUID() };
         const logger = console;
         const clock = { now: (): Date => new Date() };
-        const secureToken = {
-          generateToken: (): string => crypto.randomUUID().replace(/-/g, ""),
-          hashToken: async (token: string): Promise<string> => {
-            const buf = await crypto.subtle.digest(
-              "SHA-256",
-              new TextEncoder().encode(token),
-            );
-            return Array.from(new Uint8Array(buf))
-              .map((b) => b.toString(16).padStart(2, "0"))
-              .join("");
-          },
-        };
+        const tokenLifespanMinutes = 60;
+        const resetTokenLifespanMinutes = 15;
+        const magicLinkLifespanMinutes = 15;
 
         return {
           receiptVerifier,
           modules: [
             PasswordModule({
-              accountRepo,
-              passwordStore: new InMemoryPasswordCredentialStore(),
-              passwordHasher: new Argon2PasswordHasher(),
+              accountRepo: prismaAdapters.accountRepo,
+              passwordHashStore: prismaAdapters.passwordHashStore,
+              resetTokenStore: prismaAdapters.resetTokenStore,
+              passwordHasher,
               receiptSigner,
               idGenerator,
               logger,
               clock,
               secureToken,
+              tokenLifespanMinutes,
+              resetTokenLifespanMinutes,
             }),
             OAuthModule({
-              accountRepo,
-              oauthStore: new InMemoryOAuthCredentialStore(),
+              accountRepo: prismaAdapters.accountRepo,
+              oauthStore: prismaAdapters.oauthStore,
               receiptSigner,
               idGenerator,
               logger,
+              tokenLifespanMinutes,
+            }),
+            MagicLinkModule({
+              accountRepo: prismaAdapters.accountRepo,
+              magicLinkStore: prismaAdapters.magicLinkStore,
+              receiptSigner,
+              idGenerator,
+              logger,
+              clock,
+              secureToken,
+              tokenLifespanMinutes: magicLinkLifespanMinutes,
             }),
           ],
         };

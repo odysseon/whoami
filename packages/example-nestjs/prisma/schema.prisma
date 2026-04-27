@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// @odysseon/whoami-adapter-prisma
+// ============================================
+// ============================================
+// @odysseon/whoami-adapter-prisma
+// Auth Tables Fragment
+// ============================================
+// This file is automatically appended to your schema.prisma
+// Do not edit directly — changes will be preserved but overwritten on update
+// ============================================
+
+model Account {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  // Auth relations (internal — do not query directly)
+  passwordHash PasswordHash?
+  resetTokens  PasswordResetToken[]
+  oauthCreds   OAuthCredential[]
+  magicLinks   MagicLinkToken[]
+
+  // ============================================
+  // 👇 CONSUMER ACTION REQUIRED
+  // ============================================
+  // Uncomment the line below to link your User model
+  // user User?
+  // ============================================
+}
+
+model PasswordHash {
+  id        String   @id @default(cuid())
+  accountId String   @unique
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  hash      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("password_hashes")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  accountId String
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([accountId])
+  @@map("password_reset_tokens")
+}
+
+model OAuthCredential {
+  id         String   @id @default(cuid())
+  accountId  String
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  provider   String
+  providerId String
+  createdAt  DateTime @default(now())
+
+  @@unique([provider, providerId])
+  @@index([accountId])
+  @@map("oauth_credentials")
+}
+
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  accountId String
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([accountId])
+  @@map("magic_link_tokens")
+}
+
+// ============================================
+// End of @odysseon/whoami-adapter-prisma
+// ============================================
