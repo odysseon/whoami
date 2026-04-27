@@ -5,11 +5,16 @@ import {
   type NextFunction,
 } from "express";
 import { DomainError } from "@odysseon/whoami-core";
-import { type PasswordMethods, type OAuthMethods } from "@odysseon/whoami-core";
+import type {
+  PasswordMethods,
+  OAuthMethods,
+  MagicLinkMethods,
+} from "@odysseon/whoami-core";
 
 export const createAuthRouter = (
   password: PasswordMethods,
   oauth: OAuthMethods,
+  magicLink: MagicLinkMethods,
 ): Router => {
   const router = Router();
 
@@ -27,13 +32,13 @@ export const createAuthRouter = (
           return;
         }
 
-        const receipt = await password.authenticateWithPassword({
+        const result = await password.authenticateWithPassword({
           email,
           password: plainPassword,
         });
         res.json({
-          token: receipt.receipt.token,
-          expiresAt: receipt.receipt.expiresAt,
+          token: result.receipt.token,
+          expiresAt: result.receipt.expiresAt,
         });
       } catch (err) {
         if (err instanceof DomainError) {
@@ -62,14 +67,71 @@ export const createAuthRouter = (
           return;
         }
 
-        const receipt = await oauth.authenticateWithOAuth({
+        const result = await oauth.authenticateWithOAuth({
           email,
           provider,
           providerId,
         });
         res.json({
-          token: receipt.receipt.token,
-          expiresAt: receipt.receipt.expiresAt,
+          token: result.receipt.token,
+          expiresAt: result.receipt.expiresAt,
+        });
+      } catch (err) {
+        if (err instanceof DomainError) {
+          res.status(401).json({ error: err.message });
+          return;
+        }
+        next(err);
+      }
+    },
+  );
+
+  // POST /login/magic-link/request
+  router.post(
+    "/magic-link/request",
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const { email } = req.body as { email?: string };
+        if (!email) {
+          res.status(400).json({ error: "email is required." });
+          return;
+        }
+
+        const result = await magicLink.requestMagicLink({ email });
+
+        // In production, email the token. Here we return it for demo.
+        res.json({
+          message: "Magic link issued.",
+          magicLinkToken: result.plainTextToken,
+          expiresAt: result.expiresAt,
+          isNewAccount: result.isNewAccount,
+          note: "demo only — never expose tokens in production",
+        });
+      } catch (err) {
+        if (err instanceof DomainError) {
+          res.status(400).json({ error: err.message });
+          return;
+        }
+        next(err);
+      }
+    },
+  );
+
+  // POST /login/magic-link/verify
+  router.post(
+    "/magic-link/verify",
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const { token } = req.body as { token?: string };
+        if (!token) {
+          res.status(400).json({ error: "token is required." });
+          return;
+        }
+
+        const result = await magicLink.authenticateWithMagicLink({ token });
+        res.json({
+          token: result.receipt.token,
+          expiresAt: result.receipt.expiresAt,
         });
       } catch (err) {
         if (err instanceof DomainError) {
