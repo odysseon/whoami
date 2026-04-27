@@ -8,6 +8,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "postinstall": "node ../adapter-prisma/scripts/merge-schema.js",
+    "prebuild": "prisma generate",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\"",
