@@ -1,11 +1,20 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import type { AccountId } from "@odysseon/whoami-core";
+import { AccountId, InvalidReceiptError } from "@odysseon/whoami-core";
 
+/**
+ * Resolves the verified AccountId from the current request.
+ *
+ * @remarks
+ * Returns **only** the AccountId. The receipt has already been verified
+ * by WhoamiAuthGuard, but this decorator performs a final expiry check
+ * as defense in depth. If you need email, profile, or roles, fetch them
+ * yourself using the returned AccountId.value as the foreign key.
+ *
+ * @throws Error if used outside a guarded route
+ * @throws InvalidReceiptError if the receipt has expired
+ */
 export const CurrentAccount = createParamDecorator(
-  (
-    data: keyof { id: AccountId; email: string; createdAt: Date } | undefined,
-    ctx: ExecutionContext,
-  ) => {
+  (_data: unknown, ctx: ExecutionContext): AccountId => {
     const request = ctx.switchToHttp().getRequest<{
       whoami?: { receipt: { accountId: AccountId; expiresAt: Date } };
     }>();
@@ -17,13 +26,10 @@ export const CurrentAccount = createParamDecorator(
       );
     }
 
-    // Return lightweight account proxy from receipt
-    const account = {
-      id: receipt.accountId,
-      email: receipt.accountId, // Note: receipt doesn't carry email; hydration needed
-      createdAt: new Date(), // Placeholder — full hydration via AccountRepository
-    };
+    if (receipt.expiresAt.getTime() < Date.now()) {
+      throw new InvalidReceiptError("Receipt has expired.");
+    }
 
-    return data ? account[data] : account;
+    return receipt.accountId;
   },
 );
