@@ -5,5 +5,5 @@ export class ProfileResponse {
   accountId!: string;
 
   @ApiProperty({ type: Date, format: "date-time" })
-  tokenExpiresAt!: Date;
+  expiresAt!: Date;
 }
