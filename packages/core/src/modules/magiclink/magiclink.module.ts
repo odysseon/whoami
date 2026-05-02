@@ -1,152 +1,52 @@
+import type { AuthModule } from "../../kernel/ports/auth-module.port.js";
+import { requirePort, requireMethod } from "../../kernel/shared/validation.js";
 import type {
-  AuthModule,
-  CredentialProofDeserializer,
-} from "../../kernel/ports/auth-module.port.js";
-import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
+  MagicLinkModuleConfig,
+  MagicLinkMethods,
+} from "./magiclink.config.js";
+import { MagicLinkProofDeserializer } from "./magiclink.deserializer.js";
+import { buildMagicLinkUseCases } from "./magiclink.factory.js";
 import {
-  type CredentialId,
-  createAccountId,
-} from "../../kernel/domain/value-objects/index.js";
-import type { AccountRepository } from "../../kernel/ports/account-repository.port.js";
-import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
-import type {
-  IdGeneratorPort,
-  LoggerPort,
-  ClockPort,
-  SecureTokenPort,
-} from "../../kernel/ports/shared-ports.port.js";
-import type { MagicLinkTokenStore } from "./ports/magiclink-token-store.port.js";
-import {
-  RequestMagicLinkUseCase,
-  AuthenticateWithMagicLinkUseCase,
-  type RequestMagicLinkOutput,
-} from "./use-cases/index.js";
+  buildMagicLinkLifecycle,
+  type MagicLinkLifecycle,
+} from "./magiclink.lifecycle.js";
 
-/**
- * Configuration for the MagicLink module
- */
-export interface MagicLinkModuleConfig {
-  readonly accountRepo: AccountRepository;
-  readonly magicLinkStore: MagicLinkTokenStore;
-  readonly receiptSigner: ReceiptSigner;
-  readonly idGenerator: IdGeneratorPort;
-  readonly logger: LoggerPort;
-  readonly clock: ClockPort;
-  readonly secureToken: SecureTokenPort;
-  readonly tokenLifespanMinutes?: number;
-  readonly receiptLifespanMinutes?: number;
+export type { MagicLinkModuleConfig, MagicLinkMethods };
+
+function validateConfig(config: MagicLinkModuleConfig): void {
+  requireMethod(config.accountRepo, "findByEmail", "accountRepo");
+  requireMethod(config.magicLinkStore, "findByTokenHash", "magicLinkStore");
+  requireMethod(config.receiptSigner, "sign", "receiptSigner");
+  requirePort(config.idGenerator, "idGenerator");
+  requirePort(config.logger, "logger");
+  requirePort(config.clock, "clock");
+  requireMethod(config.secureToken, "hashToken", "secureToken");
 }
 
-/**
- * Methods exposed by the MagicLink module
- */
-export interface MagicLinkMethods {
-  readonly requestMagicLink: (input: {
-    email: string;
-  }) => Promise<RequestMagicLinkOutput>;
-
-  readonly authenticateWithMagicLink: (input: { token: string }) => Promise<{
-    receipt: { token: string; accountId: string; expiresAt: Date };
-    accountId: string;
-    email: string;
-  }>;
-}
-
-function assertObject(data: unknown): asserts data is Record<string, unknown> {
-  if (data === null || typeof data !== "object") {
-    throw new Error("MagicLink proof must be an object");
-  }
-}
-
-function credentialProof<T extends CredentialProof>(proof: T): CredentialProof {
-  return proof;
-}
-
-/**
- * Deserializer for MagicLink proofs
- */
-class MagicLinkProofDeserializer implements CredentialProofDeserializer {
-  readonly kind = "magiclink";
-
-  deserialize(data: unknown): CredentialProof {
-    assertObject(data);
-
-    if (data["kind"] !== "magiclink") {
-      throw new Error(
-        `Expected kind 'magiclink' but got '${String(data["kind"])}'`,
-      );
-    }
-
-    if (typeof data["tokenHash"] !== "string") {
-      throw new Error("MagicLink proof must have a tokenHash string");
-    }
-
-    if (typeof data["email"] !== "string") {
-      throw new Error("MagicLink proof must have an email string");
-    }
-
-    if (
-      !(data["expiresAt"] instanceof Date) &&
-      typeof data["expiresAt"] !== "string"
-    ) {
-      throw new Error("MagicLink proof must have an expiresAt date");
-    }
-
-    return credentialProof({
-      kind: "magiclink",
-      tokenHash: data["tokenHash"],
-      email: data["email"],
-      expiresAt:
-        data["expiresAt"] instanceof Date
-          ? data["expiresAt"]
-          : new Date(data["expiresAt"]),
-      usedAt:
-        data["usedAt"] instanceof Date
-          ? data["usedAt"]
-          : typeof data["usedAt"] === "string"
-            ? new Date(data["usedAt"])
-            : undefined,
-    });
-  }
-}
-
-/**
- * Creates the MagicLink authentication module.
- *
- * EXTENSIBILITY PROOF: This module was added WITHOUT any changes to kernel files.
- * It implements the AuthModule interface and is composed at the application layer.
- *
- * Zero kernel changes required for new auth methods.
- */
+/** Creates the MagicLink authentication module. */
 export function MagicLinkModule(
   config: MagicLinkModuleConfig,
 ): MagicLinkMethods & AuthModule {
+  validateConfig(config);
+
   const tokenLifespanMinutes = config.tokenLifespanMinutes ?? 15;
   const receiptLifespanMinutes = config.receiptLifespanMinutes ?? 60;
 
-  // Create use cases
-  const requestUseCase = new RequestMagicLinkUseCase({
-    accountRepo: config.accountRepo,
-    magicLinkStore: config.magicLinkStore,
-    idGenerator: config.idGenerator,
-    logger: config.logger,
-    clock: config.clock,
-    secureToken: config.secureToken,
-    config: { tokenLifespanMinutes },
-  });
+  const uc = buildMagicLinkUseCases(
+    config,
+    tokenLifespanMinutes,
+    receiptLifespanMinutes,
+  );
 
-  const authenticateUseCase = new AuthenticateWithMagicLinkUseCase({
+  const lifecycle: MagicLinkLifecycle = buildMagicLinkLifecycle({
     magicLinkStore: config.magicLinkStore,
-    receiptSigner: config.receiptSigner,
-    secureToken: config.secureToken,
-    config: { receiptLifespanMinutes },
   });
 
   return {
     kind: "magiclink",
     proofDeserializer: new MagicLinkProofDeserializer(),
 
-    requestMagicLink: (input) => requestUseCase.execute(input),
+    requestMagicLink: (input) => uc.request.execute(input),
 
     authenticateWithMagicLink: async (
       input,
@@ -155,7 +55,7 @@ export function MagicLinkModule(
       accountId: string;
       email: string;
     }> => {
-      const result = await authenticateUseCase.execute(input);
+      const result = await uc.authenticate.execute(input);
       return {
         receipt: {
           token: result.receipt.token,
@@ -167,24 +67,6 @@ export function MagicLinkModule(
       };
     },
 
-    // AuthModule lifecycle interface
-    async countCredentialsForAccount(accountId: string): Promise<number> {
-      return await config.magicLinkStore.countForAccount(
-        createAccountId(accountId),
-      );
-    },
-
-    async removeCredential(credentialId: CredentialId): Promise<void> {
-      await config.magicLinkStore.delete(credentialId);
-    },
-
-    async removeAllCredentialsForAccount(
-      accountId: string,
-      _options?: { provider?: string },
-    ): Promise<void> {
-      await config.magicLinkStore.deleteAllForAccount(
-        createAccountId(accountId),
-      );
-    },
+    ...lifecycle,
   };
 }
