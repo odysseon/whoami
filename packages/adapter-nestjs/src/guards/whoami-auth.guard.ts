@@ -11,6 +11,7 @@ import { InvalidReceiptError } from "@odysseon/whoami-core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
 import { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
 import { WHOAMI_RECEIPT_VERIFIER } from "../tokens.js";
+import type { RequestIdentity } from "../identity.js";
 
 @Injectable()
 export class WhoamiAuthGuard implements CanActivate {
@@ -38,7 +39,7 @@ export class WhoamiAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<{
       headers: { authorization?: string };
-      whoami?: { receipt: Awaited<ReturnType<ReceiptVerifier["verify"]>> };
+      whoami?: { identity: RequestIdentity };
     }>();
 
     const token = this.#extractor.extract(request);
@@ -48,7 +49,15 @@ export class WhoamiAuthGuard implements CanActivate {
 
     try {
       const receipt = await this.#verifier.verify(token);
-      request.whoami = { receipt };
+
+      // Strip the token — only store safe identity fields
+      request.whoami = {
+        identity: {
+          accountId: receipt.accountId,
+          expiresAt: receipt.expiresAt,
+        },
+      };
+
       return true;
     } catch (err) {
       if (err instanceof InvalidReceiptError) {
