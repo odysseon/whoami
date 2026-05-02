@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { WebCryptoSecureTokenAdapter } from "../src/webcrypto-secure-token.adapter.ts";
+import { WebCryptoSecureTokenAdapter } from "./webcrypto-secure-token.adapter.js";
 
 test("verifyToken rejects mismatched tokens", async () => {
   const adapter = new WebCryptoSecureTokenAdapter();

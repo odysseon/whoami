@@ -5,6 +5,5 @@
     "moduleResolution": "bundler",
     "outDir": "./dist/types",
     "emitDeclarationOnly": true
-  },
-  "exclude": ["tests"]
+  }
 }
