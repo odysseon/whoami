@@ -1,5 +1,3 @@
-import type { Receipt } from "../../../kernel/domain/entities/index.js";
-import type { AccountId } from "../../../kernel/domain/value-objects/index.js";
 import { InvalidResetTokenError } from "../../../kernel/domain/errors/index.js";
 import type {
   ReceiptSigner,
@@ -10,24 +8,14 @@ import {
   isPasswordResetProof,
   markResetProofAsUsed,
 } from "../entities/password.proof.js";
-
-export interface VerifyPasswordResetInput {
-  readonly token: string;
-}
-
-export interface VerifyPasswordResetOutput {
-  readonly receipt: Receipt;
-  readonly accountId: AccountId;
-}
-
-export interface VerifyPasswordResetConfig {
-  readonly receiptLifespanMinutes: number;
-}
+import type {
+  VerifyPasswordResetInput,
+  VerifyPasswordResetOutput,
+  VerifyPasswordResetConfig,
+} from "../password.config.js";
 
 /**
- * Use case for verifying a password reset token.
- * Exchanges a valid, unexpired, unused token for a short-lived receipt
- * that authorises a single password change.
+ * Use case for verifying a password reset token
  */
 export class VerifyPasswordResetUseCase {
   readonly #resetTokenStore: PasswordResetTokenStore;

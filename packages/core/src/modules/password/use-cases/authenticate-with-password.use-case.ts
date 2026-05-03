@@ -1,11 +1,5 @@
-import type {
-  Account,
-  Receipt,
-} from "../../../kernel/domain/entities/index.js";
-import {
-  type EmailAddress,
-  createEmailAddress,
-} from "../../../kernel/domain/value-objects/index.js";
+import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
+import { createEmailAddress } from "../../../kernel/domain/value-objects/index.js";
 import {
   AuthenticationError,
   InvalidEmailError,
@@ -14,22 +8,10 @@ import type { AccountRepository } from "../../../kernel/ports/account-repository
 import type { ReceiptSigner, LoggerPort } from "../../../kernel/ports/index.js";
 import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
-
-/**
- * Input for authenticating with password
- */
-export interface AuthenticateWithPasswordInput {
-  readonly email: string;
-  readonly password: string;
-}
-
-/**
- * Output from authenticating with password
- */
-export interface AuthenticateWithPasswordOutput {
-  readonly receipt: Receipt;
-  readonly account: Account;
-}
+import type {
+  AuthenticateWithPasswordInput,
+  AuthenticateWithPasswordOutput,
+} from "../password.config.js";
 
 /**
  * Use case for authenticating with password
@@ -58,15 +40,9 @@ export class AuthenticateWithPasswordUseCase {
     this.#tokenLifespanMinutes = deps.tokenLifespanMinutes;
   }
 
-  /**
-   * Executes the authenticate with password use case
-   * @param input - The authentication input
-   * @returns The receipt and account
-   */
   async execute(
     input: AuthenticateWithPasswordInput,
   ): Promise<AuthenticateWithPasswordOutput> {
-    // Validate email
     let email: EmailAddress;
     try {
       email = createEmailAddress(input.email);
@@ -74,7 +50,6 @@ export class AuthenticateWithPasswordUseCase {
       throw new InvalidEmailError(`Invalid email: ${input.email}`);
     }
 
-    // Find account
     const account = await this.#accountRepo.findByEmail(email);
     if (!account) {
       this.#logger.warn("Authentication attempt for non-existent account", {
@@ -83,7 +58,6 @@ export class AuthenticateWithPasswordUseCase {
       throw new AuthenticationError("Invalid credentials");
     }
 
-    // Find password credential
     const credential = await this.#passwordStore.findByAccountId(account.id);
     if (!credential) {
       this.#logger.warn("Authentication attempt for account without password", {
@@ -92,7 +66,6 @@ export class AuthenticateWithPasswordUseCase {
       throw new AuthenticationError("Invalid credentials");
     }
 
-    // Verify password
     const proof = credential.proof;
     const isValid = await this.#passwordHasher.compare(
       input.password,
@@ -105,7 +78,6 @@ export class AuthenticateWithPasswordUseCase {
       throw new AuthenticationError("Invalid credentials");
     }
 
-    // Issue receipt
     const expiresAt = new Date(
       Date.now() + this.#tokenLifespanMinutes * 60 * 1000,
     );

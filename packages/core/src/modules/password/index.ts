@@ -5,6 +5,26 @@ export {
   type PasswordMethods,
 } from "./password.module.js";
 
+// Derived types (single source of truth lives in password.config.ts)
+export type {
+  RegisterWithPasswordInput,
+  RegisterWithPasswordOutput,
+  AuthenticateWithPasswordInput,
+  AuthenticateWithPasswordOutput,
+  ChangePasswordInput,
+  ChangePasswordOutput,
+  AddPasswordToAccountInput,
+  AddPasswordToAccountOutput,
+  RequestPasswordResetInput,
+  RequestPasswordResetOutput,
+  PasswordResetConfig,
+  VerifyPasswordResetInput,
+  VerifyPasswordResetOutput,
+  VerifyPasswordResetConfig,
+  RevokeAllPasswordResetsInput,
+  RevokeAllPasswordResetsOutput,
+} from "./password.config.js";
+
 // Entities
 export {
   type PasswordProof,
@@ -26,7 +46,7 @@ export type {
   PasswordHasher,
 } from "./ports/index.js";
 
-// Use cases (for advanced users who need direct access)
+// Use cases (for advanced users / DI wiring)
 export {
   RegisterWithPasswordUseCase,
   AuthenticateWithPasswordUseCase,
@@ -35,20 +55,4 @@ export {
   RequestPasswordResetUseCase,
   VerifyPasswordResetUseCase,
   RevokeAllPasswordResetsUseCase,
-  type RegisterWithPasswordInput,
-  type RegisterWithPasswordOutput,
-  type AuthenticateWithPasswordInput,
-  type AuthenticateWithPasswordOutput,
-  type ChangePasswordInput,
-  type ChangePasswordOutput,
-  type AddPasswordToAccountInput,
-  type AddPasswordToAccountOutput,
-  type RequestPasswordResetInput,
-  type RequestPasswordResetOutput,
-  type PasswordResetConfig,
-  type VerifyPasswordResetInput,
-  type VerifyPasswordResetOutput,
-  type VerifyPasswordResetConfig,
-  type RevokeAllPasswordResetsInput,
-  type RevokeAllPasswordResetsOutput,
 } from "./use-cases/index.js";

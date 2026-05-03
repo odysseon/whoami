@@ -1,8 +1,5 @@
 import { Credential } from "../../../kernel/domain/entities/index.js";
-import type {
-  EmailAddress,
-  CredentialId,
-} from "../../../kernel/domain/value-objects/index.js";
+import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
 import {
   createCredentialId,
   createEmailAddress,
@@ -17,25 +14,14 @@ import type {
 } from "../../../kernel/ports/index.js";
 import type { PasswordResetTokenStore } from "../ports/password-reset-token-store.port.js";
 import { createPasswordResetProof } from "../entities/password.proof.js";
-
-export interface RequestPasswordResetInput {
-  readonly email: string;
-}
-
-export interface RequestPasswordResetOutput {
-  readonly challengeId: CredentialId;
-  readonly plainTextToken: string;
-  readonly expiresAt: Date;
-}
-
-export interface PasswordResetConfig {
-  readonly tokenLifespanMinutes: number;
-}
+import type {
+  RequestPasswordResetInput,
+  RequestPasswordResetOutput,
+  PasswordResetConfig,
+} from "../password.config.js";
 
 /**
- * Use case for requesting a password reset.
- * Generates a cryptographically secure token and returns it to the caller.
- * The caller MUST deliver this token via email/SMS.
+ * Use case for requesting a password reset
  */
 export class RequestPasswordResetUseCase {
   readonly #accountRepo: AccountRepository;
@@ -64,11 +50,6 @@ export class RequestPasswordResetUseCase {
     this.#config = deps.config;
   }
 
-  /**
-   * Returns null when the email is not found — caller MUST NOT reveal this to the client.
-   *
-   * SECURITY NOTE: The plaintext token is returned ONCE. Only its hash is stored.
-   */
   async execute(
     input: RequestPasswordResetInput,
   ): Promise<RequestPasswordResetOutput | null> {
