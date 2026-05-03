@@ -13,3 +13,5 @@ export type {
   AuthModule,
   CredentialProofDeserializer,
 } from "./auth-module.port.js";
+
+export type { CredentialStoreBase } from "./credential-store.port.js";

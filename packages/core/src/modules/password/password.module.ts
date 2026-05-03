@@ -1,16 +1,13 @@
 import type { AuthModule } from "../../kernel/ports/auth-module.port.js";
 import { createAccountId } from "../../kernel/domain/value-objects/index.js";
 import { requirePort, requireMethod } from "../../kernel/shared/validation.js";
+import { buildAuthLifecycle } from "../../kernel/shared/auth-lifecycle.js";
 import type {
   PasswordModuleConfig,
   PasswordMethods,
 } from "./password.config.js";
 import { PasswordProofDeserializer } from "./password.deserializer.js";
 import { buildPasswordUseCases } from "./password.factory.js";
-import {
-  buildPasswordLifecycle,
-  type PasswordLifecycle,
-} from "./password.lifecycle.js";
 import type {
   RegisterWithPasswordOutput,
   AuthenticateWithPasswordOutput,
@@ -49,9 +46,7 @@ export function PasswordModule(
     resetTokenLifespanMinutes,
   );
 
-  const lifecycle: PasswordLifecycle = buildPasswordLifecycle({
-    passwordHashStore: config.passwordHashStore,
-  });
+  const lifecycle = buildAuthLifecycle(config.passwordHashStore);
 
   return {
     kind: "password",
