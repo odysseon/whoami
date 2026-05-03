@@ -3,16 +3,14 @@ import type {
   CredentialProofDeserializer,
 } from "../../kernel/ports/auth-module.port.js";
 import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
-import {
-  type CredentialId,
-  createAccountId,
-} from "../../kernel/domain/value-objects/index.js";
+import { createAccountId } from "../../kernel/domain/value-objects/index.js";
 import type { AccountRepository } from "../../kernel/ports/account-repository.port.js";
 import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
 import type {
   IdGeneratorPort,
   LoggerPort,
 } from "../../kernel/ports/shared-ports.port.js";
+import { buildAuthLifecycle } from "../../kernel/shared/auth-lifecycle.js";
 import type { OAuthCredentialStore } from "./ports/oauth-credential-store.port.js";
 import {
   AuthenticateWithOAuthUseCase,
@@ -65,9 +63,6 @@ function credentialProof<T extends CredentialProof>(proof: T): CredentialProof {
   return proof;
 }
 
-/**
- * Deserializer for OAuth proofs
- */
 class OAuthProofDeserializer implements CredentialProofDeserializer {
   readonly kind = "oauth";
 
@@ -96,16 +91,12 @@ class OAuthProofDeserializer implements CredentialProofDeserializer {
   }
 }
 
-/**
- * Creates the OAuth authentication module.
- * Zero imports from other modules - total independence.
- */
+/** Creates the OAuth authentication module. */
 export function OAuthModule(
   config: OAuthModuleConfig,
 ): OAuthMethods & AuthModule {
   const tokenLifespanMinutes = config.tokenLifespanMinutes ?? 60;
 
-  // Create use cases
   const authenticateUseCase = new AuthenticateWithOAuthUseCase({
     accountRepo: config.accountRepo,
     oauthStore: config.oauthStore,
@@ -124,6 +115,11 @@ export function OAuthModule(
 
   const unlinkUseCase = new UnlinkOAuthProviderUseCase({
     oauthStore: config.oauthStore,
+  });
+
+  const lifecycle = buildAuthLifecycle(config.oauthStore, {
+    deleteByProvider: (accountId, provider) =>
+      config.oauthStore.deleteByProvider(createAccountId(accountId), provider),
   });
 
   return {
@@ -153,29 +149,6 @@ export function OAuthModule(
       });
     },
 
-    // AuthModule lifecycle interface
-    async countCredentialsForAccount(accountId: string): Promise<number> {
-      return await config.oauthStore.countForAccount(
-        createAccountId(accountId),
-      );
-    },
-
-    async removeCredential(credentialId: CredentialId): Promise<void> {
-      await config.oauthStore.delete(credentialId);
-    },
-
-    async removeAllCredentialsForAccount(
-      accountId: string,
-      options?: { provider?: string },
-    ): Promise<void> {
-      if (options?.provider) {
-        await config.oauthStore.deleteByProvider(
-          createAccountId(accountId),
-          options.provider,
-        );
-      } else {
-        await config.oauthStore.deleteAllForAccount(createAccountId(accountId));
-      }
-    },
+    ...lifecycle,
   };
 }

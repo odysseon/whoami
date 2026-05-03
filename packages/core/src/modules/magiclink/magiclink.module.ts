@@ -1,15 +1,12 @@
 import type { AuthModule } from "../../kernel/ports/auth-module.port.js";
 import { requirePort, requireMethod } from "../../kernel/shared/validation.js";
+import { buildAuthLifecycle } from "../../kernel/shared/auth-lifecycle.js";
 import type {
   MagicLinkModuleConfig,
   MagicLinkMethods,
 } from "./magiclink.config.js";
 import { MagicLinkProofDeserializer } from "./magiclink.deserializer.js";
 import { buildMagicLinkUseCases } from "./magiclink.factory.js";
-import {
-  buildMagicLinkLifecycle,
-  type MagicLinkLifecycle,
-} from "./magiclink.lifecycle.js";
 
 export type { MagicLinkModuleConfig, MagicLinkMethods };
 
@@ -38,9 +35,7 @@ export function MagicLinkModule(
     receiptLifespanMinutes,
   );
 
-  const lifecycle: MagicLinkLifecycle = buildMagicLinkLifecycle({
-    magicLinkStore: config.magicLinkStore,
-  });
+  const lifecycle = buildAuthLifecycle(config.magicLinkStore);
 
   return {
     kind: "magiclink",
