@@ -9,41 +9,21 @@ import {
   AccountAlreadyExistsError,
   InvalidEmailError,
 } from "../../../kernel/domain/errors/index.js";
-import type { AccountRepository } from "../../../kernel/ports/account-repository.port.js";
-import type {
-  IdGeneratorPort,
-  LoggerPort,
-} from "../../../kernel/ports/shared-ports.port.js";
-import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
-import type { PasswordHasher } from "../ports/password-hasher.port.js";
 import { createPasswordHashProof } from "../entities/password.proof.js";
 import type {
   RegisterWithPasswordInput,
   RegisterWithPasswordOutput,
+  RegisterWithPasswordDeps,
 } from "../password.config.js";
 
 /**
  * Use case for registering a new account with password
  */
 export class RegisterWithPasswordUseCase {
-  readonly #accountRepo: AccountRepository;
-  readonly #passwordStore: PasswordHashStore;
-  readonly #passwordHasher: PasswordHasher;
-  readonly #idGenerator: IdGeneratorPort;
-  readonly #logger: LoggerPort;
+  readonly #deps: RegisterWithPasswordDeps;
 
-  constructor(deps: {
-    accountRepo: AccountRepository;
-    passwordStore: PasswordHashStore;
-    passwordHasher: PasswordHasher;
-    idGenerator: IdGeneratorPort;
-    logger: LoggerPort;
-  }) {
-    this.#accountRepo = deps.accountRepo;
-    this.#passwordStore = deps.passwordStore;
-    this.#passwordHasher = deps.passwordHasher;
-    this.#idGenerator = deps.idGenerator;
-    this.#logger = deps.logger;
+  constructor(deps: RegisterWithPasswordDeps) {
+    this.#deps = deps;
   }
 
   async execute(
@@ -56,33 +36,33 @@ export class RegisterWithPasswordUseCase {
       throw new InvalidEmailError(`Invalid email: ${input.email}`);
     }
 
-    const existingAccount = await this.#accountRepo.findByEmail(email);
+    const existingAccount = await this.#deps.accountRepo.findByEmail(email);
     if (existingAccount) {
-      this.#logger.warn("Attempted to register with existing email", {
+      this.#deps.logger.warn("Attempted to register with existing email", {
         email: input.email,
       });
       throw new AccountAlreadyExistsError(input.email);
     }
 
-    const accountId = createAccountId(this.#idGenerator.generate());
+    const accountId = createAccountId(this.#deps.idGenerator.generate());
     const account = Account.create({
       id: accountId,
       email,
     });
 
-    const passwordHash = await this.#passwordHasher.hash(input.password);
+    const passwordHash = await this.#deps.passwordHasher.hash(input.password);
 
-    const credentialId = createCredentialId(this.#idGenerator.generate());
+    const credentialId = createCredentialId(this.#deps.idGenerator.generate());
     const credential = Credential.create({
       id: credentialId,
       accountId,
       proof: createPasswordHashProof(passwordHash),
     });
 
-    await this.#accountRepo.save(account);
-    await this.#passwordStore.save(credential);
+    await this.#deps.accountRepo.save(account);
+    await this.#deps.passwordHashStore.save(credential);
 
-    this.#logger.info("Account registered with password", {
+    this.#deps.logger.info("Account registered with password", {
       accountId: accountId.toString(),
       email: input.email,
     });

@@ -1,9 +1,4 @@
 import { InvalidResetTokenError } from "../../../kernel/domain/errors/index.js";
-import type {
-  ReceiptSigner,
-  SecureTokenPort,
-} from "../../../kernel/ports/index.js";
-import type { PasswordResetTokenStore } from "../ports/password-reset-token-store.port.js";
 import {
   isPasswordResetProof,
   markResetProofAsUsed,
@@ -11,36 +6,26 @@ import {
 import type {
   VerifyPasswordResetInput,
   VerifyPasswordResetOutput,
-  VerifyPasswordResetConfig,
+  VerifyPasswordResetDeps,
 } from "../password.config.js";
 
 /**
  * Use case for verifying a password reset token
  */
 export class VerifyPasswordResetUseCase {
-  readonly #resetTokenStore: PasswordResetTokenStore;
-  readonly #receiptSigner: ReceiptSigner;
-  readonly #secureToken: SecureTokenPort;
-  readonly #config: VerifyPasswordResetConfig;
+  readonly #deps: VerifyPasswordResetDeps;
 
-  constructor(deps: {
-    resetTokenStore: PasswordResetTokenStore;
-    receiptSigner: ReceiptSigner;
-    secureToken: SecureTokenPort;
-    config: VerifyPasswordResetConfig;
-  }) {
-    this.#resetTokenStore = deps.resetTokenStore;
-    this.#receiptSigner = deps.receiptSigner;
-    this.#secureToken = deps.secureToken;
-    this.#config = deps.config;
+  constructor(deps: VerifyPasswordResetDeps) {
+    this.#deps = deps;
   }
 
   async execute(
     input: VerifyPasswordResetInput,
   ): Promise<VerifyPasswordResetOutput> {
-    const tokenHash = await this.#secureToken.hashToken(input.token);
+    const tokenHash = await this.#deps.secureToken.hashToken(input.token);
 
-    const credential = await this.#resetTokenStore.findByTokenHash(tokenHash);
+    const credential =
+      await this.#deps.resetTokenStore.findByTokenHash(tokenHash);
     if (!credential) {
       throw new InvalidResetTokenError("Invalid reset token");
     }
@@ -60,12 +45,12 @@ export class VerifyPasswordResetUseCase {
     }
 
     const updatedProof = markResetProofAsUsed(proof, now);
-    await this.#resetTokenStore.update(credential.id, updatedProof);
+    await this.#deps.resetTokenStore.update(credential.id, updatedProof);
 
     const expiresAt = new Date(
-      now.getTime() + this.#config.receiptLifespanMinutes * 60 * 1000,
+      now.getTime() + this.#deps.config.receiptLifespanMinutes * 60 * 1000,
     );
-    const receipt = await this.#receiptSigner.sign(
+    const receipt = await this.#deps.receiptSigner.sign(
       credential.accountId,
       expiresAt,
     );
