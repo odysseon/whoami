@@ -53,7 +53,7 @@ export class AuthenticateWithMagicLinkUseCase {
     );
 
     return {
-      receipt,
+      receipt: receipt.toDTO(),
       accountId: credential.accountId,
       email: proof.email,
     };

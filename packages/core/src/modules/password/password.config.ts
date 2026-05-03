@@ -32,10 +32,13 @@ export interface PasswordModuleConfig extends PasswordModuleDeps {
   readonly resetTokenLifespanMinutes?: number;
 }
 
-// ─── DERIVED DTO TYPE ───
+// ─── DERIVED DTO TYPES ───
 
 /** Public account shape — no branded types, no string dates */
 export type AccountDTO = ReturnType<Account["toDTO"]>;
+
+/** Public receipt shape — no branded types, Date stays as Date */
+export type ReceiptDTO = ReturnType<Receipt["toDTO"]>;
 
 // ─── PUBLIC METHODS — Single source of truth ───
 
@@ -49,7 +52,7 @@ export interface PasswordMethods {
     email: string;
     password: string;
   }) => Promise<{
-    receipt: Receipt;
+    receipt: ReceiptDTO;
     account: AccountDTO;
   }>;
 
@@ -72,7 +75,7 @@ export interface PasswordMethods {
 
   readonly verifyPasswordReset: (input: {
     token: string;
-  }) => Promise<{ receipt: Receipt; accountId: string }>;
+  }) => Promise<{ receipt: ReceiptDTO; accountId: string }>;
 
   readonly revokeAllPasswordResets: (input: {
     accountId: string;

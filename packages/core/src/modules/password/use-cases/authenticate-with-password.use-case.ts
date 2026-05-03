@@ -72,6 +72,6 @@ export class AuthenticateWithPasswordUseCase {
       accountId: account.id.toString(),
     });
 
-    return { receipt, account: account.toDTO() };
+    return { receipt: receipt.toDTO(), account: account.toDTO() };
   }
 }
