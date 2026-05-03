@@ -13,21 +13,10 @@ import type {
 import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
 import { createPasswordHashProof } from "../entities/password.proof.js";
-
-/**
- * Input for adding password to account
- */
-export interface AddPasswordToAccountInput {
-  readonly accountId: AccountId;
-  readonly password: string;
-}
-
-/**
- * Output from adding password to account
- */
-export interface AddPasswordToAccountOutput {
-  readonly success: true;
-}
+import type {
+  AddPasswordToAccountInput,
+  AddPasswordToAccountOutput,
+} from "../password.config.js";
 
 /**
  * Use case for adding a password to an existing account
@@ -53,22 +42,18 @@ export class AddPasswordToAccountUseCase {
     this.#logger = deps.logger;
   }
 
-  /**
-   * Executes the add password to account use case
-   * @param input - The input
-   */
   async execute(
     input: AddPasswordToAccountInput,
   ): Promise<AddPasswordToAccountOutput> {
-    // Find account
-    const account = await this.#accountRepo.findById(input.accountId);
+    const account = await this.#accountRepo.findById(
+      input.accountId as AccountId,
+    );
     if (!account) {
-      throw new AccountNotFoundError(input.accountId.toString());
+      throw new AccountNotFoundError(input.accountId);
     }
 
-    // Check if account already has a password
     const existingCredential = await this.#passwordStore.findByAccountId(
-      input.accountId,
+      input.accountId as AccountId,
     );
     if (existingCredential) {
       throw new CredentialAlreadyExistsError(
@@ -76,22 +61,19 @@ export class AddPasswordToAccountUseCase {
       );
     }
 
-    // Hash password
     const passwordHash = await this.#passwordHasher.hash(input.password);
 
-    // Create password credential
     const credentialId = createCredentialId(this.#idGenerator.generate());
     const credential = Credential.create({
       id: credentialId,
-      accountId: input.accountId,
+      accountId: input.accountId as AccountId,
       proof: createPasswordHashProof(passwordHash),
     });
 
-    // Save credential
     await this.#passwordStore.save(credential);
 
     this.#logger.info("Password added to account", {
-      accountId: input.accountId.toString(),
+      accountId: input.accountId,
     });
 
     return { success: true };

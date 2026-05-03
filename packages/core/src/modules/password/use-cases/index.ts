@@ -1,45 +1,31 @@
 // Standard password operations
-export {
-  RegisterWithPasswordUseCase,
-  type RegisterWithPasswordInput,
-  type RegisterWithPasswordOutput,
-} from "./register-with-password.use-case.js";
-
-export {
-  AuthenticateWithPasswordUseCase,
-  type AuthenticateWithPasswordInput,
-  type AuthenticateWithPasswordOutput,
-} from "./authenticate-with-password.use-case.js";
-
-export {
-  ChangePasswordUseCase,
-  type ChangePasswordInput,
-  type ChangePasswordOutput,
-} from "./change-password.use-case.js";
-
-export {
-  AddPasswordToAccountUseCase,
-  type AddPasswordToAccountInput,
-  type AddPasswordToAccountOutput,
-} from "./add-password-to-account.use-case.js";
+export { RegisterWithPasswordUseCase } from "./register-with-password.use-case.js";
+export { AuthenticateWithPasswordUseCase } from "./authenticate-with-password.use-case.js";
+export { ChangePasswordUseCase } from "./change-password.use-case.js";
+export { AddPasswordToAccountUseCase } from "./add-password-to-account.use-case.js";
 
 // Password recovery operations (INSIDE password module - no orphans!)
-export {
-  RequestPasswordResetUseCase,
-  type RequestPasswordResetInput,
-  type RequestPasswordResetOutput,
-  type PasswordResetConfig,
-} from "./request-password-reset.use-case.js";
+export { RequestPasswordResetUseCase } from "./request-password-reset.use-case.js";
+export { VerifyPasswordResetUseCase } from "./verify-password-reset.use-case.js";
+export { RevokeAllPasswordResetsUseCase } from "./revoke-all-password-resets.use-case.js";
 
-export {
-  VerifyPasswordResetUseCase,
-  type VerifyPasswordResetInput,
-  type VerifyPasswordResetOutput,
-  type VerifyPasswordResetConfig,
-} from "./verify-password-reset.use-case.js";
-
-export {
-  RevokeAllPasswordResetsUseCase,
-  type RevokeAllPasswordResetsInput,
-  type RevokeAllPasswordResetsOutput,
-} from "./revoke-all-password-resets.use-case.js";
+// All types derived from PasswordMethods — import from password.config.ts instead
+// These re-exports are for backward compatibility of import paths only
+export type {
+  RegisterWithPasswordInput,
+  RegisterWithPasswordOutput,
+  AuthenticateWithPasswordInput,
+  AuthenticateWithPasswordOutput,
+  ChangePasswordInput,
+  ChangePasswordOutput,
+  AddPasswordToAccountInput,
+  AddPasswordToAccountOutput,
+  RequestPasswordResetInput,
+  RequestPasswordResetOutput,
+  PasswordResetConfig,
+  VerifyPasswordResetInput,
+  VerifyPasswordResetOutput,
+  VerifyPasswordResetConfig,
+  RevokeAllPasswordResetsInput,
+  RevokeAllPasswordResetsOutput,
+} from "../password.config.js";

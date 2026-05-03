@@ -8,22 +8,10 @@ import type { LoggerPort } from "../../../kernel/ports/index.js";
 import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
 import type { PasswordHasher } from "../ports/password-hasher.port.js";
 import { createPasswordHashProof } from "../entities/password.proof.js";
-
-/**
- * Input for changing password
- */
-export interface ChangePasswordInput {
-  readonly accountId: AccountId;
-  readonly currentPassword: string;
-  readonly newPassword: string;
-}
-
-/**
- * Output from changing password
- */
-export interface ChangePasswordOutput {
-  readonly success: true;
-}
+import type {
+  ChangePasswordInput,
+  ChangePasswordOutput,
+} from "../password.config.js";
 
 /**
  * Use case for changing password
@@ -46,26 +34,21 @@ export class ChangePasswordUseCase {
     this.#logger = deps.logger;
   }
 
-  /**
-   * Executes the change password use case
-   * @param input - The change password input
-   */
   async execute(input: ChangePasswordInput): Promise<ChangePasswordOutput> {
-    // Find account
-    const account = await this.#accountRepo.findById(input.accountId);
+    const account = await this.#accountRepo.findById(
+      input.accountId as AccountId,
+    );
     if (!account) {
-      throw new AccountNotFoundError(input.accountId.toString());
+      throw new AccountNotFoundError(input.accountId);
     }
 
-    // Find password credential
     const credential = await this.#passwordStore.findByAccountId(
-      input.accountId,
+      input.accountId as AccountId,
     );
     if (!credential) {
       throw new AuthenticationError("No password set for this account");
     }
 
-    // Verify current password
     const proof = credential.proof;
     const isValid = await this.#passwordHasher.compare(
       input.currentPassword,
@@ -75,17 +58,15 @@ export class ChangePasswordUseCase {
       throw new AuthenticationError("Current password is incorrect");
     }
 
-    // Hash new password
     const newHash = await this.#passwordHasher.hash(input.newPassword);
 
-    // Update credential
     await this.#passwordStore.update(
       credential.id,
       createPasswordHashProof(newHash),
     );
 
     this.#logger.info("Password changed", {
-      accountId: input.accountId.toString(),
+      accountId: input.accountId,
     });
 
     return { success: true };
