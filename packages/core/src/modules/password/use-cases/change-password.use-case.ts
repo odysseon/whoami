@@ -3,46 +3,32 @@ import {
   AccountNotFoundError,
   AuthenticationError,
 } from "../../../kernel/domain/errors/index.js";
-import type { AccountRepository } from "../../../kernel/ports/account-repository.port.js";
-import type { LoggerPort } from "../../../kernel/ports/index.js";
-import type { PasswordHashStore } from "../ports/password-hash-store.port.js";
-import type { PasswordHasher } from "../ports/password-hasher.port.js";
 import { createPasswordHashProof } from "../entities/password.proof.js";
 import type {
   ChangePasswordInput,
   ChangePasswordOutput,
+  ChangePasswordDeps,
 } from "../password.config.js";
 
 /**
  * Use case for changing password
  */
 export class ChangePasswordUseCase {
-  readonly #accountRepo: AccountRepository;
-  readonly #passwordStore: PasswordHashStore;
-  readonly #passwordHasher: PasswordHasher;
-  readonly #logger: LoggerPort;
+  readonly #deps: ChangePasswordDeps;
 
-  constructor(deps: {
-    accountRepo: AccountRepository;
-    passwordStore: PasswordHashStore;
-    passwordHasher: PasswordHasher;
-    logger: LoggerPort;
-  }) {
-    this.#accountRepo = deps.accountRepo;
-    this.#passwordStore = deps.passwordStore;
-    this.#passwordHasher = deps.passwordHasher;
-    this.#logger = deps.logger;
+  constructor(deps: ChangePasswordDeps) {
+    this.#deps = deps;
   }
 
   async execute(input: ChangePasswordInput): Promise<ChangePasswordOutput> {
-    const account = await this.#accountRepo.findById(
+    const account = await this.#deps.accountRepo.findById(
       input.accountId as AccountId,
     );
     if (!account) {
       throw new AccountNotFoundError(input.accountId);
     }
 
-    const credential = await this.#passwordStore.findByAccountId(
+    const credential = await this.#deps.passwordHashStore.findByAccountId(
       input.accountId as AccountId,
     );
     if (!credential) {
@@ -50,7 +36,7 @@ export class ChangePasswordUseCase {
     }
 
     const proof = credential.proof;
-    const isValid = await this.#passwordHasher.compare(
+    const isValid = await this.#deps.passwordHasher.compare(
       input.currentPassword,
       proof.hash,
     );
@@ -58,14 +44,14 @@ export class ChangePasswordUseCase {
       throw new AuthenticationError("Current password is incorrect");
     }
 
-    const newHash = await this.#passwordHasher.hash(input.newPassword);
+    const newHash = await this.#deps.passwordHasher.hash(input.newPassword);
 
-    await this.#passwordStore.update(
+    await this.#deps.passwordHashStore.update(
       credential.id,
       createPasswordHashProof(newHash),
     );
 
-    this.#logger.info("Password changed", {
+    this.#deps.logger.info("Password changed", {
       accountId: input.accountId,
     });
 

@@ -27,7 +27,7 @@ export function buildPasswordUseCases(
   return {
     register: new RegisterWithPasswordUseCase({
       accountRepo: config.accountRepo,
-      passwordStore: config.passwordHashStore,
+      passwordHashStore: config.passwordHashStore,
       passwordHasher: config.passwordHasher,
       idGenerator: config.idGenerator,
       logger: config.logger,
@@ -35,7 +35,7 @@ export function buildPasswordUseCases(
 
     authenticate: new AuthenticateWithPasswordUseCase({
       accountRepo: config.accountRepo,
-      passwordStore: config.passwordHashStore,
+      passwordHashStore: config.passwordHashStore,
       passwordHasher: config.passwordHasher,
       receiptSigner: config.receiptSigner,
       logger: config.logger,
@@ -44,14 +44,14 @@ export function buildPasswordUseCases(
 
     changePassword: new ChangePasswordUseCase({
       accountRepo: config.accountRepo,
-      passwordStore: config.passwordHashStore,
+      passwordHashStore: config.passwordHashStore,
       passwordHasher: config.passwordHasher,
       logger: config.logger,
     }),
 
     addPassword: new AddPasswordToAccountUseCase({
       accountRepo: config.accountRepo,
-      passwordStore: config.passwordHashStore,
+      passwordHashStore: config.passwordHashStore,
       passwordHasher: config.passwordHasher,
       idGenerator: config.idGenerator,
       logger: config.logger,

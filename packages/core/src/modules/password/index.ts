@@ -5,24 +5,32 @@ export {
   type PasswordMethods,
 } from "./password.module.js";
 
-// Derived types (single source of truth lives in password.config.ts)
+// Unified deps + derived types
 export type {
+  PasswordModuleDeps,
   RegisterWithPasswordInput,
   RegisterWithPasswordOutput,
+  RegisterWithPasswordDeps,
   AuthenticateWithPasswordInput,
   AuthenticateWithPasswordOutput,
+  AuthenticateWithPasswordDeps,
   ChangePasswordInput,
   ChangePasswordOutput,
+  ChangePasswordDeps,
   AddPasswordToAccountInput,
   AddPasswordToAccountOutput,
+  AddPasswordToAccountDeps,
   RequestPasswordResetInput,
   RequestPasswordResetOutput,
+  RequestPasswordResetDeps,
   PasswordResetConfig,
   VerifyPasswordResetInput,
   VerifyPasswordResetOutput,
+  VerifyPasswordResetDeps,
   VerifyPasswordResetConfig,
   RevokeAllPasswordResetsInput,
   RevokeAllPasswordResetsOutput,
+  RevokeAllPasswordResetsDeps,
 } from "./password.config.js";
 
 // Entities
