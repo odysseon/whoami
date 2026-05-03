@@ -16,9 +16,6 @@ import type {
   RegisterWithPasswordDeps,
 } from "../password.config.js";
 
-/**
- * Use case for registering a new account with password
- */
 export class RegisterWithPasswordUseCase {
   readonly #deps: RegisterWithPasswordDeps;
 
@@ -67,6 +64,6 @@ export class RegisterWithPasswordUseCase {
       email: input.email,
     });
 
-    return { account };
+    return { account: account.toDTO() };
   }
 }

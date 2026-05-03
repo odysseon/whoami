@@ -10,9 +10,6 @@ import type {
   AuthenticateWithPasswordDeps,
 } from "../password.config.js";
 
-/**
- * Use case for authenticating with password
- */
 export class AuthenticateWithPasswordUseCase {
   readonly #deps: AuthenticateWithPasswordDeps;
 
@@ -75,6 +72,6 @@ export class AuthenticateWithPasswordUseCase {
       accountId: account.id.toString(),
     });
 
-    return { receipt, account };
+    return { receipt, account: account.toDTO() };
   }
 }

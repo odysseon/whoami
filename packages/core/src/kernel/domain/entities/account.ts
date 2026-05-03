@@ -6,9 +6,6 @@ import {
 } from "../value-objects/index.js";
 import { InvalidAccountIdError, InvalidEmailError } from "../errors/index.js";
 
-/**
- * Properties required to create a new Account
- */
 export interface AccountProps {
   readonly id: AccountId;
   readonly email: EmailAddress;
@@ -17,7 +14,6 @@ export interface AccountProps {
 
 /**
  * Account entity represents a user account in the system.
- * This is a kernel entity that all auth modules reference.
  */
 export class Account {
   readonly #id: AccountId;
@@ -30,11 +26,6 @@ export class Account {
     this.#createdAt = props.createdAt;
   }
 
-  /**
-   * Creates a new Account
-   * @param props - The account properties
-   * @returns A new Account instance
-   */
   static create(props: {
     id: AccountId;
     email: EmailAddress;
@@ -47,11 +38,6 @@ export class Account {
     });
   }
 
-  /**
-   * Rehydrates an Account from persisted data
-   * @param props - The account properties
-   * @returns An Account instance
-   */
   static load(props: { id: string; email: string; createdAt: Date }): Account {
     if (!props.id || props.id.length === 0) {
       throw new InvalidAccountIdError("Account ID cannot be empty");
@@ -79,14 +65,30 @@ export class Account {
     return this.#createdAt;
   }
 
+  isExpired(now: Date = new Date()): boolean {
+    return now >= this.#createdAt;
+  }
+
   /**
-   * Returns a plain object representation of the account
+   * Plain object for serialization (API responses, logging, etc.)
    */
   toJSON(): { id: string; email: string; createdAt: string } {
     return {
       id: this.#id,
       email: this.#email,
       createdAt: this.#createdAt.toISOString(),
+    };
+  }
+
+  /**
+   * Typed DTO for module facade returns — no string dates, no branded types leaking out.
+   * This is what PasswordMethods.returnType actually returns.
+   */
+  toDTO(): { id: string; email: string; createdAt: Date } {
+    return {
+      id: this.#id,
+      email: this.#email,
+      createdAt: this.#createdAt,
     };
   }
 }

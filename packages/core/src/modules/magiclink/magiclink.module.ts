@@ -43,24 +43,7 @@ export function MagicLinkModule(
 
     requestMagicLink: (input) => uc.request.execute(input),
 
-    authenticateWithMagicLink: async (
-      input,
-    ): Promise<{
-      receipt: { token: string; accountId: string; expiresAt: Date };
-      accountId: string;
-      email: string;
-    }> => {
-      const result = await uc.authenticate.execute(input);
-      return {
-        receipt: {
-          token: result.receipt.token,
-          accountId: result.receipt.accountId.toString(),
-          expiresAt: result.receipt.expiresAt,
-        },
-        accountId: result.accountId.toString(),
-        email: result.email,
-      };
-    },
+    authenticateWithMagicLink: (input) => uc.authenticate.execute(input),
 
     ...lifecycle,
   };

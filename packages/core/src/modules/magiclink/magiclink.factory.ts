@@ -14,6 +14,11 @@ export function buildMagicLinkUseCases(
   tokenLifespanMinutes: number,
   receiptLifespanMinutes: number,
 ): MagicLinkUseCases {
+  const sharedConfig = {
+    tokenLifespanMinutes,
+    receiptLifespanMinutes,
+  };
+
   return {
     request: new RequestMagicLinkUseCase({
       accountRepo: config.accountRepo,
@@ -22,14 +27,14 @@ export function buildMagicLinkUseCases(
       logger: config.logger,
       clock: config.clock,
       secureToken: config.secureToken,
-      config: { tokenLifespanMinutes },
+      config: sharedConfig,
     }),
 
     authenticate: new AuthenticateWithMagicLinkUseCase({
       magicLinkStore: config.magicLinkStore,
       receiptSigner: config.receiptSigner,
       secureToken: config.secureToken,
-      config: { receiptLifespanMinutes },
+      config: sharedConfig,
     }),
   };
 }

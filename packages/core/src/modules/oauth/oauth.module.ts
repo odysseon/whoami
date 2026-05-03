@@ -4,54 +4,15 @@ import type {
 } from "../../kernel/ports/auth-module.port.js";
 import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
 import { createAccountId } from "../../kernel/domain/value-objects/index.js";
-import type { AccountRepository } from "../../kernel/ports/account-repository.port.js";
-import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
-import type {
-  IdGeneratorPort,
-  LoggerPort,
-} from "../../kernel/ports/shared-ports.port.js";
 import { buildAuthLifecycle } from "../../kernel/shared/auth-lifecycle.js";
-import type { OAuthCredentialStore } from "./ports/oauth-credential-store.port.js";
 import {
   AuthenticateWithOAuthUseCase,
   LinkOAuthToAccountUseCase,
   UnlinkOAuthProviderUseCase,
-  type AuthenticateWithOAuthOutput,
 } from "./use-cases/index.js";
+import type { OAuthModuleConfig, OAuthMethods } from "./oauth.config.js";
 
-/**
- * Configuration for the OAuth module
- */
-export interface OAuthModuleConfig {
-  readonly accountRepo: AccountRepository;
-  readonly oauthStore: OAuthCredentialStore;
-  readonly receiptSigner: ReceiptSigner;
-  readonly idGenerator: IdGeneratorPort;
-  readonly logger: LoggerPort;
-  readonly tokenLifespanMinutes?: number;
-}
-
-/**
- * Methods exposed by the OAuth module
- */
-export interface OAuthMethods {
-  readonly authenticateWithOAuth: (input: {
-    provider: string;
-    providerId: string;
-    email: string;
-  }) => Promise<AuthenticateWithOAuthOutput>;
-
-  readonly linkOAuthToAccount: (input: {
-    accountId: string;
-    provider: string;
-    providerId: string;
-  }) => Promise<{ success: true }>;
-
-  readonly unlinkProvider: (
-    accountId: string,
-    provider: string,
-  ) => Promise<void>;
-}
+export type { OAuthModuleConfig, OAuthMethods };
 
 function assertObject(data: unknown): asserts data is Record<string, unknown> {
   if (data === null || typeof data !== "object") {
@@ -126,21 +87,14 @@ export function OAuthModule(
     kind: "oauth",
     proofDeserializer: new OAuthProofDeserializer(),
 
-    authenticateWithOAuth: async (
-      input,
-    ): Promise<AuthenticateWithOAuthOutput> => {
-      const result = await authenticateUseCase.execute(input);
-      return result;
-    },
+    authenticateWithOAuth: (input) => authenticateUseCase.execute(input),
 
-    linkOAuthToAccount: async (input): Promise<{ success: true }> => {
-      const result = await linkUseCase.execute({
+    linkOAuthToAccount: (input) =>
+      linkUseCase.execute({
         accountId: createAccountId(input.accountId),
         provider: input.provider,
         providerId: input.providerId,
-      });
-      return result;
-    },
+      }),
 
     unlinkProvider: async (accountId, provider): Promise<void> => {
       await unlinkUseCase.execute({
