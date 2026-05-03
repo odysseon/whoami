@@ -8,6 +8,7 @@ export {
 // Unified deps + derived types
 export type {
   PasswordModuleDeps,
+  ReceiptDTO,
   RegisterWithPasswordInput,
   RegisterWithPasswordOutput,
   RegisterWithPasswordDeps,

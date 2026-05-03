@@ -1,4 +1,4 @@
-import { Credential, Receipt } from "../../../kernel/domain/entities/index.js";
+import { Credential } from "../../../kernel/domain/entities/index.js";
 import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
 import {
   createAccountId,
@@ -59,7 +59,7 @@ export class AuthenticateWithOAuthUseCase {
       });
 
       return {
-        receipt,
+        receipt: receipt.toDTO(),
         account: account.toDTO(),
         isNewAccount: false,
       };
@@ -104,7 +104,7 @@ export class AuthenticateWithOAuthUseCase {
     });
 
     return {
-      receipt,
+      receipt: receipt.toDTO(),
       account: newAccount.toDTO(),
       isNewAccount: true,
     };
@@ -112,7 +112,7 @@ export class AuthenticateWithOAuthUseCase {
 
   async #issueReceipt(
     accountId: ReturnType<typeof createAccountId>,
-  ): Promise<Receipt> {
+  ): Promise<import("../../../kernel/domain/entities/index.js").Receipt> {
     const expiresAt = new Date(
       Date.now() + this.#deps.tokenLifespanMinutes * 60 * 1000,
     );

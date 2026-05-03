@@ -7,6 +7,13 @@ import type {
   SecureTokenPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { MagicLinkTokenStore } from "./ports/magiclink-token-store.port.js";
+import type { Account, Receipt } from "../../kernel/domain/entities/index.js";
+
+/** Public account shape — no branded types */
+export type AccountDTO = ReturnType<Account["toDTO"]>;
+
+/** Public receipt shape — no branded types */
+export type ReceiptDTO = ReturnType<Receipt["toDTO"]>;
 
 /** Configuration for the MagicLink module */
 export interface MagicLinkModuleConfig {
@@ -31,7 +38,7 @@ export interface MagicLinkMethods {
   }>;
 
   readonly authenticateWithMagicLink: (input: { token: string }) => Promise<{
-    receipt: { token: string; accountId: string; expiresAt: Date };
+    receipt: ReceiptDTO;
     accountId: string;
     email: string;
   }>;

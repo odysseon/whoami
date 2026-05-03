@@ -9,9 +9,6 @@ import type {
   VerifyPasswordResetDeps,
 } from "../password.config.js";
 
-/**
- * Use case for verifying a password reset token
- */
 export class VerifyPasswordResetUseCase {
   readonly #deps: VerifyPasswordResetDeps;
 
@@ -55,6 +52,6 @@ export class VerifyPasswordResetUseCase {
       expiresAt,
     );
 
-    return { receipt, accountId: credential.accountId };
+    return { receipt: receipt.toDTO(), accountId: credential.accountId };
   }
 }
