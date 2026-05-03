@@ -5,7 +5,11 @@ import type {
   LoggerPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { OAuthCredentialStore } from "./ports/oauth-credential-store.port.js";
-import type { AuthenticateWithOAuthOutput } from "./use-cases/index.js";
+import type { Account } from "../../kernel/domain/entities/index.js";
+import type { AccountId } from "../../kernel/domain/value-objects/index.js";
+
+/** Public account shape — shared across all modules */
+export type AccountDTO = ReturnType<Account["toDTO"]>;
 
 /** Configuration for the OAuth module */
 export interface OAuthModuleConfig {
@@ -23,7 +27,11 @@ export interface OAuthMethods {
     provider: string;
     providerId: string;
     email: string;
-  }) => Promise<AuthenticateWithOAuthOutput>;
+  }) => Promise<{
+    receipt: { token: string; accountId: string; expiresAt: Date };
+    account: AccountDTO;
+    isNewAccount: boolean;
+  }>;
 
   readonly linkOAuthToAccount: (input: {
     accountId: string;
@@ -36,3 +44,41 @@ export interface OAuthMethods {
     provider: string,
   ) => Promise<void>;
 }
+
+// ─── DERIVED I/O TYPES ───
+
+export type AuthenticateWithOAuthInput = Parameters<
+  OAuthMethods["authenticateWithOAuth"]
+>[0];
+export type AuthenticateWithOAuthOutput = Awaited<
+  ReturnType<OAuthMethods["authenticateWithOAuth"]>
+>;
+
+export type LinkOAuthToAccountInput = {
+  readonly accountId: AccountId;
+  readonly provider: string;
+  readonly providerId: string;
+};
+
+export type LinkOAuthToAccountOutput = Awaited<
+  ReturnType<OAuthMethods["linkOAuthToAccount"]>
+>;
+
+export type UnlinkOAuthProviderInput = {
+  readonly accountId: AccountId;
+  readonly provider: string;
+};
+
+// ─── DERIVED DEPS TYPES ───
+
+export type AuthenticateWithOAuthDeps = Pick<
+  OAuthModuleConfig,
+  "accountRepo" | "oauthStore" | "receiptSigner" | "idGenerator" | "logger"
+> & { readonly tokenLifespanMinutes: number };
+
+export type LinkOAuthToAccountDeps = Pick<
+  OAuthModuleConfig,
+  "accountRepo" | "oauthStore" | "idGenerator" | "logger"
+>;
+
+export type UnlinkOAuthProviderDeps = Pick<OAuthModuleConfig, "oauthStore">;

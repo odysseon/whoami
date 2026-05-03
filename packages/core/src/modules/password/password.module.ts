@@ -8,10 +8,6 @@ import type {
 } from "./password.config.js";
 import { PasswordProofDeserializer } from "./password.deserializer.js";
 import { buildPasswordUseCases } from "./password.factory.js";
-import type {
-  RegisterWithPasswordOutput,
-  AuthenticateWithPasswordOutput,
-} from "./use-cases/index.js";
 
 export type { PasswordModuleConfig, PasswordMethods };
 
@@ -52,19 +48,9 @@ export function PasswordModule(
     kind: "password",
     proofDeserializer: new PasswordProofDeserializer(),
 
-    registerWithPassword: async (
-      input,
-    ): Promise<RegisterWithPasswordOutput> => {
-      const result = await uc.register.execute(input);
-      return { account: result.account };
-    },
+    registerWithPassword: (input) => uc.register.execute(input),
 
-    authenticateWithPassword: async (
-      input,
-    ): Promise<AuthenticateWithPasswordOutput> => {
-      const result = await uc.authenticate.execute(input);
-      return { receipt: result.receipt, account: result.account };
-    },
+    authenticateWithPassword: (input) => uc.authenticate.execute(input),
 
     changePassword: (input) =>
       uc.changePassword.execute({
@@ -80,6 +66,7 @@ export function PasswordModule(
       }),
 
     requestPasswordReset: (input) => uc.requestReset.execute(input),
+
     verifyPasswordReset: (input) => uc.verifyReset.execute(input),
 
     revokeAllPasswordResets: (input) =>

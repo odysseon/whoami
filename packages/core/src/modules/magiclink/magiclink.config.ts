@@ -7,7 +7,6 @@ import type {
   SecureTokenPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { MagicLinkTokenStore } from "./ports/magiclink-token-store.port.js";
-import type { RequestMagicLinkOutput } from "./use-cases/index.js";
 
 /** Configuration for the MagicLink module */
 export interface MagicLinkModuleConfig {
@@ -24,13 +23,56 @@ export interface MagicLinkModuleConfig {
 
 /** Methods exposed by the MagicLink module */
 export interface MagicLinkMethods {
-  readonly requestMagicLink: (input: {
-    email: string;
-  }) => Promise<RequestMagicLinkOutput>;
+  readonly requestMagicLink: (input: { email: string }) => Promise<{
+    challengeId: string;
+    plainTextToken: string;
+    expiresAt: Date;
+    isNewAccount: boolean;
+  }>;
 
   readonly authenticateWithMagicLink: (input: { token: string }) => Promise<{
     receipt: { token: string; accountId: string; expiresAt: Date };
     accountId: string;
     email: string;
   }>;
+}
+
+// ─── DERIVED I/O TYPES ───
+
+export type RequestMagicLinkInput = Parameters<
+  MagicLinkMethods["requestMagicLink"]
+>[0];
+export type RequestMagicLinkOutput = Awaited<
+  ReturnType<MagicLinkMethods["requestMagicLink"]>
+>;
+
+export type AuthenticateWithMagicLinkInput = Parameters<
+  MagicLinkMethods["authenticateWithMagicLink"]
+>[0];
+export type AuthenticateWithMagicLinkOutput = Awaited<
+  ReturnType<MagicLinkMethods["authenticateWithMagicLink"]>
+>;
+
+// ─── DERIVED DEPS TYPES ───
+
+export type RequestMagicLinkDeps = Pick<
+  MagicLinkModuleConfig,
+  | "accountRepo"
+  | "magicLinkStore"
+  | "idGenerator"
+  | "logger"
+  | "clock"
+  | "secureToken"
+> & { readonly config: MagicLinkConfig };
+
+export type AuthenticateWithMagicLinkDeps = Pick<
+  MagicLinkModuleConfig,
+  "magicLinkStore" | "receiptSigner" | "secureToken"
+> & { readonly config: MagicLinkConfig };
+
+// ─── INTERNAL CONFIG TYPE ───
+
+export interface MagicLinkConfig {
+  readonly tokenLifespanMinutes: number;
+  readonly receiptLifespanMinutes: number;
 }

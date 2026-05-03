@@ -5,6 +5,17 @@ export {
   type MagicLinkMethods,
 } from "./magiclink.module.js";
 
+// Derived types
+export type {
+  RequestMagicLinkInput,
+  RequestMagicLinkOutput,
+  RequestMagicLinkDeps,
+  AuthenticateWithMagicLinkInput,
+  AuthenticateWithMagicLinkOutput,
+  AuthenticateWithMagicLinkDeps,
+  MagicLinkConfig,
+} from "./magiclink.config.js";
+
 // Entities
 export {
   type MagicLinkProof,
@@ -22,10 +33,4 @@ export type { MagicLinkTokenStore } from "./ports/magiclink-token-store.port.js"
 export {
   RequestMagicLinkUseCase,
   AuthenticateWithMagicLinkUseCase,
-  type RequestMagicLinkInput,
-  type RequestMagicLinkOutput,
-  type MagicLinkConfig,
-  type AuthenticateWithMagicLinkInput,
-  type AuthenticateWithMagicLinkOutput,
-  type AuthenticateWithMagicLinkConfig,
 } from "./use-cases/index.js";

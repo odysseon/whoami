@@ -5,6 +5,21 @@ export {
   type OAuthMethods,
 } from "./oauth.module.js";
 
+// Shared DTO type
+export type { AccountDTO } from "./oauth.config.js";
+
+// Derived types
+export type {
+  AuthenticateWithOAuthInput,
+  AuthenticateWithOAuthOutput,
+  AuthenticateWithOAuthDeps,
+  LinkOAuthToAccountInput,
+  LinkOAuthToAccountOutput,
+  LinkOAuthToAccountDeps,
+  UnlinkOAuthProviderInput,
+  UnlinkOAuthProviderDeps,
+} from "./use-cases/index.js";
+
 // Entities
 export {
   type OAuthProof,
@@ -20,10 +35,4 @@ export {
   AuthenticateWithOAuthUseCase,
   LinkOAuthToAccountUseCase,
   UnlinkOAuthProviderUseCase,
-  type AuthenticateWithOAuthInput,
-  type AuthenticateWithOAuthOutput,
-  type LinkOAuthToAccountInput,
-  type LinkOAuthToAccountOutput,
-  type UnlinkOAuthProviderInput,
-  type UnlinkOAuthProviderOutput,
 } from "./use-cases/index.js";

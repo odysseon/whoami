@@ -11,6 +11,8 @@ import type { PasswordResetTokenStore } from "./ports/password-reset-token-store
 import type { PasswordHasher } from "./ports/password-hasher.port.js";
 import type { Account, Receipt } from "../../kernel/domain/entities/index.js";
 
+// ─── UNIFIED DEPENDENCIES ───
+
 export interface PasswordModuleDeps {
   readonly accountRepo: AccountRepository;
   readonly passwordHashStore: PasswordHashStore;
@@ -23,23 +25,32 @@ export interface PasswordModuleDeps {
   readonly secureToken: SecureTokenPort;
 }
 
+// ─── MODULE CONFIG ───
+
 export interface PasswordModuleConfig extends PasswordModuleDeps {
   readonly tokenLifespanMinutes?: number;
   readonly resetTokenLifespanMinutes?: number;
 }
 
+// ─── DERIVED DTO TYPE ───
+
+/** Public account shape — no branded types, no string dates */
+export type AccountDTO = ReturnType<Account["toDTO"]>;
+
+// ─── PUBLIC METHODS — Single source of truth ───
+
 export interface PasswordMethods {
   readonly registerWithPassword: (input: {
     email: string;
     password: string;
-  }) => Promise<{ account: Account }>;
+  }) => Promise<{ account: AccountDTO }>;
 
   readonly authenticateWithPassword: (input: {
     email: string;
     password: string;
   }) => Promise<{
     receipt: Receipt;
-    account: Account;
+    account: AccountDTO;
   }>;
 
   readonly changePassword: (input: {
@@ -68,9 +79,7 @@ export interface PasswordMethods {
   }) => Promise<{ success: true }>;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// DERIVED I/O TYPES
-// ─────────────────────────────────────────────────────────────────
+// ─── DERIVED I/O TYPES ───
 
 export type RegisterWithPasswordInput = Parameters<
   PasswordMethods["registerWithPassword"]
@@ -121,9 +130,7 @@ export type RevokeAllPasswordResetsOutput = Awaited<
   ReturnType<PasswordMethods["revokeAllPasswordResets"]>
 >;
 
-// ─────────────────────────────────────────────────────────────────
-// DERIVED DEPS TYPES
-// ─────────────────────────────────────────────────────────────────
+// ─── DERIVED DEPS TYPES ───
 
 export type RegisterWithPasswordDeps = Pick<
   PasswordModuleDeps,
@@ -177,10 +184,7 @@ export type RevokeAllPasswordResetsDeps = Pick<
   "resetTokenStore"
 >;
 
-// ─────────────────────────────────────────────────────────────────
-// INTERNAL CONFIG TYPES — Not derived from PasswordMethods,
-// used by use-case implementations and factory wiring
-// ─────────────────────────────────────────────────────────────────
+// ─── INTERNAL CONFIG TYPES ───
 
 export interface PasswordResetConfig {
   readonly tokenLifespanMinutes: number;
