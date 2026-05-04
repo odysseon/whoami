@@ -10,8 +10,6 @@ import type { PasswordHashStore } from "./ports/password-hash-store.port.js";
 import type { PasswordResetTokenStore } from "./ports/password-reset-token-store.port.js";
 import type { PasswordHasher } from "./ports/password-hasher.port.js";
 
-// ─── UNIFIED DEPENDENCIES ───
-
 export interface PasswordModuleDeps {
   readonly accountRepo: AccountRepository;
   readonly passwordHashStore: PasswordHashStore;
@@ -24,8 +22,6 @@ export interface PasswordModuleDeps {
   readonly secureToken: SecureTokenPort;
 }
 
-// ─── INTERNAL CONFIG TYPES ───
-
 export interface PasswordResetConfig {
   readonly tokenLifespanMinutes: number;
 }
@@ -33,8 +29,6 @@ export interface PasswordResetConfig {
 export interface VerifyPasswordResetConfig {
   readonly receiptLifespanMinutes: number;
 }
-
-// ─── DERIVED DEPS TYPES ───
 
 export type RegisterWithPasswordDeps = Pick<
   PasswordModuleDeps,
