@@ -59,10 +59,6 @@ export class Account {
     return this.#createdAt;
   }
 
-  isExpired(now: Date = new Date()): boolean {
-    return now >= this.#createdAt;
-  }
-
   toJSON(): { id: string; email: string; createdAt: string } {
     return {
       id: this.#id,
