@@ -1,5 +1,4 @@
 import { Credential } from "../../../kernel/domain/entities/index.js";
-import type { AccountId } from "../../../kernel/domain/value-objects/index.js";
 import { createCredentialId } from "../../../kernel/domain/value-objects/index.js";
 import {
   AccountNotFoundError,
@@ -12,9 +11,6 @@ import type {
   AddPasswordToAccountDeps,
 } from "../password.config.js";
 
-/**
- * Use case for adding a password to an existing account
- */
 export class AddPasswordToAccountUseCase {
   readonly #deps: AddPasswordToAccountDeps;
 
@@ -25,17 +21,13 @@ export class AddPasswordToAccountUseCase {
   async execute(
     input: AddPasswordToAccountInput,
   ): Promise<AddPasswordToAccountOutput> {
-    const account = await this.#deps.accountRepo.findById(
-      input.accountId as AccountId,
-    );
+    const account = await this.#deps.accountRepo.findById(input.accountId);
     if (!account) {
       throw new AccountNotFoundError(input.accountId);
     }
 
     const existingCredential =
-      await this.#deps.passwordHashStore.findByAccountId(
-        input.accountId as AccountId,
-      );
+      await this.#deps.passwordHashStore.findByAccountId(input.accountId);
     if (existingCredential) {
       throw new CredentialAlreadyExistsError(
         "Account already has a password. Use changePassword instead.",
@@ -47,7 +39,7 @@ export class AddPasswordToAccountUseCase {
     const credentialId = createCredentialId(this.#deps.idGenerator.generate());
     const credential = Credential.create({
       id: credentialId,
-      accountId: input.accountId as AccountId,
+      accountId: input.accountId,
       proof: createPasswordHashProof(passwordHash),
     });
 

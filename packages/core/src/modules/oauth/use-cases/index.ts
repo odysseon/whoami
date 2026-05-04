@@ -5,7 +5,6 @@ export { UnlinkOAuthProviderUseCase } from "./unlink-oauth-provider.use-case.js"
 
 // All types derived from OAuthMethods — single source of truth lives in oauth.config.ts
 export type {
-  AccountDTO,
   AuthenticateWithOAuthInput,
   AuthenticateWithOAuthOutput,
   AuthenticateWithOAuthDeps,

@@ -1,6 +1,9 @@
 import type { AuthModule } from "../../kernel/ports/auth-module.port.js";
-import { createAccountId } from "../../kernel/domain/value-objects/index.js";
-import { requirePort, requireMethod } from "../../kernel/shared/validation.js";
+import {
+  requirePort,
+  requireMethod,
+  requireAccountId,
+} from "../../kernel/shared/validation.js";
 import { buildAuthLifecycle } from "../../kernel/shared/auth-lifecycle.js";
 import type {
   PasswordModuleConfig,
@@ -54,14 +57,14 @@ export function PasswordModule(
 
     changePassword: (input) =>
       uc.changePassword.execute({
-        accountId: createAccountId(input.accountId),
+        accountId: requireAccountId(input.accountId),
         currentPassword: input.currentPassword,
         newPassword: input.newPassword,
       }),
 
     addPasswordToAccount: (input) =>
       uc.addPassword.execute({
-        accountId: createAccountId(input.accountId),
+        accountId: requireAccountId(input.accountId),
         password: input.password,
       }),
 
@@ -71,7 +74,7 @@ export function PasswordModule(
 
     revokeAllPasswordResets: (input) =>
       uc.revokeAllResets.execute({
-        accountId: createAccountId(input.accountId),
+        accountId: requireAccountId(input.accountId),
       }),
 
     ...lifecycle,

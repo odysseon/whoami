@@ -13,6 +13,12 @@ export interface AccountProps {
 }
 
 /**
+ * Public account shape — no branded types, Date stays as Date.
+ * Derived from Account.toDTO() — single source of truth.
+ */
+export type AccountDTO = { id: string; email: string; createdAt: Date };
+
+/**
  * Account entity represents a user account in the system.
  */
 export class Account {
@@ -81,10 +87,9 @@ export class Account {
   }
 
   /**
-   * Typed DTO for module facade returns — no string dates, no branded types leaking out.
-   * This is what PasswordMethods.returnType actually returns.
+   * Typed DTO for module facade returns — Date stays as Date for runtime use.
    */
-  toDTO(): { id: string; email: string; createdAt: Date } {
+  toDTO(): AccountDTO {
     return {
       id: this.#id,
       email: this.#email,

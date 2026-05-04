@@ -3,7 +3,7 @@ import type {
   CredentialProofDeserializer,
 } from "../../kernel/ports/auth-module.port.js";
 import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
-import { createAccountId } from "../../kernel/domain/value-objects/index.js";
+import { requireAccountId } from "../../kernel/shared/validation.js";
 import { buildAuthLifecycle } from "../../kernel/shared/auth-lifecycle.js";
 import {
   AuthenticateWithOAuthUseCase,
@@ -80,7 +80,7 @@ export function OAuthModule(
 
   const lifecycle = buildAuthLifecycle(config.oauthStore, {
     deleteByProvider: (accountId, provider) =>
-      config.oauthStore.deleteByProvider(createAccountId(accountId), provider),
+      config.oauthStore.deleteByProvider(requireAccountId(accountId), provider),
   });
 
   return {
@@ -91,14 +91,14 @@ export function OAuthModule(
 
     linkOAuthToAccount: (input) =>
       linkUseCase.execute({
-        accountId: createAccountId(input.accountId),
+        accountId: requireAccountId(input.accountId),
         provider: input.provider,
         providerId: input.providerId,
       }),
 
     unlinkProvider: async (accountId, provider): Promise<void> => {
       await unlinkUseCase.execute({
-        accountId: createAccountId(accountId),
+        accountId: requireAccountId(accountId),
         provider,
       });
     },

@@ -1,4 +1,8 @@
 import { InvalidConfigurationError } from "../domain/errors/index.js";
+import {
+  createAccountId,
+  type AccountId,
+} from "../domain/value-objects/index.js";
 
 /**
  * Validates that a required port is present and not null/undefined.
@@ -14,7 +18,7 @@ export function requirePort<T>(value: T | undefined | null, name: string): T {
 }
 
 /**
- * Validates that a value is a function (for callbacks, generators, etc).
+ * Validates that a value is a function.
  */
 export function requireFunction<T extends (...args: unknown[]) => unknown>(
   value: T | undefined | null,
@@ -45,4 +49,12 @@ export function requireMethod<T, K extends keyof T>(
     );
   }
   return obj;
+}
+
+/**
+ * Converts a string accountId to branded AccountId with validation.
+ * Use in module facades to sanitize public API inputs.
+ */
+export function requireAccountId(value: string): AccountId {
+  return createAccountId(value);
 }

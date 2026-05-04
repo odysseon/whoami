@@ -1,13 +1,9 @@
-import type { AccountId } from "../../../kernel/domain/value-objects/index.js";
 import type {
   RevokeAllPasswordResetsInput,
   RevokeAllPasswordResetsOutput,
   RevokeAllPasswordResetsDeps,
 } from "../password.config.js";
 
-/**
- * Use case for revoking all pending password reset tokens for an account
- */
 export class RevokeAllPasswordResetsUseCase {
   readonly #deps: RevokeAllPasswordResetsDeps;
 
@@ -18,9 +14,7 @@ export class RevokeAllPasswordResetsUseCase {
   async execute(
     input: RevokeAllPasswordResetsInput,
   ): Promise<RevokeAllPasswordResetsOutput> {
-    await this.#deps.resetTokenStore.deleteAllForAccount(
-      input.accountId as AccountId,
-    );
+    await this.#deps.resetTokenStore.deleteAllForAccount(input.accountId);
     return { success: true };
   }
 }

@@ -12,9 +12,6 @@ import type {
   RequestPasswordResetDeps,
 } from "../password.config.js";
 
-/**
- * Use case for requesting a password reset
- */
 export class RequestPasswordResetUseCase {
   readonly #deps: RequestPasswordResetDeps;
 

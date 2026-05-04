@@ -5,9 +5,6 @@ export {
   type OAuthMethods,
 } from "./oauth.module.js";
 
-// Shared DTO type
-export type { AccountDTO } from "./oauth.config.js";
-
 // Derived types
 export type {
   AuthenticateWithOAuthInput,
