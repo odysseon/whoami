@@ -12,15 +12,8 @@ export interface AccountProps {
   readonly createdAt: Date;
 }
 
-/**
- * Public account shape — no branded types, Date stays as Date.
- * Derived from Account.toDTO() — single source of truth.
- */
 export type AccountDTO = { id: string; email: string; createdAt: Date };
 
-/**
- * Account entity represents a user account in the system.
- */
 export class Account {
   readonly #id: AccountId;
   readonly #email: EmailAddress;
@@ -45,13 +38,10 @@ export class Account {
   }
 
   static load(props: { id: string; email: string; createdAt: Date }): Account {
-    if (!props.id || props.id.length === 0) {
+    if (!props.id || props.id.length === 0)
       throw new InvalidAccountIdError("Account ID cannot be empty");
-    }
-    if (!props.email || props.email.length === 0) {
+    if (!props.email || props.email.length === 0)
       throw new InvalidEmailError("Email cannot be empty");
-    }
-
     return new Account({
       id: createAccountId(props.id),
       email: createEmailAddress(props.email),
@@ -62,11 +52,9 @@ export class Account {
   get id(): AccountId {
     return this.#id;
   }
-
   get email(): EmailAddress {
     return this.#email;
   }
-
   get createdAt(): Date {
     return this.#createdAt;
   }
@@ -75,9 +63,6 @@ export class Account {
     return now >= this.#createdAt;
   }
 
-  /**
-   * Plain object for serialization (API responses, logging, etc.)
-   */
   toJSON(): { id: string; email: string; createdAt: string } {
     return {
       id: this.#id,
@@ -86,14 +71,7 @@ export class Account {
     };
   }
 
-  /**
-   * Typed DTO for module facade returns — Date stays as Date for runtime use.
-   */
   toDTO(): AccountDTO {
-    return {
-      id: this.#id,
-      email: this.#email,
-      createdAt: this.#createdAt,
-    };
+    return { id: this.#id, email: this.#email, createdAt: this.#createdAt };
   }
 }
