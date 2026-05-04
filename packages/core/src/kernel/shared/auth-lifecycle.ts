@@ -1,4 +1,4 @@
-import { InvalidConfigurationError } from "../../index.js";
+import { InvalidConfigurationError } from "../domain/errors/index.js";
 import type { CredentialId } from "../domain/value-objects/index.js";
 import type { CredentialStoreBase } from "../ports/credential-store.port.js";
 
