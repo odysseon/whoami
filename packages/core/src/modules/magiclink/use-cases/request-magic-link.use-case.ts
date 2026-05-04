@@ -1,11 +1,8 @@
 import { Credential } from "../../../kernel/domain/entities/index.js";
-import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
 import {
   createAccountId,
   createCredentialId,
-  createEmailAddress,
 } from "../../../kernel/domain/value-objects/index.js";
-import { InvalidEmailError } from "../../../kernel/domain/errors/index.js";
 import { Account } from "../../../kernel/domain/entities/account.js";
 import { createMagicLinkProof } from "../entities/magiclink.proof.js";
 import type {
@@ -13,6 +10,7 @@ import type {
   RequestMagicLinkOutput,
   RequestMagicLinkDeps,
 } from "../magiclink.config.js";
+import { parseEmail } from "../../../kernel/shared/index.js";
 
 export class RequestMagicLinkUseCase {
   readonly #deps: RequestMagicLinkDeps;
@@ -22,12 +20,7 @@ export class RequestMagicLinkUseCase {
   }
 
   async execute(input: RequestMagicLinkInput): Promise<RequestMagicLinkOutput> {
-    let email: EmailAddress;
-    try {
-      email = createEmailAddress(input.email);
-    } catch {
-      throw new InvalidEmailError(`Invalid email: ${input.email}`);
-    }
+    const email = parseEmail(input.email);
 
     let account = await this.#deps.accountRepo.findByEmail(email);
     let isNewAccount = false;

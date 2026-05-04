@@ -1,20 +1,16 @@
 import { Account, Credential } from "../../../kernel/domain/entities/index.js";
-import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
 import {
   createAccountId,
   createCredentialId,
-  createEmailAddress,
 } from "../../../kernel/domain/value-objects/index.js";
-import {
-  AccountAlreadyExistsError,
-  InvalidEmailError,
-} from "../../../kernel/domain/errors/index.js";
+import { AccountAlreadyExistsError } from "../../../kernel/domain/errors/index.js";
 import { createPasswordHashProof } from "../entities/password.proof.js";
 import type {
   RegisterWithPasswordInput,
   RegisterWithPasswordOutput,
   RegisterWithPasswordDeps,
 } from "../password.config.js";
+import { parseEmail } from "../../../kernel/shared/index.js";
 
 export class RegisterWithPasswordUseCase {
   readonly #deps: RegisterWithPasswordDeps;
@@ -26,12 +22,7 @@ export class RegisterWithPasswordUseCase {
   async execute(
     input: RegisterWithPasswordInput,
   ): Promise<RegisterWithPasswordOutput> {
-    let email: EmailAddress;
-    try {
-      email = createEmailAddress(input.email);
-    } catch {
-      throw new InvalidEmailError(`Invalid email: ${input.email}`);
-    }
+    const email = parseEmail(input.email);
 
     const existingAccount = await this.#deps.accountRepo.findByEmail(email);
     if (existingAccount) {
