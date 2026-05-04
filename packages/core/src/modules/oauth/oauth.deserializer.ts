@@ -1,15 +1,9 @@
 import type { CredentialProof } from "../../kernel/domain/entities/credential.js";
 import type { CredentialProofDeserializer } from "../../kernel/ports/auth-module.port.js";
-
-function assertObject(data: unknown): asserts data is Record<string, unknown> {
-  if (data === null || typeof data !== "object") {
-    throw new Error("OAuth proof must be an object");
-  }
-}
-
-function credentialProof<T extends CredentialProof>(proof: T): CredentialProof {
-  return proof;
-}
+import {
+  assertObject,
+  credentialProof,
+} from "../../kernel/shared/deserializer-helpers.js";
 
 export class OAuthProofDeserializer implements CredentialProofDeserializer {
   readonly kind = "oauth";

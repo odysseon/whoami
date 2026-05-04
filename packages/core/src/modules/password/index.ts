@@ -35,11 +35,9 @@ export type {
 
 // Entities
 export {
-  type PasswordProof,
   type PasswordHashProof,
   type PasswordResetProof,
   isPasswordHashProof,
-  isPasswordResetProof,
   createPasswordHashProof,
   createPasswordResetProof,
   markResetProofAsUsed,

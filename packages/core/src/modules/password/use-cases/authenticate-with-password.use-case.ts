@@ -1,9 +1,5 @@
-import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
-import { createEmailAddress } from "../../../kernel/domain/value-objects/index.js";
-import {
-  AuthenticationError,
-  InvalidEmailError,
-} from "../../../kernel/domain/errors/index.js";
+import { parseEmail } from "../../../kernel/shared/index.js";
+import { AuthenticationError } from "../../../kernel/domain/errors/index.js";
 import type {
   AuthenticateWithPasswordInput,
   AuthenticateWithPasswordOutput,
@@ -20,12 +16,7 @@ export class AuthenticateWithPasswordUseCase {
   async execute(
     input: AuthenticateWithPasswordInput,
   ): Promise<AuthenticateWithPasswordOutput> {
-    let email: EmailAddress;
-    try {
-      email = createEmailAddress(input.email);
-    } catch {
-      throw new InvalidEmailError(`Invalid email: ${input.email}`);
-    }
+    const email = parseEmail(input.email);
 
     const account = await this.#deps.accountRepo.findByEmail(email);
     if (!account) {

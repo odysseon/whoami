@@ -1,16 +1,12 @@
 import { Credential } from "../../../kernel/domain/entities/index.js";
-import type { EmailAddress } from "../../../kernel/domain/value-objects/index.js";
-import {
-  createCredentialId,
-  createEmailAddress,
-} from "../../../kernel/domain/value-objects/index.js";
-import { InvalidEmailError } from "../../../kernel/domain/errors/index.js";
+import { createCredentialId } from "../../../kernel/domain/value-objects/index.js";
 import { createPasswordResetProof } from "../entities/password.proof.js";
 import type {
   RequestPasswordResetInput,
   RequestPasswordResetOutput,
   RequestPasswordResetDeps,
 } from "../password.config.js";
+import { parseEmail } from "../../../kernel/shared/index.js";
 
 export class RequestPasswordResetUseCase {
   readonly #deps: RequestPasswordResetDeps;
@@ -22,12 +18,7 @@ export class RequestPasswordResetUseCase {
   async execute(
     input: RequestPasswordResetInput,
   ): Promise<RequestPasswordResetOutput | null> {
-    let email: EmailAddress;
-    try {
-      email = createEmailAddress(input.email);
-    } catch {
-      throw new InvalidEmailError(`Invalid email: ${input.email}`);
-    }
+    const email = parseEmail(input.email);
 
     const account = await this.#deps.accountRepo.findByEmail(email);
     if (!account) {
