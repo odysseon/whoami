@@ -1,4 +1,3 @@
-import type { AccountId } from "../../../kernel/domain/value-objects/index.js";
 import {
   AccountNotFoundError,
   AuthenticationError,
@@ -10,9 +9,6 @@ import type {
   ChangePasswordDeps,
 } from "../password.config.js";
 
-/**
- * Use case for changing password
- */
 export class ChangePasswordUseCase {
   readonly #deps: ChangePasswordDeps;
 
@@ -21,15 +17,13 @@ export class ChangePasswordUseCase {
   }
 
   async execute(input: ChangePasswordInput): Promise<ChangePasswordOutput> {
-    const account = await this.#deps.accountRepo.findById(
-      input.accountId as AccountId,
-    );
+    const account = await this.#deps.accountRepo.findById(input.accountId);
     if (!account) {
       throw new AccountNotFoundError(input.accountId);
     }
 
     const credential = await this.#deps.passwordHashStore.findByAccountId(
-      input.accountId as AccountId,
+      input.accountId,
     );
     if (!credential) {
       throw new AuthenticationError("No password set for this account");

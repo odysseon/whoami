@@ -1,6 +1,12 @@
 import type { AccountId } from "../value-objects/index.js";
 
 /**
+ * Public receipt shape — no branded types, Date stays as Date.
+ * Derived from Receipt.toDTO() — single source of truth.
+ */
+export type ReceiptDTO = { token: string; accountId: string; expiresAt: Date };
+
+/**
  * Receipt represents a successful authentication.
  */
 export class Receipt {
@@ -64,7 +70,7 @@ export class Receipt {
   /**
    * Typed DTO for module facade returns — Date stays as Date for runtime use.
    */
-  toDTO(): { token: string; accountId: string; expiresAt: Date } {
+  toDTO(): ReceiptDTO {
     return {
       token: this.#token,
       accountId: this.#accountId,

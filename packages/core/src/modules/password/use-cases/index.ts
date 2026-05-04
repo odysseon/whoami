@@ -7,7 +7,7 @@ export { RequestPasswordResetUseCase } from "./request-password-reset.use-case.j
 export { VerifyPasswordResetUseCase } from "./verify-password-reset.use-case.js";
 export { RevokeAllPasswordResetsUseCase } from "./revoke-all-password-resets.use-case.js";
 
-// All types derived from PasswordMethods — single source of truth
+// All types derived from PasswordMethods — single source of truth lives in password.config.ts
 export type {
   RegisterWithPasswordInput,
   RegisterWithPasswordOutput,

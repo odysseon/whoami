@@ -52,4 +52,17 @@ export type {
   AuthModule,
   CredentialProofDeserializer,
   SecureTokenPort,
+  CredentialStoreBase,
 } from "./ports/index.js";
+
+// Shared utilities
+export {
+  CompositeDeserializer,
+  AuthOrchestrator,
+  buildAuthLifecycle,
+  type AuthLifecycle,
+} from "./shared/index.js";
+
+// DTO types derived from entities — shared across all modules
+export type { AccountDTO } from "./domain/entities/account.js";
+export type { ReceiptDTO } from "./domain/entities/receipt.js";

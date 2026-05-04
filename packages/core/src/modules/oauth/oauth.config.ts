@@ -5,14 +5,8 @@ import type {
   LoggerPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { OAuthCredentialStore } from "./ports/oauth-credential-store.port.js";
-import type { Account, Receipt } from "../../kernel/domain/entities/index.js";
 import type { AccountId } from "../../kernel/domain/value-objects/index.js";
-
-/** Public account shape — no branded types */
-export type AccountDTO = ReturnType<Account["toDTO"]>;
-
-/** Public receipt shape — no branded types */
-export type ReceiptDTO = ReturnType<Receipt["toDTO"]>;
+import type { AccountDTO, ReceiptDTO } from "../../kernel/index.js";
 
 /** Configuration for the OAuth module */
 export interface OAuthModuleConfig {

@@ -9,7 +9,8 @@ import type {
 import type { PasswordHashStore } from "./ports/password-hash-store.port.js";
 import type { PasswordResetTokenStore } from "./ports/password-reset-token-store.port.js";
 import type { PasswordHasher } from "./ports/password-hasher.port.js";
-import type { Account, Receipt } from "../../kernel/domain/entities/index.js";
+import type { AccountId } from "../../kernel/domain/value-objects/index.js";
+import type { AccountDTO, ReceiptDTO } from "../../kernel/index.js";
 
 // ─── UNIFIED DEPENDENCIES ───
 
@@ -31,14 +32,6 @@ export interface PasswordModuleConfig extends PasswordModuleDeps {
   readonly tokenLifespanMinutes?: number;
   readonly resetTokenLifespanMinutes?: number;
 }
-
-// ─── DERIVED DTO TYPES ───
-
-/** Public account shape — no branded types, no string dates */
-export type AccountDTO = ReturnType<Account["toDTO"]>;
-
-/** Public receipt shape — no branded types, Date stays as Date */
-export type ReceiptDTO = ReturnType<Receipt["toDTO"]>;
 
 // ─── PUBLIC METHODS — Single source of truth ───
 
@@ -98,16 +91,21 @@ export type AuthenticateWithPasswordOutput = Awaited<
   ReturnType<PasswordMethods["authenticateWithPassword"]>
 >;
 
-export type ChangePasswordInput = Parameters<
-  PasswordMethods["changePassword"]
->[0];
+export type ChangePasswordInput = {
+  readonly accountId: AccountId;
+  readonly currentPassword: string;
+  readonly newPassword: string;
+};
+
 export type ChangePasswordOutput = Awaited<
   ReturnType<PasswordMethods["changePassword"]>
 >;
 
-export type AddPasswordToAccountInput = Parameters<
-  PasswordMethods["addPasswordToAccount"]
->[0];
+export type AddPasswordToAccountInput = {
+  readonly accountId: AccountId;
+  readonly password: string;
+};
+
 export type AddPasswordToAccountOutput = Awaited<
   ReturnType<PasswordMethods["addPasswordToAccount"]>
 >;
@@ -126,9 +124,10 @@ export type VerifyPasswordResetOutput = Awaited<
   ReturnType<PasswordMethods["verifyPasswordReset"]>
 >;
 
-export type RevokeAllPasswordResetsInput = Parameters<
-  PasswordMethods["revokeAllPasswordResets"]
->[0];
+export type RevokeAllPasswordResetsInput = {
+  readonly accountId: AccountId;
+};
+
 export type RevokeAllPasswordResetsOutput = Awaited<
   ReturnType<PasswordMethods["revokeAllPasswordResets"]>
 >;
