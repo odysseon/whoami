@@ -7,5 +7,5 @@ import type { CredentialId } from "../domain/value-objects/index.js";
 export interface CredentialStoreBase {
   countForAccount(accountId: string): Promise<number>;
   delete(credentialId: CredentialId): Promise<void>;
-  deleteAllForAccount(accountId: string): Promise<void>;
+  deleteAllForAccount?(accountId: string): Promise<void>;
 }

@@ -1,3 +1,4 @@
+import { InvalidConfigurationError } from "../../index.js";
 import type { CredentialId } from "../domain/value-objects/index.js";
 import type { CredentialStoreBase } from "../ports/credential-store.port.js";
 
@@ -42,8 +43,12 @@ export function buildAuthLifecycle(
     ): Promise<void> {
       if (opts?.provider && options?.deleteByProvider) {
         await options.deleteByProvider(accountId, opts.provider);
-      } else {
+      } else if (store.deleteAllForAccount) {
         await store.deleteAllForAccount(accountId);
+      } else {
+        throw new InvalidConfigurationError(
+          `Store does not support deleteAllForAccount`,
+        );
       }
     },
   };

@@ -1,5 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { OAuthMethods, Receipt } from "@odysseon/whoami-core";
+import {
+  InvalidConfigurationError,
+  type OAuthMethods,
+  type ReceiptDTO,
+} from "@odysseon/whoami-core";
 import { moduleToken } from "../tokens.js";
 
 export interface OAuthProfile {
@@ -19,9 +23,9 @@ export class OAuthCallbackHandler {
     this.#oauth = oauth;
   }
 
-  async handle(profile: OAuthProfile): Promise<Receipt> {
+  async handle(profile: OAuthProfile): Promise<ReceiptDTO> {
     if (!this.#oauth) {
-      throw new Error(
+      throw new InvalidConfigurationError(
         "OAuth module not configured. Please include OAuthModule in WhoamiModule options.",
       );
     }
