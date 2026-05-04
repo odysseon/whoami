@@ -1,6 +1,6 @@
 {
   "name": "@odysseon/whoami-adapter-prisma",
-  "version": "1.0.0-dev.0",
+  "version": "1.0.0-dev.1",
   "description": "Prisma adapter for whoami authentication library",
   "keywords": [
     "adapter",
@@ -43,7 +43,7 @@
     "@odysseon/whoami-core": "workspace:*"
   },
   "peerDependencies": {
-    "@odysseon/whoami-core": ">=12.0.0-dev.1"
+    "@odysseon/whoami-core": ">=12.0.0-dev.2"
   },
   "packageManager": "pnpm@10.33.2"
 }

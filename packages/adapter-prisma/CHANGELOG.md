@@ -1,5 +1,12 @@
 # @odysseon/whoami-adapter-prisma
 
+## 1.0.0-dev.1
+
+### Patch Changes
+
+- Updated dependencies [7408441]
+  - @odysseon/whoami-core@12.0.0-dev.2
+
 ## 1.0.0-dev.0
 
 ### Minor Changes
