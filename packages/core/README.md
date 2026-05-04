@@ -1,145 +1,237 @@
 # @odysseon/whoami-core
 
-```mermaid
-graph TD
-    Factory["createAuth(config) → AuthMethods"]
+Domain logic, port interfaces, and module factories for the whoami identity kernel. Zero framework and I/O dependencies.
 
-    Factory --> Kernel["kernel"]
-    Factory --> Password["modules/password"]
-    Factory --> OAuth["modules/oauth"]
+## Installation
 
-    Kernel --> Account["Account entity"]
-    Kernel --> Credential["Credential entity"]
-    Kernel --> Receipt["Receipt entity"]
-    Kernel --> Orchestrator["AuthOrchestrator"]
-    Kernel --> RemoveUC["RemoveAuthMethodUseCase"]
-    Kernel --> SharedPorts["LoggerPort · IdGeneratorPort · ClockPort"]
-
-    Password --> PwdUseCases["RegisterWithPasswordUseCase\nAuthenticateWithPasswordUseCase\nAddPasswordUseCase\nChangePasswordUseCase"]
-    Password --> PasswordHasher["PasswordHasher port"]
-    Password --> PasswordStore["PasswordCredentialStore port"]
-
-    OAuth --> OAuthUseCases["AuthenticateWithOAuthUseCase\nLinkOAuthToAccountUseCase"]
-    OAuth --> OAuthStore["OAuthCredentialStore port"]
+```bash
+npm install @odysseon/whoami-core
 ```
 
-## Delegated Responsibility
+## Concept
 
-This package enforces authentication rules and exposes the contracts that adapters must implement. It contains zero framework or I/O dependencies.
+There is no central factory. Each auth method is a self-contained module that returns its own fully-typed facade. You compose what you need. Cross-module policy (e.g., the last-credential guard) lives in `AuthOrchestrator`, which you instantiate separately.
+
+```ts
+import { PasswordModule } from "@odysseon/whoami-core/password";
+import { OAuthModule } from "@odysseon/whoami-core/oauth";
+import { MagicLinkModule } from "@odysseon/whoami-core/magiclink";
+import { AuthOrchestrator } from "@odysseon/whoami-core/kernel";
+
+const password = PasswordModule({
+  accountRepo,
+  passwordHashStore, // stores hashed passwords (one per account)
+  resetTokenStore, // stores password reset tokens (many per account, short-lived)
+  passwordHasher,
+  receiptSigner,
+  idGenerator: { generate: () => crypto.randomUUID() },
+  logger,
+  clock: { now: () => new Date() },
+  secureToken,
+});
+
+const oauth = OAuthModule({
+  accountRepo,
+  oauthStore,
+  receiptSigner,
+  idGenerator: { generate: () => crypto.randomUUID() },
+  logger,
+});
+
+const magicLink = MagicLinkModule({
+  accountRepo,
+  magicLinkStore,
+  receiptSigner,
+  idGenerator: { generate: () => crypto.randomUUID() },
+  logger,
+  clock: { now: () => new Date() },
+  secureToken,
+});
+
+// Each module is fully typed — no casts, no assertions
+const { receipt } = await password.authenticateWithPassword({
+  email,
+  password,
+});
+
+// Cross-module policy — explicit opt-in
+const orchestrator = new AuthOrchestrator([password, oauth, magicLink]);
+await orchestrator.removeAuthMethod(accountId, "password"); // last-credential guard applies
+```
 
 ## Entry points
 
-| Entry point                      | Consumer             | Contains                                                 |
-| -------------------------------- | -------------------- | -------------------------------------------------------- |
-| `@odysseon/whoami-core`          | Application code     | `createAuth`, all ports, entities, errors, value objects |
-| `@odysseon/whoami-core/internal` | Adapter authors only | Concrete use-case classes for NestJS DI token wiring     |
+| Entry point                       | Consumer             | Contains                                                |
+| --------------------------------- | -------------------- | ------------------------------------------------------- |
+| `@odysseon/whoami-core`           | Application code     | All ports, entities, errors, value objects              |
+| `@odysseon/whoami-core/password`  | Application code     | `PasswordModule`, `PasswordMethods`, password ports     |
+| `@odysseon/whoami-core/oauth`     | Application code     | `OAuthModule`, `OAuthMethods`, OAuth ports              |
+| `@odysseon/whoami-core/magiclink` | Application code     | `MagicLinkModule`, `MagicLinkMethods`, magic-link ports |
+| `@odysseon/whoami-core/kernel`    | Application code     | `AuthOrchestrator`, entities, shared ports              |
+| `@odysseon/whoami-core/internal`  | Adapter authors only | Concrete use-case classes for DI token wiring           |
 
-## createAuth
+## Module factories
 
-`createAuth(config: AuthConfig): AuthMethods` is the primary API. It composes all use-cases internally — you never import use-case classes directly from this package.
+### `PasswordModule(config)`
+
+Returns `PasswordMethods & AuthModule`.
+
+**Config** — all fields required unless noted:
+
+| Field                       | Type                      | Required | Description                                                            |
+| --------------------------- | ------------------------- | -------- | ---------------------------------------------------------------------- |
+| `accountRepo`               | `AccountRepository`       | ✅       | Account persistence                                                    |
+| `passwordHashStore`         | `PasswordHashStore`       | ✅       | Stores hashed passwords — one record per account                       |
+| `resetTokenStore`           | `PasswordResetTokenStore` | ✅       | Stores password reset tokens — many per account, short-lived           |
+| `passwordHasher`            | `PasswordHasher`          | ✅       | Slow hash for passwords — use `Argon2PasswordHasher`                   |
+| `receiptSigner`             | `ReceiptSigner`           | ✅       | Signs receipt JWTs — use `JoseReceiptSigner`                           |
+| `idGenerator`               | `IdGeneratorPort`         | ✅       | `{ generate(): string }` — any unique-ID strategy                      |
+| `logger`                    | `LoggerPort`              | ✅       | Structured logging                                                     |
+| `clock`                     | `ClockPort`               | ✅       | Time source — pass `{ now: () => new Date() }` in production           |
+| `secureToken`               | `SecureTokenPort`         | ✅       | Generates and hashes opaque tokens — use `WebCryptoSecureTokenAdapter` |
+| `tokenLifespanMinutes`      | `number`                  | ✗        | Receipt token lifespan (default: 60)                                   |
+| `resetTokenLifespanMinutes` | `number`                  | ✗        | Reset token lifespan (default: 15)                                     |
+
+**Methods:**
+
+| Method                                                        | Returns                | Description                                                    |
+| ------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------- |
+| `registerWithPassword({ email, password })`                   | `{ account }`          | Creates account + password credential                          |
+| `authenticateWithPassword({ email, password })`               | `{ receipt, account }` | Verifies password, issues receipt                              |
+| `addPasswordToAccount({ accountId, password })`               | `{ success }`          | Adds a password credential to an existing account              |
+| `changePassword({ accountId, currentPassword, newPassword })` | `{ success }`          | Verifies current password, stores new hash                     |
+| `requestPasswordReset({ email })`                             | `{ token } \| null`    | Generates a secure reset token (plaintext — deliver via email) |
+| `verifyPasswordReset({ token })`                              | `{ receipt }`          | Exchanges a valid token for a short-lived receipt              |
+| `revokeAllPasswordResets({ accountId })`                      | `{ success }`          | Invalidates all pending reset tokens for an account            |
+
+---
+
+### `OAuthModule(config)`
+
+Returns `OAuthMethods & AuthModule`.
+
+**Config** — all fields required unless noted:
+
+| Field                  | Type                   | Required | Description                          |
+| ---------------------- | ---------------------- | -------- | ------------------------------------ |
+| `accountRepo`          | `AccountRepository`    | ✅       | Account persistence                  |
+| `oauthStore`           | `OAuthCredentialStore` | ✅       | Stores OAuth credentials             |
+| `receiptSigner`        | `ReceiptSigner`        | ✅       | Signs receipt JWTs                   |
+| `idGenerator`          | `IdGeneratorPort`      | ✅       | Unique-ID strategy                   |
+| `logger`               | `LoggerPort`           | ✅       | Structured logging                   |
+| `tokenLifespanMinutes` | `number`               | ✗        | Receipt token lifespan (default: 60) |
+
+**Methods:**
+
+| Method                                                    | Returns                | Description                                                  |
+| --------------------------------------------------------- | ---------------------- | ------------------------------------------------------------ |
+| `authenticateWithOAuth({ provider, providerId, email })`  | `{ receipt, account }` | Three-phase flow: fast-path / conflict-guard / auto-register |
+| `linkOAuthToAccount({ accountId, provider, providerId })` | `{ success }`          | Links a provider to an already-authenticated account         |
+| `unlinkProvider(accountId, provider)`                     | `void`                 | Removes a specific OAuth provider from an account            |
+
+---
+
+### `MagicLinkModule(config)`
+
+Returns `MagicLinkMethods & AuthModule`.
+
+**Config** — all fields required unless noted:
+
+| Field                    | Type                  | Required | Description                                          |
+| ------------------------ | --------------------- | -------- | ---------------------------------------------------- |
+| `accountRepo`            | `AccountRepository`   | ✅       | Account persistence                                  |
+| `magicLinkStore`         | `MagicLinkTokenStore` | ✅       | Stores magic-link tokens                             |
+| `receiptSigner`          | `ReceiptSigner`       | ✅       | Signs receipt JWTs                                   |
+| `idGenerator`            | `IdGeneratorPort`     | ✅       | Unique-ID strategy                                   |
+| `logger`                 | `LoggerPort`          | ✅       | Structured logging                                   |
+| `clock`                  | `ClockPort`           | ✅       | Time source                                          |
+| `secureToken`            | `SecureTokenPort`     | ✅       | Generates and hashes opaque tokens                   |
+| `tokenLifespanMinutes`   | `number`              | ✗        | Magic-link token lifespan (default: 15)              |
+| `receiptLifespanMinutes` | `number`              | ✗        | Receipt lifespan after magic-link auth (default: 60) |
+
+**Methods:**
+
+| Method                                 | Returns                         | Description                                                           |
+| -------------------------------------- | ------------------------------- | --------------------------------------------------------------------- |
+| `requestMagicLink({ email })`          | `{ token }`                     | Generates a secure magic-link token (plaintext — embed in email link) |
+| `authenticateWithMagicLink({ token })` | `{ receipt, accountId, email }` | Verifies token, issues receipt                                        |
+
+---
+
+### `AuthOrchestrator(modules)`
+
+Cross-module policy enforcement. Pass an array of `AuthModule` instances:
+
+| Method                                          | Returns                  | Description                                                                              |
+| ----------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------- |
+| `getAccountAuthMethods(accountId)`              | `Array<{ kind, count }>` | All active auth methods for the account                                                  |
+| `removeAuthMethod(accountId, method, options?)` | `void`                   | Removes an auth method; throws `CannotRemoveLastCredentialError` if it would be the last |
+| `countTotalCredentials(accountId)`              | `number`                 | Counts credentials across all registered modules                                         |
+| `getModule(kind)`                               | `AuthModule`             | Returns a registered module by kind                                                      |
+| `hasModule(kind)`                               | `boolean`                | Checks if a module is registered                                                         |
+| `getRegisteredKinds()`                          | `string[]`               | Lists all registered module kinds                                                        |
 
 ```ts
-import { createAuth } from "@odysseon/whoami-core";
+// Remove password auth (enforces last-credential guard)
+await orchestrator.removeAuthMethod(accountId, "password");
 
-const auth = createAuth({
-  accountRepo,
-  receiptSigner,
-  receiptVerifier,
-  logger: console,
-  idGenerator: () => crypto.randomUUID(),
+// Unlink a specific OAuth provider
+await orchestrator.removeAuthMethod(accountId, "oauth", { provider: "google" });
 
-  // omit either section to disable that auth method
-  password: { passwordStore, passwordHasher },
-  oauth: { oauthStore },
-});
-
-const receipt = await auth.registerWithPassword({ email, password });
+// Inspect what methods an account has
+const methods = await orchestrator.getAccountAuthMethods(accountId);
+// [{ kind: "password", count: 1 }, { kind: "oauth", count: 2 }]
 ```
 
-### AuthConfig fields
+## Ports
 
-| Field                  | Type                | Required | Description                                 |
-| ---------------------- | ------------------- | -------- | ------------------------------------------- |
-| `accountRepo`          | `AccountRepository` | ✓        | Persist and retrieve accounts               |
-| `receiptSigner`        | `ReceiptSigner`     | ✓        | Mint receipt JWTs                           |
-| `receiptVerifier`      | `ReceiptVerifier`   | ✓        | Verify receipt JWTs                         |
-| `logger`               | `LoggerPort`        | ✓        | Structured logger (`info`, `warn`, `error`) |
-| `idGenerator`          | `IdGeneratorPort`   | ✓        | `() => string` — e.g. `crypto.randomUUID`   |
-| `clock`                | `ClockPort`         | –        | Override `Date.now()` for testing           |
-| `tokenLifespanMinutes` | `number`            | –        | Receipt TTL, default 60                     |
-| `password`             | `PasswordConfig`    | –        | `{ passwordStore, passwordHasher }`         |
-| `oauth`                | `OAuthConfig`       | –        | `{ oauthStore }`                            |
+| Port                      | Required by                         | Purpose                                                                              |
+| ------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------ |
+| `AccountRepository`       | All modules                         | Persist and retrieve accounts                                                        |
+| `PasswordHashStore`       | `PasswordModule`                    | Persist hashed passwords — one record per account, upsert semantics                  |
+| `PasswordResetTokenStore` | `PasswordModule`                    | Persist reset tokens — many per account, short-lived                                 |
+| `OAuthCredentialStore`    | `OAuthModule`                       | Persist and retrieve OAuth credentials                                               |
+| `MagicLinkTokenStore`     | `MagicLinkModule`                   | Persist and retrieve magic-link tokens                                               |
+| `PasswordHasher`          | `PasswordModule`                    | Hash and compare passwords — use `@odysseon/whoami-adapter-argon2`                   |
+| `ReceiptSigner`           | All modules                         | Sign receipt JWTs — use `@odysseon/whoami-adapter-jose`                              |
+| `LoggerPort`              | All modules                         | Structured logging (`info`, `warn`, `error`)                                         |
+| `IdGeneratorPort`         | All modules                         | `{ generate(): string }` — any unique-ID strategy                                    |
+| `ClockPort`               | `PasswordModule`, `MagicLinkModule` | Override `Date.now()` — useful for testing                                           |
+| `SecureTokenPort`         | `PasswordModule`, `MagicLinkModule` | Generate opaque tokens and SHA-256 hashes — use `@odysseon/whoami-adapter-webcrypto` |
 
-## Methods
+## Domain errors
 
-### Always present
-
-| Method                                          | Description                                                                              |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `getAccountAuthMethods(accountId)`              | Returns all active auth methods for the account                                          |
-| `removeAuthMethod(accountId, method, options?)` | Removes an auth method; throws `CannotRemoveLastCredentialError` if it would be the last |
-
-### Present when `password` is configured
-
-| Method                            | Description                                            |
-| --------------------------------- | ------------------------------------------------------ |
-| `registerWithPassword(input)`     | Creates account + password credential, returns receipt |
-| `authenticateWithPassword(input)` | Verifies password, returns receipt                     |
-| `addPasswordToAccount(input)`     | Adds a password credential to an existing account      |
-| `changePassword(input)`           | Verifies current password, stores new hash             |
-
-### Present when `oauth` is configured
-
-| Method                         | Description                                                 |
-| ------------------------------ | ----------------------------------------------------------- |
-| `authenticateWithOAuth(input)` | Three-phase OAuth flow, returns receipt                     |
-| `linkOAuthToAccount(input)`    | Links an OAuth provider to an already-authenticated account |
-
-> **Unlinking an OAuth provider**: use `auth.removeAuthMethod(accountId, "oauth", { provider })`.
-> This routes through the kernel's last-credential guard and prevents accidental account lockout.
-
-## Ports summary
-
-| Port                      | Provided by                       | Purpose                                                   |
-| ------------------------- | --------------------------------- | --------------------------------------------------------- |
-| `AccountRepository`       | Your infra                        | Persist and retrieve accounts                             |
-| `PasswordCredentialStore` | Your infra                        | Persist and retrieve password credentials                 |
-| `OAuthCredentialStore`    | Your infra                        | Persist and retrieve OAuth credentials (one per provider) |
-| `PasswordHasher`          | `@odysseon/whoami-adapter-argon2` | Hash and compare passwords                                |
-| `ReceiptSigner`           | `@odysseon/whoami-adapter-jose`   | Sign receipt JWTs                                         |
-| `ReceiptVerifier`         | `@odysseon/whoami-adapter-jose`   | Verify receipt JWTs                                       |
-| `LoggerPort`              | Your infra                        | Structured logging (`info`, `warn`, `error`)              |
-| `IdGeneratorPort`         | Your infra                        | `() => string` — any unique-ID strategy                   |
-| `ClockPort`               | Optional / your infra             | Override clock for testing                                |
-
-## PasswordCredentialStore contract
+All domain errors extend `DomainError`. Switch on `err.code` — codes are stable API, messages are for humans.
 
 ```ts
-interface PasswordCredentialStore {
-  findByAccountId(accountId: AccountId): Promise<Credential | null>;
-  save(credential: Credential): Promise<void>;
-  update(credentialId: CredentialId, newHash: string): Promise<void>;
-  delete(credentialId: CredentialId): Promise<void>;
-  existsForAccount(accountId: AccountId): Promise<boolean>;
+try {
+  await password.registerWithPassword(input);
+} catch (err) {
+  if (err instanceof DomainError) {
+    switch (err.code) {
+      case "ACCOUNT_ALREADY_EXISTS": // ...
+      case "INVALID_EMAIL": // ...
+    }
+  }
 }
 ```
 
-## OAuthCredentialStore contract
-
-```ts
-interface OAuthCredentialStore {
-  findByProvider(
-    provider: string,
-    providerId: string,
-  ): Promise<Credential | null>;
-  findAllByAccountId(accountId: AccountId): Promise<Credential[]>;
-  save(credential: Credential): Promise<void>;
-  delete(credentialId: CredentialId): Promise<void>;
-  deleteByProvider(accountId: AccountId, provider: string): Promise<void>;
-  deleteAllForAccount(accountId: AccountId): Promise<void>;
-  existsForAccount(accountId: AccountId): Promise<boolean>;
-}
-```
+| Error class                       | Code                            | Thrown when                                                      |
+| --------------------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `AccountAlreadyExistsError`       | `ACCOUNT_ALREADY_EXISTS`        | Registering an email that already has an account                 |
+| `AccountNotFoundError`            | `ACCOUNT_NOT_FOUND`             | A use case looks up an account by ID and finds none              |
+| `AuthenticationError`             | `AUTHENTICATION_ERROR`          | Credential verification fails (intentionally vague)              |
+| `WrongCredentialTypeError`        | `WRONG_CREDENTIAL_TYPE`         | Accessing a proof field that doesn't match the credential kind   |
+| `InvalidReceiptError`             | `INVALID_RECEIPT`               | Receipt token is empty, expired, or fails signature verification |
+| `InvalidEmailError`               | `INVALID_EMAIL`                 | Constructing `EmailAddress` with an invalid value                |
+| `InvalidConfigurationError`       | `INVALID_CONFIGURATION`         | A use case is constructed with an invalid config value           |
+| `InvalidCredentialError`          | `INVALID_CREDENTIAL`            | A credential factory receives an empty proof field               |
+| `InvalidAccountIdError`           | `INVALID_ACCOUNT_ID`            | Constructing `AccountId` with an empty value                     |
+| `InvalidCredentialIdError`        | `INVALID_CREDENTIAL_ID`         | Constructing `CredentialId` with an empty value                  |
+| `CredentialAlreadyExistsError`    | `CREDENTIAL_ALREADY_EXISTS`     | Adding a password to an account that already has one             |
+| `OAuthProviderNotFoundError`      | `OAUTH_PROVIDER_NOT_FOUND`      | Removing an OAuth provider not linked to the account             |
+| `CannotRemoveLastCredentialError` | `CANNOT_REMOVE_LAST_CREDENTIAL` | Removing the last auth method would lock the account             |
+| `UnsupportedAuthMethodError`      | `UNSUPPORTED_AUTH_METHOD`       | `removeAuthMethod` called for an unconfigured method             |
 
 ## License
 

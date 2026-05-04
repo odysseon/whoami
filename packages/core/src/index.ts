@@ -1,15 +1,7 @@
-/**
- * `@odysseon/whoami-core` — framework-agnostic authentication identity kernel.
- *
- * ## Public API
- * Use {@link createAuth} to compose the full auth facade.
- *
- * ## Internal API (adapter authors only)
- * Concrete use-case classes are available at the `/internal` sub-path:
- * ```ts
- * import { VerifyReceiptUseCase } from "@odysseon/whoami-core/internal";
- * ```
- *
- * @packageDocumentation
- */
-export * from "./api/public.js";
+// Kernel exports (domain, ports, shared utilities + DTOs)
+export * from "./kernel/index.js";
+
+// Module exports — wildcards, relying on no name collisions
+export * from "./modules/password/index.js";
+export * from "./modules/oauth/index.js";
+export * from "./modules/magiclink/index.js";

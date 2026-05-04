@@ -37,12 +37,12 @@ export const createIdentityRouter = (
         const account = await accountRepo.findById(req.identity.accountId);
 
         res.json({
-          accountId: req.identity.accountId.value,
-          email: account?.email.value ?? null,
+          accountId: req.identity.accountId,
+          email: account?.email ?? null,
           tokenExpiresAt: req.identity.expiresAt,
         });
       } catch (err) {
-        next(err);
+        next(err instanceof Error ? err : new Error(String(err)));
       }
     },
   );

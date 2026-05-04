@@ -1,11 +1,5 @@
 {
-  "packages/**/*.{ts,js,json,md,yaml,yml}": [
-    "prettier --write --ignore-unknown"
-  ],
-  "packages/**/*.ts": [
-    "eslint --fix"
-  ],
-  "packages/**/*.spec.ts": [
-    "node --import ./scripts/register-tsx.mjs --test"
-  ]
+  "packages/**/*.{ts,js,json,md,yaml,yml}": ["prettier --write --ignore-unknown"],
+  "packages/**/*.ts": ["eslint --fix"],
+  "packages/**/*.spec.ts": ["node --import tsx --test"]
 }

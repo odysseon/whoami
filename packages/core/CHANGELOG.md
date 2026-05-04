@@ -1,5 +1,194 @@
 # @odysseon/whoami-core
 
+## 12.0.0-dev.1
+
+### Minor Changes
+
+- 9d6b1db: **New Package:** `@odysseon/whoami-adapter-prisma`
+  - Implements all five credential stores (Account, PasswordHash, PasswordResetToken, OAuthCredential, MagicLinkToken)
+  - Schema fragment approach with postinstall merge script
+  - No build-time dependency on `@prisma/client` (uses structural typing)
+  - Works with Prisma 5, 6, and 7
+  - Includes `createPrismaAdapters()` factory for easy wiring
+
+  **Example Express Updates:**
+  - Migrates from in-memory to Prisma-backed stores
+  - Adds MagicLinkModule with request/verify endpoints
+  - Includes Prisma 7+ setup with PostgreSQL and migrations
+  - Requires `DATABASE_URL` environment variable
+
+  **Documentation:**
+  - Migration guide from in-memory to Prisma
+  - Relationship patterns between Account and User models
+
+### Patch Changes
+
+- 82db1e2: **Password Module**
+  - `PasswordCredentialStore` has been split into two separate ports:
+    - `PasswordHashStore` — manages password hash credentials (unique per account, permanent)
+    - `PasswordResetTokenStore` — manages password reset tokens (many per account, short-lived, expirable)
+  - If you implemented `PasswordCredentialStore`, you must now implement both `PasswordHashStore` and `PasswordResetTokenStore`
+  - The `deleteAllResetCredentialsForAccount` and `deleteExpiredResetCredentials` methods moved to `PasswordResetTokenStore`
+
+  **MagicLink Module**
+  - `MagicLinkCredentialStore` renamed to `MagicLinkTokenStore` (reflects that magic links are transient tokens)
+
+  Separating hash storage from token storage resolves a fundamental design conflict where a single store was forced to manage both permanent credentials and transient tokens with incompatible invariants:
+  - Hash store: at most ONE record per accountId (unique constraint required)
+  - Token store: MANY records per accountId allowed (no unique constraint)
+
+  ```diff
+  - const password = PasswordModule({
+  -   passwordStore: myPasswordStore,
+  -   // ...
+  - });
+
+  + const password = PasswordModule({
+  +   passwordHashStore: myPasswordHashStore,
+  +   resetTokenStore: myPasswordResetTokenStore,
+  +   // ...
+  + });
+
+  - const magiclink = MagicLinkModule({
+  -   magicLinkStore: myMagicLinkStore,
+  -   // ...
+  - });
+
+  + const magiclink = MagicLinkModule({
+  +   magicLinkStore: myMagicLinkTokenStore,  // same interface, renamed
+  +   // ...
+  + });
+  ```
+
+## 12.0.0-dev.0
+
+### Major Changes
+
+- 5254b01: **Core API Removal**
+  - `createAuth` factory function removed — applications now compose modules directly
+  - `AuthConfig`, `AuthMethods`, `CoreAuthMethods` types removed
+  - No central composition layer — each module can be used independently
+
+  **AuthModule Interface Redesign**
+  - Removed generic `TMethods` parameter and `methods` property
+  - Module factories return `Methods & AuthModule` intersection type
+  - `removeAllCredentialsForAccount` now accepts optional provider filter
+  - `AuthOrchestrator` handles filtering generically (no per-module conditionals)
+
+  **Export Changes**
+  - Root export now only contains kernel + modules (no composition layer)
+  - New `/internal` sub-path for adapter authors (use-case classes only)
+  - All type casts replace `as unknown as AccountId` with `createAccountId` factory
+
+  **SecureTokenPort**
+  - New port for platform-agnostic cryptographic token operations
+  - `generateToken()` — 256-bit secure random tokens
+  - `hashToken()` — SHA-256 hashing with base64url encoding
+  - All module deserializers now use helper functions (`assertObject`, `credentialProof`)
+  - Verification script expanded to 13 checks (type safety, module independence, build)
+  - Better non-null assertion detection in code quality checks
+
+  ```typescript
+  // v11: Centralized factory
+  import { createAuth } from '@odysseon/whoami-core';
+  const auth = createAuth({ password: {...}, oauth: {...} });
+
+  // v12: Direct application composition
+  import { PasswordModule, OAuthModule } from '@odysseon/whoami-core';
+  import { AuthOrchestrator } from '@odysseon/whoami-core/kernel';
+
+  const password = PasswordModule({ ... });
+  const oauth = OAuthModule({ ... });
+  const orchestrator = new AuthOrchestrator([password, oauth]);
+
+  // Use methods directly from modules
+  await password.registerWithPassword({ email, password });
+  await oauth.authenticateWithOAuth({ provider, providerId, email });
+
+  // Use orchestrator for cross-module operations
+  await orchestrator.removeAuthMethod(accountId, "oauth", { provider: "google" });
+  ```
+
+- 5254b01: - `createAuth` now accepts `modules` array instead of flat `password`/`oauth` config keys
+  - Removed deprecated top-level module configuration (password, oauth)
+  - Removed sub-path exports (`/password`, `/oauth`, `/magiclink`) - all exports now from root
+  - Removed internal API entry point (`/internal`) - use direct imports from root
+  - `AccountId` now accepts only string (removed number support)
+  - `IdGeneratorPort` now returns string only (no number)
+  - Value objects now use branded types with factory functions:
+    - `createAccountId()`, `isAccountId()` instead of `new AccountId()`
+    - `createEmailAddress()`, `isEmailAddress()` instead of `new EmailAddress()`
+    - `createCredentialId()`, `isCredentialId()` instead of `new CredentialId()`
+  - Domain errors now have `statusCode` property and `toJSON()` serialization
+  - `WrongCredentialTypeError` now maps to 500 (server error) instead of 400
+  - `PasswordCredentialStore.save()` no longer requires email parameter
+  - Removed `findByEmail()` from `PasswordCredentialStore` (use `findByAccountId`)
+  - Password recovery now lives INSIDE password module (no orphaned module)
+  - Added `RequestPasswordResetUseCase`, `VerifyPasswordResetUseCase`
+  - `OAuthCredentialStore` now requires `countForAccount()` method
+  - Removed `OAuthCredential` wrapper class (use kernel Credential directly)
+  - `WhoamiModule` now accepts `modules` array in config
+  - `AUTH_METHODS` token now returns `AnyAuthMethods` type
+  - Added `VERIFY_RECEIPT` token for receipt verifier
+  - `WhoamiAuthGuard` now injects `ReceiptVerifier` port directly
+  - Added `AuthModule` interface for vertical slice modules
+  - Added `AuthOrchestrator` for coordinating multiple auth modules
+  - Added `CompositeDeserializer` for runtime credential proof assembly
+  - Zero kernel changes required to add new auth methods
+  - Complete passwordless email authentication module
+  - Secure token generation (256-bit crypto.randomUUID)
+  - SHA-256 token hashing (never store plaintext)
+  - Single-use enforcement with used tracking
+  - Auto-registration for new email addresses
+  - Password reset flow now inside password module
+  - Cryptographically secure reset tokens
+  - Token hashing and expiration
+  - Single-use enforcement
+  - All modules are completely independent (no cross-module imports)
+  - Kernel has zero external dependencies
+  - Added verification script (11 checks) for code quality
+  - Better error codes and HTTP status mapping
+  - Improved type safety with branded types
+  - Reduced bundle size through better tree-shaking
+
+### Minor Changes
+
+- 5254b01: - Add SecureTokenPort interface for cryptographically secure token operations
+  - Inject SecureTokenPort into MagicLinkModule and PasswordModule
+  - Remove direct Web Crypto calls from use cases (now behind port boundary)
+  - Rename WebCryptoTokenHasher → WebCryptoSecureTokenAdapter
+  - Implement full SecureTokenPort (generateToken + hashToken)
+  - Use base64url encoding (RFC 4648 §5) instead of hex
+  - Generate 256-bit (32-byte) secure tokens
+  - Migrate build from tsup to native TypeScript (ESM + CJS)
+  - Reset version to 1.0.0 for new package lifecycle
+  - Add DOM lib for Web Crypto API type definitions
+
+## 11.2.0
+
+### Minor Changes
+
+- b1777a4: This release completely decouples the identity kernel from specific authentication methods by replacing the rigid `CredentialProof` union type with an open interface.
+
+  **Architectural Improvements**
+  - **Open Proof Interface:** The kernel now treats all credential proofs as opaque. Pluggable authentication methods can now define their own proofs that satisfy the `CredentialProof` port without requiring modifications to kernel types.
+  - **Module-Owned Deserialization:** Introduced `CompositeDeserializer` to handle dynamic proof rehydration. The `PasswordModule` and `OAuthModule` now supply their own `proofDeserializer` functions, allowing infrastructure adapters to reconstruct proofs without hardcoding module dependencies.
+  - **Encapsulated Domain Wrappers:** Kernel `Credential` entities no longer expose module-specific typed getters (e.g., `passwordHash` or `oauthProvider`). Type narrowing and validation are now strictly isolated to the module-level domain wrappers (`PasswordCredential`, `OAuthCredential`).
+
+## 11.1.0
+
+### Minor Changes
+
+- 98e4524: This release introduces the foundational, non-breaking architectural changes required for the upcoming v12.0.0 open-proof model. The focus is strictly on improving tree-shaking and enforcing module isolation.
+
+  **Features & Improvements**
+  - **Sub-path Exports:** Added `@odysseon/whoami-core/password` and `@odysseon/whoami-core/oauth` entry points. Consumers can now import auth modules selectively, ensuring no unused authentication logic or dependencies are included in the final bundle.
+  - **Build Optimization:** The build pipeline has been reconfigured to emit isolated chunks for each sub-path.
+
+  **Deprecations (Migration runway for v12.0.0)**
+  - **Flat Configuration:** Configuring auth modules via top-level keys (`password`, `oauth`) in `createAuth()` is deprecated. A runtime warning is now emitted to guide consumers toward the explicit `modules: [...]` injection array pattern planned for v12.
+  - **Root Barrel Imports:** Importing module-specific configs, methods, or ports from the root `@odysseon/whoami-core` barrel is deprecated. Consumers should migrate to importing these exclusively from their respective module sub-paths.
+
 ## 11.0.0
 
 ### Major Changes

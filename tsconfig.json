@@ -11,6 +11,9 @@
       "path": "./packages/adapter-jose/tsconfig.build.json"
     },
     {
+      "path": "./packages/adapter-prisma/tsconfig.build.json"
+    },
+    {
       "path": "./packages/adapter-webcrypto/tsconfig.build.json"
     },
     {

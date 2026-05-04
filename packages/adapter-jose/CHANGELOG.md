@@ -1,5 +1,37 @@
 # @odysseon/whoami-adapter-jose
 
+## 14.0.0-dev.1
+
+### Patch Changes
+
+- Updated dependencies [82db1e2]
+- Updated dependencies [9d6b1db]
+  - @odysseon/whoami-core@12.0.0-dev.1
+
+## 14.0.0-dev.0
+
+### Patch Changes
+
+- 5254b01: Patch to follow new core API
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+  - @odysseon/whoami-core@12.0.0-dev.0
+
+## 13.0.0
+
+### Patch Changes
+
+- Updated dependencies [b1777a4]
+  - @odysseon/whoami-core@11.2.0
+
+## 12.0.0
+
+### Patch Changes
+
+- Updated dependencies [98e4524]
+  - @odysseon/whoami-core@11.1.0
+
 ## 11.0.0
 
 ### Patch Changes

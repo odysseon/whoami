@@ -6,8 +6,10 @@ import {
   ApiOkResponse,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
-import { CurrentIdentity } from "@odysseon/whoami-adapter-nestjs";
-import type { Receipt } from "@odysseon/whoami-core";
+import {
+  CurrentIdentity,
+  type RequestIdentity,
+} from "@odysseon/whoami-adapter-nestjs";
 import { ProfileResponse } from "./dto.js";
 
 @ApiTags("identity")
@@ -18,10 +20,7 @@ export class IdentityController {
   @ApiOperation({ summary: "Get authenticated account profile" })
   @ApiOkResponse({ type: ProfileResponse })
   @ApiUnauthorizedResponse({ description: "Missing or invalid receipt token" })
-  async getMe(@CurrentIdentity() identity: Receipt): Promise<ProfileResponse> {
-    return {
-      accountId: identity.accountId.value,
-      tokenExpiresAt: identity.expiresAt,
-    };
+  getMe(@CurrentIdentity() identity: RequestIdentity): ProfileResponse {
+    return identity;
   }
 }

@@ -1,5 +1,51 @@
 # @odysseon/whoami-example-nestjs
 
+## 9.9.14-dev.1
+
+### Patch Changes
+
+- Updated dependencies [82db1e2]
+- Updated dependencies [9d6b1db]
+  - @odysseon/whoami-core@12.0.0-dev.1
+  - @odysseon/whoami-adapter-prisma@1.0.0-dev.0
+  - @odysseon/whoami-adapter-argon2@14.0.0-dev.1
+  - @odysseon/whoami-adapter-jose@14.0.0-dev.1
+  - @odysseon/whoami-adapter-nestjs@14.0.0-dev.1
+  - @odysseon/whoami-adapter-webcrypto@11.0.0-dev.1
+
+## 9.9.14-dev.0
+
+### Patch Changes
+
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+  - @odysseon/whoami-core@12.0.0-dev.0
+  - @odysseon/whoami-adapter-jose@14.0.0-dev.0
+  - @odysseon/whoami-adapter-argon2@14.0.0-dev.0
+  - @odysseon/whoami-adapter-nestjs@14.0.0-dev.0
+
+## 9.9.13
+
+### Patch Changes
+
+- Updated dependencies [b1777a4]
+  - @odysseon/whoami-core@11.2.0
+  - @odysseon/whoami-adapter-argon2@13.0.0
+  - @odysseon/whoami-adapter-jose@13.0.0
+  - @odysseon/whoami-adapter-nestjs@13.0.0
+
+## 9.9.12
+
+### Patch Changes
+
+- Updated dependencies [98e4524]
+  - @odysseon/whoami-core@11.1.0
+  - @odysseon/whoami-adapter-argon2@12.0.0
+  - @odysseon/whoami-adapter-jose@12.0.0
+  - @odysseon/whoami-adapter-nestjs@12.0.0
+
 ## 9.9.11
 
 ### Patch Changes

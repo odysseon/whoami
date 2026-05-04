@@ -1,48 +1,58 @@
 {
-  "private": false,
   "name": "@odysseon/whoami-core",
-  "version": "11.0.0",
+  "version": "12.0.0-dev.1",
   "description": "Framework-agnostic identity and authentication core",
   "keywords": [
+    "auth",
     "authentication",
-    "framework-agnostic",
-    "identity",
-    "jwt",
-    "odysseon",
-    "security",
-    "whoami"
+    "magic-link",
+    "oauth",
+    "password",
+    "typescript"
   ],
-  "homepage": "https://github.com/odysseon/whoami/tree/main/packages/core#readme",
-  "bugs": {
-    "url": "https://github.com/odysseon/whoami/issues"
-  },
-  "license": "ISC",
-  "author": "Hammed Anuoluwapo Pelumi",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/odysseon/whoami.git",
     "directory": "packages/core"
   },
   "files": [
-    "dist",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE"
+    "dist"
   ],
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./password": {
+      "import": "./dist/esm/modules/password/index.js",
+      "require": "./dist/cjs/modules/password/index.js",
+      "types": "./dist/types/modules/password/index.d.ts"
+    },
+    "./oauth": {
+      "import": "./dist/esm/modules/oauth/index.js",
+      "require": "./dist/cjs/modules/oauth/index.js",
+      "types": "./dist/types/modules/oauth/index.d.ts"
+    },
+    "./magiclink": {
+      "import": "./dist/esm/modules/magiclink/index.js",
+      "require": "./dist/cjs/modules/magiclink/index.js",
+      "types": "./dist/types/modules/magiclink/index.d.ts"
+    },
+    "./kernel": {
+      "import": "./dist/esm/kernel/index.js",
+      "require": "./dist/cjs/kernel/index.js",
+      "types": "./dist/types/kernel/index.d.ts"
     },
     "./internal": {
-      "types": "./dist/internal/index.d.ts",
-      "import": "./dist/internal/index.js",
-      "require": "./dist/internal/index.cjs"
+      "import": "./dist/esm/internal/index.js",
+      "require": "./dist/cjs/internal/index.js",
+      "types": "./dist/types/internal/index.d.ts"
     }
   },
   "publishConfig": {
@@ -50,17 +60,20 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit -p tsconfig.build.json",
-    "lint": "eslint \"src/**/*.ts\"",
-    "test": "node --import tsx/esm --test src/**/**/**/*.test.ts src/**/**/*.test.ts src/**/*.test.ts",
-    "test:cov": "node --import tsx/esm --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test src/**/**/**/*.test.ts src/**/**/*.test.ts src/**/*.test.ts"
-  },
-  "engines": {
-    "node": ">=24.0.0"
+    "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs && pnpm run build:types",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:types": "tsc -p tsconfig.types.json",
+    "clean": "rm -rf dist",
+    "test": "node --test tests/**/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "verify": "bash scripts/verify.sh"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "tsx": "^4.21.0"
+    "@types/node": "^20.19.39",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

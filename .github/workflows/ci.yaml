@@ -2,14 +2,16 @@ name: Continuous Integration
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "develop"]
 
 jobs:
   quality-control:
     name: Quality Control
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/whoami_build?schema=public"
 
     steps:
       - name: 🛎️ Checkout Repository

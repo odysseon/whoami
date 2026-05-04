@@ -1,22 +1,17 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import type { Receipt } from "@odysseon/whoami-core";
+import type { RequestIdentity } from "../identity.js";
 
-/**
- * Resolves the verified receipt stored by `WhoamiAuthGuard`.
- */
 export const CurrentIdentity = createParamDecorator(
-  (data: keyof Receipt | undefined, ctx: ExecutionContext) => {
+  (_data: unknown, ctx: ExecutionContext): RequestIdentity => {
     const request = ctx.switchToHttp().getRequest<{
-      identity?: Receipt;
+      whoami?: { identity: RequestIdentity };
     }>();
-    const { identity } = request;
 
+    const identity = request.whoami?.identity;
     if (!identity) {
-      return null;
-    }
-
-    if (data) {
-      return identity[data];
+      throw new Error(
+        "CurrentIdentity used outside guarded route or before guard execution",
+      );
     }
 
     return identity;
