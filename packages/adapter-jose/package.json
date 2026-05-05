@@ -33,8 +33,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "node --import tsx --test src/**/*.spec.ts",
-    "test:cov": "node --import tsx --experimental-test-coverage --test-coverage-exclude=\"**/dist/**\" --test src/**/*.spec.ts"
+    "test": "node --test tests/**/*.test.ts"
   },
   "dependencies": {
     "jose": "^6.2.2"
