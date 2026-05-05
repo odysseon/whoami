@@ -5,7 +5,7 @@ import {
   type NextFunction,
 } from "express";
 import { DomainError } from "@odysseon/whoami-core";
-import { type PasswordMethods } from "@odysseon/whoami-core";
+import { type PasswordMethods } from "@odysseon/whoami-core/password";
 
 export const createAccountsRouter = (password: PasswordMethods): Router => {
   const router = Router();

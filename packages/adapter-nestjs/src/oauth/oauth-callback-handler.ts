@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
 import {
   InvalidConfigurationError,
-  type OAuthMethods,
   type ReceiptDTO,
 } from "@odysseon/whoami-core";
+import { type OAuthMethods } from "@odysseon/whoami-core/oauth";
 import { moduleToken } from "../tokens.js";
 
 export interface OAuthProfile {

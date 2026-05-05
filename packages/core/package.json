@@ -20,39 +20,33 @@
     "dist"
   ],
   "type": "module",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "types": "./dist/types/index.d.ts",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "types": "./dist/types/index.d.ts"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     },
     "./password": {
-      "import": "./dist/esm/modules/password/index.js",
-      "require": "./dist/cjs/modules/password/index.js",
-      "types": "./dist/types/modules/password/index.d.ts"
+      "import": "./dist/modules/password/index.js",
+      "types": "./dist/modules/password/index.d.ts"
     },
     "./oauth": {
-      "import": "./dist/esm/modules/oauth/index.js",
-      "require": "./dist/cjs/modules/oauth/index.js",
-      "types": "./dist/types/modules/oauth/index.d.ts"
+      "import": "./dist/modules/oauth/index.js",
+      "types": "./dist/modules/oauth/index.d.ts"
     },
     "./magiclink": {
-      "import": "./dist/esm/modules/magiclink/index.js",
-      "require": "./dist/cjs/modules/magiclink/index.js",
-      "types": "./dist/types/modules/magiclink/index.d.ts"
+      "import": "./dist/modules/magiclink/index.js",
+      "types": "./dist/modules/magiclink/index.d.ts"
     },
     "./kernel": {
-      "import": "./dist/esm/kernel/index.js",
-      "require": "./dist/cjs/kernel/index.js",
-      "types": "./dist/types/kernel/index.d.ts"
+      "import": "./dist/kernel/index.js",
+      "types": "./dist/kernel/index.d.ts"
     },
     "./internal": {
-      "import": "./dist/esm/internal/index.js",
-      "require": "./dist/cjs/internal/index.js",
-      "types": "./dist/types/internal/index.d.ts"
+      "import": "./dist/internal/index.js",
+      "types": "./dist/internal/index.d.ts"
     }
   },
   "publishConfig": {
@@ -60,9 +54,8 @@
     "provenance": true
   },
   "scripts": {
-    "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs && pnpm run build:types",
-    "build:esm": "tsc -p tsconfig.esm.json",
-    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build": "pnpm run clean && pnpm run build:esm",
+    "build:esm": "tsc",
     "build:types": "tsc -p tsconfig.types.json",
     "clean": "rm -rf dist",
     "test": "node --test tests/**/*.test.ts",
