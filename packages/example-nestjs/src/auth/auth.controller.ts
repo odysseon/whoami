@@ -15,11 +15,9 @@ import {
   ApiCreatedResponse,
 } from "@nestjs/swagger";
 import { Public, moduleToken } from "@odysseon/whoami-adapter-nestjs";
-import type {
-  PasswordMethods,
-  OAuthMethods,
-  MagicLinkMethods,
-} from "@odysseon/whoami-core";
+import type { MagicLinkMethods } from "@odysseon/whoami-core/magiclink";
+import type { OAuthMethods } from "@odysseon/whoami-core/oauth";
+import type { PasswordMethods } from "@odysseon/whoami-core/password";
 import {
   LoginPasswordDto,
   OAuthLoginDto,

@@ -10,11 +10,9 @@ import {
 } from "@odysseon/whoami-adapter-jose";
 import { Argon2PasswordHasher } from "@odysseon/whoami-adapter-argon2";
 import { WebCryptoSecureTokenAdapter } from "@odysseon/whoami-adapter-webcrypto";
-import {
-  PasswordModule,
-  OAuthModule,
-  MagicLinkModule,
-} from "@odysseon/whoami-core";
+import { MagicLinkModule } from "@odysseon/whoami-core/magiclink";
+import { PasswordModule } from "@odysseon/whoami-core/password";
+import { OAuthModule } from "@odysseon/whoami-core/oauth";
 import { AccountsModule } from "./accounts/accounts.module.js";
 import { AuthModule } from "./auth/auth.module.js";
 import { IdentityModule } from "./identity/identity.module.js";

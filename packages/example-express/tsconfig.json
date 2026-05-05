@@ -2,15 +2,8 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": ".",
-    "paths": {
-      "@odysseon/whoami-core": [
-        "./node_modules/@odysseon/whoami-core/dist/types/index.d.ts"
-      ],
-      "@odysseon/whoami-core/*": [
-        "./node_modules/@odysseon/whoami-core/dist/types/*"
-      ]
-    }
+    "rootDir": "."
   },
-  "include": ["src/**/*", "prisma.config.ts"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

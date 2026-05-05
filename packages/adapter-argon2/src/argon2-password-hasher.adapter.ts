@@ -1,5 +1,5 @@
 import * as argon2 from "argon2";
-import type { PasswordHasher } from "@odysseon/whoami-core";
+import type { PasswordHasher } from "@odysseon/whoami-core/password";
 
 /**
  * Argon2-based password hasher for password credentials.

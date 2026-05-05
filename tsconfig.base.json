@@ -4,15 +4,12 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ESNext",
-    "lib": [
-      "ESNext"
-    ],
+    "lib": ["ESNext"],
     /* Output Settings */
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "removeComments": true,
-    "incremental": true,
     /* Decorators  */
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,

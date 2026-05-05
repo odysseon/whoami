@@ -7,13 +7,10 @@ import express, {
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { DomainError } from "@odysseon/whoami-core";
-import type {
-  PasswordMethods,
-  OAuthMethods,
-  MagicLinkMethods,
-  AccountRepository,
-  ReceiptVerifier,
-} from "@odysseon/whoami-core";
+import type { AccountRepository, ReceiptVerifier } from "@odysseon/whoami-core";
+import type { PasswordMethods } from "@odysseon/whoami-core/password";
+import type { OAuthMethods } from "@odysseon/whoami-core/oauth";
+import type { MagicLinkMethods } from "@odysseon/whoami-core/magiclink";
 import { swaggerOptions } from "./swagger.js";
 import { createAccountsRouter } from "./routes/accounts.js";
 import { createAuthRouter } from "./routes/auth.js";

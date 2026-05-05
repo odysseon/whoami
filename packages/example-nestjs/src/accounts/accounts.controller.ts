@@ -14,7 +14,7 @@ import {
   ApiConflictResponse,
 } from "@nestjs/swagger";
 import { Public, moduleToken } from "@odysseon/whoami-adapter-nestjs";
-import type { PasswordMethods } from "@odysseon/whoami-core";
+import type { PasswordMethods } from "@odysseon/whoami-core/password";
 import { RegisterDto, RegisterResponse } from "./dto.js";
 
 @ApiTags("accounts")

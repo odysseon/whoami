@@ -1,11 +1,9 @@
 import "dotenv/config";
 import { pathToFileURL } from "node:url";
 import type { Server } from "node:http";
-import {
-  PasswordModule,
-  OAuthModule,
-  MagicLinkModule,
-} from "@odysseon/whoami-core";
+import { PasswordModule } from "@odysseon/whoami-core/password";
+import { OAuthModule } from "@odysseon/whoami-core/oauth";
+import { MagicLinkModule } from "@odysseon/whoami-core/magiclink";
 import {
   JoseReceiptSigner,
   JoseReceiptVerifier,
