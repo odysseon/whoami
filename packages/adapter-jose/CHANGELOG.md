@@ -1,5 +1,27 @@
 # @odysseon/whoami-adapter-jose
 
+## 14.0.0
+
+### Minor Changes
+
+- 6de9eab: Switch to ESM-only output with subpath exports
+  - Remove dual CJS/ESM builds across all packages
+  - Core modules now import from subpaths (`/password`, `/oauth`, `/magiclink`, `/kernel`)
+  - Root entrypoint no longer re-exports all modules
+  - Simplify build scripts to single `tsc` invocation
+
+### Patch Changes
+
+- 5254b01: Patch to follow new core API
+- Updated dependencies [5254b01]
+- Updated dependencies [82db1e2]
+- Updated dependencies [7408441]
+- Updated dependencies [9d6b1db]
+- Updated dependencies [6de9eab]
+- Updated dependencies [5254b01]
+- Updated dependencies [5254b01]
+  - @odysseon/whoami-core@12.0.0
+
 ## 14.0.0-dev.2
 
 ### Patch Changes
