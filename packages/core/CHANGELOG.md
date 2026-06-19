@@ -1,5 +1,18 @@
 # @odysseon/whoami-core
 
+## 13.0.0
+
+### Major Changes
+
+- 98f80a7: DomainError statusCode property has been removed and replaced with a category field.
+
+  Update exception filter for DomainError category field
+
+### Patch Changes
+
+- 3110d11: - add Express adapter package
+  - Change compiler target from ES2022 to ESNext
+
 ## 12.0.0
 
 ### Major Changes
