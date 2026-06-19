@@ -1,5 +1,18 @@
 # @odysseon/whoami-example-express
 
+## 9.10.1
+
+### Patch Changes
+
+- Updated dependencies [3110d11]
+- Updated dependencies [98f80a7]
+  - @odysseon/whoami-adapter-express@1.0.0
+  - @odysseon/whoami-core@13.0.0
+  - @odysseon/whoami-adapter-argon2@15.0.0
+  - @odysseon/whoami-adapter-jose@15.0.0
+  - @odysseon/whoami-adapter-prisma@2.0.0
+  - @odysseon/whoami-adapter-webcrypto@12.0.0
+
 ## 9.10.0
 
 ### Minor Changes
