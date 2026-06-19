@@ -3,31 +3,21 @@ import {
   type Request,
   type Response,
   type NextFunction,
+  type RequestHandler,
 } from "express";
-import type { AccountRepository, Receipt } from "@odysseon/whoami-core";
-
-interface AuthenticatedRequest extends Request {
-  identity?: Receipt;
-}
+import "@odysseon/whoami-adapter-express";
+import type { AccountRepository } from "@odysseon/whoami-core";
 
 export const createIdentityRouter = (
   accountRepo: AccountRepository,
-  authMiddleware: (
-    req: AuthenticatedRequest,
-    res: Response,
-    next: NextFunction,
-  ) => Promise<void>,
+  authMiddleware: RequestHandler,
 ): Router => {
   const router = Router();
 
   router.get(
     "/me",
     authMiddleware,
-    async (
-      req: AuthenticatedRequest,
-      res: Response,
-      next: NextFunction,
-    ): Promise<void> => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         if (!req.identity) {
           res.status(401).json({ error: "Not authenticated" });

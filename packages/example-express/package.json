@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@odysseon/whoami-adapter-argon2": "workspace:*",
+    "@odysseon/whoami-adapter-express": "workspace:*",
     "@odysseon/whoami-adapter-jose": "workspace:*",
     "@odysseon/whoami-adapter-prisma": "workspace:*",
     "@odysseon/whoami-adapter-webcrypto": "workspace:*",
