@@ -61,6 +61,21 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/adapter-express:
+    devDependencies:
+      '@odysseon/whoami-core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      express:
+        specifier: ^5.0.1
+        version: 5.2.1
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/adapter-jose:
     dependencies:
       jose:
@@ -125,6 +140,9 @@ importers:
       '@odysseon/whoami-adapter-argon2':
         specifier: workspace:*
         version: link:../adapter-argon2
+      '@odysseon/whoami-adapter-express':
+        specifier: workspace:*
+        version: link:../adapter-express
       '@odysseon/whoami-adapter-jose':
         specifier: workspace:*
         version: link:../adapter-jose
