@@ -1,11 +1,11 @@
-import { DomainError } from "../domain-error.js";
+import { DomainError, type DomainErrorCategory } from "../domain-error.js";
 
 /**
  * Thrown when attempting to add a password to an account that already has one
  */
 export class CredentialAlreadyExistsError extends DomainError {
   readonly code = "CREDENTIAL_ALREADY_EXISTS";
-  readonly statusCode = 409;
+  readonly category: DomainErrorCategory = "CONFLICT";
 
   constructor(message: string) {
     super(message);

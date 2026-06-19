@@ -1,5 +1,5 @@
 // Base error
-export { DomainError } from "./domain-error.js";
+export { DomainError, type DomainErrorCategory } from "./domain-error.js";
 
 // Error classes
 export { AccountAlreadyExistsError } from "./classes/account-already-exists.error.js";

@@ -1,11 +1,11 @@
-import { DomainError } from "../domain-error.js";
+import { DomainError, type DomainErrorCategory } from "../domain-error.js";
 
 /**
  * Thrown when a magic link token is invalid or expired
  */
 export class InvalidMagicLinkError extends DomainError {
   readonly code = "INVALID_MAGIC_LINK";
-  readonly statusCode = 400;
+  readonly category: DomainErrorCategory = "BAD_REQUEST";
 
   constructor(message: string = "Invalid or expired magic link") {
     super(message);

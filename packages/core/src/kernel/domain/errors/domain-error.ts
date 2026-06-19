@@ -1,3 +1,11 @@
+export type DomainErrorCategory =
+  | "BAD_REQUEST"
+  | "UNAUTHORIZED"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "UNPROCESSABLE"
+  | "INTERNAL";
+
 /**
  * Base class for all domain errors in the whoami system.
  * All domain errors have a stable code that can be used for programmatic handling.
@@ -9,9 +17,9 @@ export abstract class DomainError extends Error {
   abstract readonly code: string;
 
   /**
-   * HTTP status code suggestion for API responses
+   * Transport-agnostic categorization of the error
    */
-  abstract readonly statusCode: number;
+  abstract readonly category: DomainErrorCategory;
 
   constructor(message: string) {
     super(message);
@@ -27,7 +35,7 @@ export abstract class DomainError extends Error {
     return {
       code: this.code,
       message: this.message,
-      statusCode: this.statusCode,
+      category: this.category,
     };
   }
 }
