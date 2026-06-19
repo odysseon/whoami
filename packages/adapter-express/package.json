@@ -31,7 +31,7 @@
   "scripts": {
     "build": "pnpm run clean && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
-    "typecheck": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {},

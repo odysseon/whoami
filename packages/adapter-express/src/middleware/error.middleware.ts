@@ -7,22 +7,12 @@ import type {
 import { DomainError, InvalidConfigurationError } from "@odysseon/whoami-core";
 
 const STATUS_MAP: Readonly<Record<string, number>> = {
-  AUTHENTICATION_ERROR: 401,
-  INVALID_RECEIPT: 401,
-  ACCOUNT_ALREADY_EXISTS: 409,
-  CREDENTIAL_ALREADY_EXISTS: 409,
-  INVALID_EMAIL: 400,
-  WRONG_CREDENTIAL_TYPE: 500,
-  INVALID_ACCOUNT_ID: 400,
-  INVALID_CREDENTIAL_ID: 400,
-  INVALID_CREDENTIAL: 400,
-  ACCOUNT_NOT_FOUND: 404,
-  OAUTH_PROVIDER_NOT_FOUND: 404,
-  CANNOT_REMOVE_LAST_CREDENTIAL: 422,
-  UNSUPPORTED_AUTH_METHOD: 400,
-  INVALID_RESET_TOKEN: 400,
-  INVALID_MAGIC_LINK: 400,
-  INVALID_CONFIGURATION: 500,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  UNPROCESSABLE: 422,
+  INTERNAL: 500,
 };
 
 export const whoamiErrorHandler = (): ErrorRequestHandler => {
@@ -33,7 +23,7 @@ export const whoamiErrorHandler = (): ErrorRequestHandler => {
     next: NextFunction,
   ): void => {
     if (err instanceof DomainError) {
-      const status = STATUS_MAP[err.code] ?? 500;
+      const status = STATUS_MAP[err.category] ?? 500;
 
       if (
         err instanceof InvalidConfigurationError ||

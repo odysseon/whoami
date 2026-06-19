@@ -14,7 +14,10 @@ export const requireAuth = (verifyReceipt: ReceiptVerifier): RequestHandler => {
     }
     try {
       const receipt = await verifyReceipt.verify(token);
-      req.identity = receipt;
+      req.identity = {
+        accountId: receipt.accountId,
+        expiresAt: receipt.expiresAt,
+      };
       req.accountId = receipt.accountId;
       next();
     } catch (err) {
@@ -39,7 +42,10 @@ export const optionalAuth = (
     if (type === "Bearer" && token) {
       try {
         const receipt = await verifyReceipt.verify(token);
-        req.identity = receipt;
+        req.identity = {
+          accountId: receipt.accountId,
+          expiresAt: receipt.expiresAt,
+        };
         req.accountId = receipt.accountId;
       } catch (err) {
         if (!(err instanceof DomainError)) {
