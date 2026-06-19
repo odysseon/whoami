@@ -1,4 +1,4 @@
-import { DomainError } from "../domain-error.js";
+import { DomainError, type DomainErrorCategory } from "../domain-error.js";
 
 /**
  * Thrown when credential verification fails
@@ -6,7 +6,7 @@ import { DomainError } from "../domain-error.js";
  */
 export class AuthenticationError extends DomainError {
   readonly code = "AUTHENTICATION_ERROR";
-  readonly statusCode = 401;
+  readonly category: DomainErrorCategory = "UNAUTHORIZED";
 
   constructor(message: string = "Authentication failed") {
     super(message);

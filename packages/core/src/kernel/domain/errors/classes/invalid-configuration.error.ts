@@ -1,11 +1,11 @@
-import { DomainError } from "../domain-error.js";
+import { DomainError, type DomainErrorCategory } from "../domain-error.js";
 
 /**
  * Thrown when a use case is constructed with an invalid config value
  */
 export class InvalidConfigurationError extends DomainError {
   readonly code = "INVALID_CONFIGURATION";
-  readonly statusCode = 500;
+  readonly category: DomainErrorCategory = "INTERNAL";
 
   constructor(message: string) {
     super(message);

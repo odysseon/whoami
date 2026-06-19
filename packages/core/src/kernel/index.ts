@@ -23,6 +23,7 @@ export {
 // Domain errors
 export {
   DomainError,
+  type DomainErrorCategory,
   AccountAlreadyExistsError,
   AccountNotFoundError,
   AuthenticationError,
