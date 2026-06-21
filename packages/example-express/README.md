@@ -1,6 +1,6 @@
 # @odysseon/whoami-example-express
 
-A minimal Express 5 application demonstrating all `@odysseon/whoami-*` adapters wired together with in-memory stores.
+A minimal Express 5 application demonstrating all `@odysseon/whoami-*` adapters wired together with Prisma PostgreSQL persistence.
 
 ## Adapters used
 
@@ -16,23 +16,25 @@ A minimal Express 5 application demonstrating all `@odysseon/whoami-*` adapters 
 pnpm --filter @odysseon/whoami-example-express dev
 ```
 
-Set `PORT` to override the default (`3000`). Set `JOSE_SECRET` to a string of at least 32 characters to use a custom signing secret.
+Set `PORT` to override the default (`3030`). Set `JOSE_SECRET` to a string of at least 32 characters to use a custom signing secret. You must also set `DATABASE_URL` pointing to your PostgreSQL instance.
 
 ## Routes
 
-| Method | Path           | Auth         | Description                                             |
-| ------ | -------------- | ------------ | ------------------------------------------------------- |
-| `POST` | `/register`    | Public       | Create an account + password credential, return receipt |
-| `POST` | `/login`       | Public       | Verify password, return receipt token                   |
-| `POST` | `/login/oauth` | Public       | Auto-register or verify via OAuth, return receipt token |
-| `GET`  | `/me`          | Bearer token | Return authenticated account identity                   |
+| Method | Path                        | Auth         | Description                                             |
+| ------ | --------------------------- | ------------ | ------------------------------------------------------- |
+| `POST` | `/register`                 | Public       | Create an account + password credential, return receipt |
+| `POST` | `/login`                    | Public       | Verify password, return receipt token                   |
+| `POST` | `/login/oauth`              | Public       | Auto-register or verify via OAuth, return receipt token |
+| `POST` | `/login/magic-link/request` | Public       | Generates and returns a magic link token (for demo)     |
+| `POST` | `/login/magic-link/verify`  | Public       | Verifies magic link token, returns receipt token        |
+| `GET`  | `/me`                       | Bearer token | Return authenticated account identity                   |
 
 ## cURL Examples
 
 **Register:**
 
 ```bash
-curl -X POST http://localhost:3000/register \
+curl -X POST http://localhost:3030/register \
   -H "Content-Type: application/json" \
   -d '{"email":"ada@example.com","password":"secret123"}'
 ```
@@ -40,7 +42,7 @@ curl -X POST http://localhost:3000/register \
 **Login:**
 
 ```bash
-curl -X POST http://localhost:3000/login \
+curl -X POST http://localhost:3030/login \
   -H "Content-Type: application/json" \
   -d '{"email":"ada@example.com","password":"secret123"}'
 ```
@@ -48,7 +50,7 @@ curl -X POST http://localhost:3000/login \
 **OAuth login** (auto-registers on first call):
 
 ```bash
-curl -X POST http://localhost:3000/login/oauth \
+curl -X POST http://localhost:3030/login/oauth \
   -H "Content-Type: application/json" \
   -d '{"email":"ada@example.com","provider":"google","providerId":"g-12345"}'
 ```
@@ -56,6 +58,6 @@ curl -X POST http://localhost:3000/login/oauth \
 **Protected profile** (use the `token` from any login response):
 
 ```bash
-curl http://localhost:3000/me \
+curl http://localhost:3030/me \
   -H "Authorization: Bearer <token>"
 ```

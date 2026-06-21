@@ -118,16 +118,16 @@ export class AuthController {
 
 ```ts
 import { Controller, Get } from "@nestjs/common";
-import { CurrentReceipt } from "@odysseon/whoami-adapter-nestjs";
-import type { Receipt } from "@odysseon/whoami-core";
+import { CurrentIdentity } from "@odysseon/whoami-adapter-nestjs";
+import type { RequestIdentity } from "@odysseon/whoami-adapter-nestjs";
 
 @Controller("me")
 export class IdentityController {
   @Get()
-  getIdentity(@CurrentReceipt() receipt: Receipt) {
+  getIdentity(@CurrentIdentity() identity: RequestIdentity) {
     return {
-      accountId: receipt.accountId.value,
-      expiresAt: receipt.expiresAt,
+      accountId: identity.accountId,
+      expiresAt: identity.expiresAt,
     };
   }
 }
@@ -204,11 +204,11 @@ export class AuthController {
   @Public()
   @Post("magic-link/request")
   async requestMagicLink(@Body() dto: { email: string }) {
-    const { token } = await this.magicLink.requestMagicLink(dto);
+    const { plainTextToken } = await this.magicLink.requestMagicLink(dto);
     // Send token to user via email — never expose it in the response
     await this.emailService.send(
       dto.email,
-      `Your link: https://myapp.com/auth?token=${token}`,
+      `Your link: https://myapp.com/auth?token=${plainTextToken}`,
     );
     return { sent: true };
   }

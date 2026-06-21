@@ -2,24 +2,26 @@
 
 ## AccountId
 
-Accepts a non-empty `string`. The `.value` property always returns the normalised string.
+Accepts a non-empty `string`. It is a branded `string` type, so it carries no runtime overhead and does not have a `.value` property.
 
 ```ts
-new AccountId("user-uuid"); // value is "user-uuid"
-new AccountId("");          // throws InvalidAccountIdError
+const accountId = createAccountId("user-uuid");
+console.log(accountId); // "user-uuid"
+
+createAccountId(""); // throws InvalidAccountIdError
 ```
 
-Use `accountId.value` as the foreign key in your `users` table.
+Use `accountId` directly as the foreign key in your `users` table.
 
 ## EmailAddress
 
-Normalises on construction (lowercase, trimmed). The `.value` property always returns the normalised string.
+Normalises on construction (lowercase, trimmed). It is a branded `string`.
 
 ```ts
-const email = new EmailAddress("  User@Example.COM  ");
-email.value; // "user@example.com"
+const email = createEmailAddress("  User@Example.COM  ");
+console.log(email); // "user@example.com"
 
-new EmailAddress(""); // throws InvalidEmailError
+createEmailAddress(""); // throws InvalidEmailError
 ```
 
 ## Receipt
@@ -34,7 +36,7 @@ class Receipt {
 }
 ```
 
-In NestJS, `WhoamiAuthGuard` stores a verified `Receipt` on `request.whoami.receipt`. `@CurrentReceipt()` resolves it in route handlers.
+In NestJS, `WhoamiAuthGuard` verifies the `Receipt` and strips the sensitive token before storing it. It stores a `RequestIdentity` on `request.whoami.identity`. `@CurrentIdentity()` resolves it in route handlers.
 
 ```mermaid
 sequenceDiagram
@@ -46,8 +48,8 @@ sequenceDiagram
     Client->>Guard: Authorization: Bearer <token>
     Guard->>VerifyUC: execute(token)
     VerifyUC-->>Guard: Receipt { token, accountId, expiresAt }
-    Guard->>Handler: request.whoami.receipt = receipt
-    Handler-->>Client: response (uses @CurrentReceipt())
+    Guard->>Handler: request.whoami.identity = { accountId, expiresAt }
+    Handler-->>Client: response (uses @CurrentIdentity())
 ```
 
 ## CredentialProof
@@ -85,8 +87,10 @@ const { receipt } = await password.authenticateWithPassword({ email, password })
 // receipt.accountId → AccountId ✅
 // receipt.expiresAt → Date ✅
 
-const { token } = await password.requestPasswordReset({ email });
-// token → string (plaintext — deliver via email, store the hash) ✅
+const result = await password.requestPasswordReset({ email });
+// result.plainTextToken → string (deliver via email) ✅
+// result.challengeId → string ✅
+// result.expiresAt → Date ✅
 ```
 
 ## Domain errors
@@ -107,6 +111,22 @@ try {
 ```
 
 Full error table in [`packages/core/README.md`](../packages/core/README.md#domain-errors).
+
+## DomainErrorCategory
+
+Core errors do **not** carry HTTP status codes. They carry a semantic `DomainErrorCategory`. This is a load-bearing architectural constraint ensuring the domain remains completely agnostic to the transport layer.
+
+```ts
+export type DomainErrorCategory =
+  | "BAD_REQUEST"
+  | "UNAUTHORIZED"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "UNPROCESSABLE"
+  | "INTERNAL";
+```
+
+Adapters (like the Express error handler or NestJS exception filter) map these categories to the appropriate HTTP status code. If you switch from HTTP to WebSockets or gRPC, the domain errors remain exactly the same.
 
 ## Port interfaces
 

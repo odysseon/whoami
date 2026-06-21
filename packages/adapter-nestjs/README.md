@@ -107,14 +107,14 @@ Every route is protected by default. Mark public routes with `@Public()`:
 
 ```ts
 import { Controller, Get, Post, Body } from "@nestjs/common";
-import { Public, CurrentReceipt } from "@odysseon/whoami-adapter-nestjs";
-import type { Receipt } from "@odysseon/whoami-core";
+import { Public, CurrentIdentity } from "@odysseon/whoami-adapter-nestjs";
+import type { RequestIdentity } from "@odysseon/whoami-adapter-nestjs";
 
 @Controller("me")
 export class ProfileController {
   @Get()
-  getProfile(@CurrentReceipt() receipt: Receipt) {
-    return { accountId: receipt.accountId.value };
+  getProfile(@CurrentIdentity() identity: RequestIdentity) {
+    return { accountId: identity.accountId };
   }
 
   @Public()
@@ -155,11 +155,12 @@ export class AuthController {
 
 ## Decorators
 
-| Decorator           | Description                                              |
-| ------------------- | -------------------------------------------------------- |
-| `@Public()`         | Bypasses `WhoamiAuthGuard` on a route or controller      |
-| `@CurrentReceipt()` | Resolves the verified `Receipt` from the current request |
-| `@CurrentAccount()` | Resolves `accountId` from the current request's receipt  |
+| Decorator            | Description                                                                      |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `@Public()`          | Bypasses `WhoamiAuthGuard` on a route or controller                              |
+| `@CurrentIdentity()` | Resolves `RequestIdentity` (`{ accountId, expiresAt }`) from the current request |
+
+_Note: `WhoamiAuthGuard` verifies the receipt but intentionally strips the sensitive raw token before attaching the identity to the request._
 
 ---
 
@@ -219,24 +220,18 @@ WhoamiModule.registerAsync({
 
 ## HTTP status mapping
 
-`WhoamiExceptionFilter` catches every `DomainError` and maps it to the appropriate HTTP response:
+`WhoamiExceptionFilter` catches every `DomainError` and maps its semantic `category` to the appropriate HTTP response:
 
-| Domain error code               | HTTP status               |
-| ------------------------------- | ------------------------- |
-| `AUTHENTICATION_ERROR`          | 401 Unauthorized          |
-| `INVALID_RECEIPT`               | 401 Unauthorized          |
-| `ACCOUNT_ALREADY_EXISTS`        | 409 Conflict              |
-| `CREDENTIAL_ALREADY_EXISTS`     | 409 Conflict              |
-| `INVALID_EMAIL`                 | 400 Bad Request           |
-| `WRONG_CREDENTIAL_TYPE`         | 400 Bad Request           |
-| `INVALID_ACCOUNT_ID`            | 400 Bad Request           |
-| `INVALID_CREDENTIAL_ID`         | 400 Bad Request           |
-| `INVALID_CREDENTIAL`            | 400 Bad Request           |
-| `UNSUPPORTED_AUTH_METHOD`       | 400 Bad Request           |
-| `ACCOUNT_NOT_FOUND`             | 404 Not Found             |
-| `OAUTH_PROVIDER_NOT_FOUND`      | 404 Not Found             |
-| `CANNOT_REMOVE_LAST_CREDENTIAL` | 422 Unprocessable Entity  |
-| `INVALID_CONFIGURATION`         | 500 Internal Server Error |
+| Domain error category | HTTP status               |
+| --------------------- | ------------------------- |
+| `BAD_REQUEST`         | 400 Bad Request           |
+| `UNAUTHORIZED`        | 401 Unauthorized          |
+| `NOT_FOUND`           | 404 Not Found             |
+| `CONFLICT`            | 409 Conflict              |
+| `UNPROCESSABLE`       | 422 Unprocessable Entity  |
+| `INTERNAL`            | 500 Internal Server Error |
+
+_Note: `WhoamiAuthGuard` intercepts `InvalidReceiptError` and throws a NestJS `UnauthorizedException` before the exception filter sees it._
 
 ---
 
