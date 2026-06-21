@@ -94,15 +94,15 @@ Returns `PasswordMethods & AuthModule`.
 
 **Methods:**
 
-| Method                                                        | Returns                | Description                                                    |
-| ------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------- |
-| `registerWithPassword({ email, password })`                   | `{ account }`          | Creates account + password credential                          |
-| `authenticateWithPassword({ email, password })`               | `{ receipt, account }` | Verifies password, issues receipt                              |
-| `addPasswordToAccount({ accountId, password })`               | `{ success }`          | Adds a password credential to an existing account              |
-| `changePassword({ accountId, currentPassword, newPassword })` | `{ success }`          | Verifies current password, stores new hash                     |
-| `requestPasswordReset({ email })`                             | `{ token } \| null`    | Generates a secure reset token (plaintext — deliver via email) |
-| `verifyPasswordReset({ token })`                              | `{ receipt }`          | Exchanges a valid token for a short-lived receipt              |
-| `revokeAllPasswordResets({ accountId })`                      | `{ success }`          | Invalidates all pending reset tokens for an account            |
+| Method                                                        | Returns                                              | Description                                                                     |
+| ------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `registerWithPassword({ email, password })`                   | `{ account }`                                        | Creates account + password credential                                           |
+| `authenticateWithPassword({ email, password })`               | `{ receipt, account }`                               | Verifies password, issues receipt                                               |
+| `addPasswordToAccount({ accountId, password })`               | `{ success }`                                        | Adds a password credential to an existing account                               |
+| `changePassword({ accountId, currentPassword, newPassword })` | `{ success }`                                        | Verifies current password, stores new hash                                      |
+| `requestPasswordReset({ email })`                             | `{ challengeId, plainTextToken, expiresAt } \| null` | Generates a secure reset token (`plainTextToken` should be delivered via email) |
+| `verifyPasswordReset({ token })`                              | `{ receipt }`                                        | Exchanges a valid token for a short-lived receipt                               |
+| `revokeAllPasswordResets({ accountId })`                      | `{ success }`                                        | Invalidates all pending reset tokens for an account                             |
 
 ---
 
@@ -203,6 +203,8 @@ const methods = await orchestrator.getAccountAuthMethods(accountId);
 
 All domain errors extend `DomainError`. Switch on `err.code` — codes are stable API, messages are for humans.
 
+Core errors do **not** carry HTTP status codes. Instead, they carry a semantic `DomainErrorCategory`. Adapters (like `@odysseon/whoami-adapter-express`) map these categories to the appropriate HTTP status code. This is a load-bearing architectural constraint ensuring the domain remains completely agnostic to the transport layer.
+
 ```ts
 try {
   await password.registerWithPassword(input);
@@ -216,22 +218,24 @@ try {
 }
 ```
 
-| Error class                       | Code                            | Thrown when                                                      |
-| --------------------------------- | ------------------------------- | ---------------------------------------------------------------- |
-| `AccountAlreadyExistsError`       | `ACCOUNT_ALREADY_EXISTS`        | Registering an email that already has an account                 |
-| `AccountNotFoundError`            | `ACCOUNT_NOT_FOUND`             | A use case looks up an account by ID and finds none              |
-| `AuthenticationError`             | `AUTHENTICATION_ERROR`          | Credential verification fails (intentionally vague)              |
-| `WrongCredentialTypeError`        | `WRONG_CREDENTIAL_TYPE`         | Accessing a proof field that doesn't match the credential kind   |
-| `InvalidReceiptError`             | `INVALID_RECEIPT`               | Receipt token is empty, expired, or fails signature verification |
-| `InvalidEmailError`               | `INVALID_EMAIL`                 | Constructing `EmailAddress` with an invalid value                |
-| `InvalidConfigurationError`       | `INVALID_CONFIGURATION`         | A use case is constructed with an invalid config value           |
-| `InvalidCredentialError`          | `INVALID_CREDENTIAL`            | A credential factory receives an empty proof field               |
-| `InvalidAccountIdError`           | `INVALID_ACCOUNT_ID`            | Constructing `AccountId` with an empty value                     |
-| `InvalidCredentialIdError`        | `INVALID_CREDENTIAL_ID`         | Constructing `CredentialId` with an empty value                  |
-| `CredentialAlreadyExistsError`    | `CREDENTIAL_ALREADY_EXISTS`     | Adding a password to an account that already has one             |
-| `OAuthProviderNotFoundError`      | `OAUTH_PROVIDER_NOT_FOUND`      | Removing an OAuth provider not linked to the account             |
-| `CannotRemoveLastCredentialError` | `CANNOT_REMOVE_LAST_CREDENTIAL` | Removing the last auth method would lock the account             |
-| `UnsupportedAuthMethodError`      | `UNSUPPORTED_AUTH_METHOD`       | `removeAuthMethod` called for an unconfigured method             |
+| Error class                       | Code                            | Category       | Thrown when                                                      |
+| --------------------------------- | ------------------------------- | -------------- | ---------------------------------------------------------------- |
+| `AccountAlreadyExistsError`       | `ACCOUNT_ALREADY_EXISTS`        | `CONFLICT`     | Registering an email that already has an account                 |
+| `AccountNotFoundError`            | `ACCOUNT_NOT_FOUND`             | `NOT_FOUND`    | A use case looks up an account by ID and finds none              |
+| `AuthenticationError`             | `AUTHENTICATION_ERROR`          | `UNAUTHORIZED` | Credential verification fails (intentionally vague)              |
+| `WrongCredentialTypeError`        | `WRONG_CREDENTIAL_TYPE`         | `INTERNAL`     | Accessing a proof field that doesn't match the credential kind   |
+| `InvalidReceiptError`             | `INVALID_RECEIPT`               | `UNAUTHORIZED` | Receipt token is empty, expired, or fails signature verification |
+| `InvalidEmailError`               | `INVALID_EMAIL`                 | `BAD_REQUEST`  | Constructing `EmailAddress` with an invalid value                |
+| `InvalidConfigurationError`       | `INVALID_CONFIGURATION`         | `INTERNAL`     | A use case is constructed with an invalid config value           |
+| `InvalidCredentialError`          | `INVALID_CREDENTIAL`            | `BAD_REQUEST`  | A credential factory receives an empty proof field               |
+| `InvalidAccountIdError`           | `INVALID_ACCOUNT_ID`            | `BAD_REQUEST`  | Constructing `AccountId` with an empty value                     |
+| `InvalidCredentialIdError`        | `INVALID_CREDENTIAL_ID`         | `BAD_REQUEST`  | Constructing `CredentialId` with an empty value                  |
+| `CredentialAlreadyExistsError`    | `CREDENTIAL_ALREADY_EXISTS`     | `CONFLICT`     | Adding a password to an account that already has one             |
+| `OAuthProviderNotFoundError`      | `OAUTH_PROVIDER_NOT_FOUND`      | `NOT_FOUND`    | Removing an OAuth provider not linked to the account             |
+| `CannotRemoveLastCredentialError` | `CANNOT_REMOVE_LAST_CREDENTIAL` | `CONFLICT`     | Removing the last auth method would lock the account             |
+| `UnsupportedAuthMethodError`      | `UNSUPPORTED_AUTH_METHOD`       | `BAD_REQUEST`  | `removeAuthMethod` called for an unconfigured method             |
+| `InvalidResetTokenError`          | `INVALID_RESET_TOKEN`           | `UNAUTHORIZED` | Token not found, already used, or expired                        |
+| `InvalidMagicLinkError`           | `INVALID_MAGIC_LINK`            | `UNAUTHORIZED` | Token not found, already used, or expired                        |
 
 ## License
 
