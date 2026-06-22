@@ -1,6 +1,7 @@
 export * from "./whoami.module.js";
 export * from "./decorators/current-identity.decorator.js";
 export * from "./decorators/public.decorator.js";
+export * from "./decorators/optional-auth.decorator.js";
 export * from "./extractors/auth-token-extractor.port.js";
 export * from "./extractors/bearer-token.extractor.js";
 export * from "./filters/whoami-exception.filter.js";
