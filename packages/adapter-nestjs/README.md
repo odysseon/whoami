@@ -103,11 +103,15 @@ export class AppModule {}
 
 ## Protecting routes
 
-Every route is protected by default. Mark public routes with `@Public()`:
+Every route is protected by default. You can bypass authentication with `@Public()` or use `@OptionalAuth()` for mixed-access endpoints:
 
 ```ts
 import { Controller, Get, Post, Body } from "@nestjs/common";
-import { Public, CurrentIdentity } from "@odysseon/whoami-adapter-nestjs";
+import {
+  Public,
+  OptionalAuth,
+  CurrentIdentity,
+} from "@odysseon/whoami-adapter-nestjs";
 import type { RequestIdentity } from "@odysseon/whoami-adapter-nestjs";
 
 @Controller("me")
@@ -121,6 +125,17 @@ export class ProfileController {
   @Get("ping")
   ping() {
     return "pong";
+  }
+
+  @OptionalAuth()
+  @Get("optional-profile")
+  getOptionalProfile(
+    @CurrentIdentity({ required: false }) identity?: RequestIdentity,
+  ) {
+    if (identity) {
+      return { accountId: identity.accountId, status: "logged-in" };
+    }
+    return { status: "guest" };
   }
 }
 ```
@@ -155,10 +170,13 @@ export class AuthController {
 
 ## Decorators
 
-| Decorator            | Description                                                                      |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `@Public()`          | Bypasses `WhoamiAuthGuard` on a route or controller                              |
-| `@CurrentIdentity()` | Resolves `RequestIdentity` (`{ accountId, expiresAt }`) from the current request |
+| Decorator                                            | Description                                                                      |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `@Public()`                                          | Bypasses `WhoamiAuthGuard` on a route or controller                              |
+| `@OptionalAuth()`                                    | Allows access without a token, but parses & verifies it if present               |
+| `@CurrentIdentity(options?: { required?: boolean })` | Resolves `RequestIdentity` (`{ accountId, expiresAt }`) from the current request |
+
+_Note: By default, `@CurrentIdentity()` throws if no identity is present. Setting `{ required: false }` allows it to return `undefined` on `@OptionalAuth()` routes when a token is not provided._
 
 _Note: `WhoamiAuthGuard` verifies the receipt but intentionally strips the sensitive raw token before attaching the identity to the request._
 
