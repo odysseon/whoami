@@ -37,6 +37,7 @@ your DB:
 | [`adapter-jose`](packages/adapter-jose/README.md) | `@odysseon/whoami-adapter-jose` | `ReceiptSigner` / `ReceiptVerifier` via jose (HS256 JWT) |
 | [`adapter-webcrypto`](packages/adapter-webcrypto/README.md) | `@odysseon/whoami-adapter-webcrypto` | `SecureTokenPort` via native Web Crypto API |
 | [`adapter-prisma`](packages/adapter-prisma/README.md) | `@odysseon/whoami-adapter-prisma` | Prisma implementations of all whoami store ports |
+| [`adapter-express`](packages/adapter-express/README.md) | `@odysseon/whoami-adapter-express` | Express middleware and error handler |
 | [`adapter-nestjs`](packages/adapter-nestjs/README.md) | `@odysseon/whoami-adapter-nestjs` | NestJS module, guard, decorators, exception filter, OAuth handler |
 
 ## Examples
@@ -61,7 +62,7 @@ pnpm --filter @odysseon/whoami-example-express dev
 pnpm test
 
 # typecheck all packages
-pnpm -r exec tsc --noEmit
+pnpm typecheck
 ```
 
 ## Key docs
