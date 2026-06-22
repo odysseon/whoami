@@ -9,6 +9,7 @@ import { Reflector } from "@nestjs/core";
 import type { ReceiptVerifier } from "@odysseon/whoami-core";
 import { InvalidReceiptError } from "@odysseon/whoami-core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
+import { IS_OPTIONAL_AUTH_KEY } from "../decorators/optional-auth.decorator.js";
 import { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
 import { WHOAMI_RECEIPT_VERIFIER } from "../tokens.js";
 import type { RequestIdentity } from "../identity.js";
@@ -37,6 +38,11 @@ export class WhoamiAuthGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
+    const isOptionalAuth = this.#reflector.getAllAndOverride<boolean>(
+      IS_OPTIONAL_AUTH_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
     const request = context.switchToHttp().getRequest<{
       headers: { authorization?: string };
       whoami?: { identity: RequestIdentity };
@@ -44,6 +50,7 @@ export class WhoamiAuthGuard implements CanActivate {
 
     const token = this.#extractor.extract(request);
     if (!token) {
+      if (isOptionalAuth) return true;
       throw new UnauthorizedException("Authentication required");
     }
 
