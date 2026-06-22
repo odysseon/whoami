@@ -1,5 +1,11 @@
 # @odysseon/whoami-adapter-nestjs
 
+## 15.1.0
+
+### Minor Changes
+
+- bba6b56: Add support for optional authentication via `@OptionalAuth()` decorator and `@CurrentIdentity({ required: false })` options.
+
 ## 15.0.0
 
 ### Patch Changes
