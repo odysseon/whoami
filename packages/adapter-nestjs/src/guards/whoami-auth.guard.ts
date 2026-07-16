@@ -6,27 +6,30 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import type { ReceiptVerifier } from "@odysseon/whoami-core";
-import { InvalidReceiptError } from "@odysseon/whoami-core";
+import type { AuthenticateWithReceiptUseCase } from "@odysseon/whoami-core";
+import {
+  InvalidReceiptError,
+  AuthenticationError,
+} from "@odysseon/whoami-core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator.js";
 import { IS_OPTIONAL_AUTH_KEY } from "../decorators/optional-auth.decorator.js";
 import { AuthTokenExtractor } from "../extractors/auth-token-extractor.port.js";
-import { WHOAMI_RECEIPT_VERIFIER } from "../tokens.js";
+import { WHOAMI_RECEIPT_AUTHENTICATOR } from "../tokens.js";
 import type { RequestIdentity } from "../identity.js";
 
 @Injectable()
 export class WhoamiAuthGuard implements CanActivate {
-  readonly #verifier: ReceiptVerifier;
+  readonly #authenticator: AuthenticateWithReceiptUseCase;
   readonly #extractor: AuthTokenExtractor;
   readonly #reflector: Reflector;
 
   constructor(
-    @Inject(WHOAMI_RECEIPT_VERIFIER)
-    verifier: ReceiptVerifier,
+    @Inject(WHOAMI_RECEIPT_AUTHENTICATOR)
+    authenticator: AuthenticateWithReceiptUseCase,
     extractor: AuthTokenExtractor,
     reflector: Reflector,
   ) {
-    this.#verifier = verifier;
+    this.#authenticator = authenticator;
     this.#extractor = extractor;
     this.#reflector = reflector;
   }
@@ -55,19 +58,16 @@ export class WhoamiAuthGuard implements CanActivate {
     }
 
     try {
-      const receipt = await this.#verifier.verify(token);
+      const identity = await this.#authenticator.execute(token);
 
-      // Strip the token — only store safe identity fields
-      request.whoami = {
-        identity: {
-          accountId: receipt.accountId,
-          expiresAt: receipt.expiresAt,
-        },
-      };
+      request.whoami = { identity };
 
       return true;
     } catch (err) {
-      if (err instanceof InvalidReceiptError) {
+      if (
+        err instanceof InvalidReceiptError ||
+        err instanceof AuthenticationError
+      ) {
         throw new UnauthorizedException("Invalid or expired token");
       }
       throw err;

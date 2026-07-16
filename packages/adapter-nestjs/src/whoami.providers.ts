@@ -5,7 +5,13 @@ import { WhoamiExceptionFilter } from "./filters/whoami-exception.filter.js";
 import { BearerTokenExtractor } from "./extractors/bearer-token.extractor.js";
 import { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
 import { OAuthCallbackHandler } from "./oauth/oauth-callback-handler.js";
-import { WHOAMI_RECEIPT_VERIFIER, moduleToken } from "./tokens.js";
+import {
+  WHOAMI_RECEIPT_VERIFIER,
+  WHOAMI_ACCOUNT_QUERY,
+  WHOAMI_RECEIPT_AUTHENTICATOR,
+  moduleToken,
+} from "./tokens.js";
+import { AuthenticateWithReceiptUseCase } from "@odysseon/whoami-core";
 import type { WhoamiModuleOptions } from "./whoami.options.js";
 
 const AUTO_PROVIDERS: Provider[] = [
@@ -21,6 +27,15 @@ export function buildProviders(options: WhoamiModuleOptions): {
 
   const core: Provider[] = [
     { provide: WHOAMI_RECEIPT_VERIFIER, useValue: options.receiptVerifier },
+    { provide: WHOAMI_ACCOUNT_QUERY, useValue: options.accountQuery },
+    {
+      provide: WHOAMI_RECEIPT_AUTHENTICATOR,
+      useFactory: () =>
+        new AuthenticateWithReceiptUseCase({
+          receiptVerifier: options.receiptVerifier,
+          accountQuery: options.accountQuery,
+        }),
+    },
     { provide: AuthTokenExtractor, useValue: extractor },
     ...options.modules.map((mod) => ({
       provide: moduleToken(mod.kind),
@@ -50,6 +65,20 @@ export function buildAsyncProviders(optionsProvider: FactoryProvider): {
     {
       provide: WHOAMI_RECEIPT_VERIFIER,
       useFactory: (opts: WhoamiModuleOptions) => opts.receiptVerifier,
+      inject: ["WHOAMI_OPTIONS"],
+    },
+    {
+      provide: WHOAMI_ACCOUNT_QUERY,
+      useFactory: (opts: WhoamiModuleOptions) => opts.accountQuery,
+      inject: ["WHOAMI_OPTIONS"],
+    },
+    {
+      provide: WHOAMI_RECEIPT_AUTHENTICATOR,
+      useFactory: (opts: WhoamiModuleOptions) =>
+        new AuthenticateWithReceiptUseCase({
+          receiptVerifier: opts.receiptVerifier,
+          accountQuery: opts.accountQuery,
+        }),
       inject: ["WHOAMI_OPTIONS"],
     },
     {

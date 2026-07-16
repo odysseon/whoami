@@ -5,6 +5,16 @@ export const WHOAMI_RECEIPT_VERIFIER: unique symbol = Symbol(
   "WHOAMI_RECEIPT_VERIFIER",
 );
 
+/** Token for the account query port */
+export const WHOAMI_ACCOUNT_QUERY: unique symbol = Symbol(
+  "WHOAMI_ACCOUNT_QUERY",
+);
+
+/** Token for the constructed receipt authenticator */
+export const WHOAMI_RECEIPT_AUTHENTICATOR: unique symbol = Symbol(
+  "WHOAMI_RECEIPT_AUTHENTICATOR",
+);
+
 /** Token prefix for auth module injection */
 export const WHOAMI_MODULE_PREFIX = "WHOAMI_MODULE_" as const;
 
