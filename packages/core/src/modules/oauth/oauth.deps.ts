@@ -5,6 +5,7 @@ import type {
   LoggerPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { OAuthCredentialStore } from "./ports/oauth-credential-store.port.js";
+import { IssueReceiptUseCase } from "../../kernel/shared/issue-receipt.use-case.js";
 
 export interface OAuthModuleDeps {
   readonly accountRepo: AccountRepository;
@@ -16,8 +17,8 @@ export interface OAuthModuleDeps {
 
 export type AuthenticateWithOAuthDeps = Pick<
   OAuthModuleDeps,
-  "accountRepo" | "oauthStore" | "receiptSigner" | "idGenerator" | "logger"
-> & { readonly tokenLifespanMinutes: number };
+  "accountRepo" | "oauthStore" | "idGenerator" | "logger"
+> & { readonly issueReceipt: IssueReceiptUseCase };
 
 export type LinkOAuthToAccountDeps = Pick<
   OAuthModuleDeps,

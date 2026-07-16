@@ -3,6 +3,7 @@ import {
   AuthenticateWithMagicLinkUseCase,
 } from "./use-cases/index.js";
 import type { MagicLinkModuleConfig } from "./magiclink.config.js";
+import { IssueReceiptUseCase } from "../../kernel/shared/issue-receipt.use-case.js";
 
 export interface MagicLinkUseCases {
   readonly request: RequestMagicLinkUseCase;
@@ -14,10 +15,10 @@ export function buildMagicLinkUseCases(
   tokenLifespanMinutes: number,
   receiptLifespanMinutes: number,
 ): MagicLinkUseCases {
-  const sharedConfig = {
-    tokenLifespanMinutes,
-    receiptLifespanMinutes,
-  };
+  const issueReceipt = new IssueReceiptUseCase({
+    receiptSigner: config.receiptSigner,
+    tokenLifespanMinutes: receiptLifespanMinutes,
+  });
 
   return {
     request: new RequestMagicLinkUseCase({
@@ -27,14 +28,13 @@ export function buildMagicLinkUseCases(
       logger: config.logger,
       clock: config.clock,
       secureToken: config.secureToken,
-      config: sharedConfig,
+      config: { tokenLifespanMinutes },
     }),
 
     authenticate: new AuthenticateWithMagicLinkUseCase({
       magicLinkStore: config.magicLinkStore,
-      receiptSigner: config.receiptSigner,
       secureToken: config.secureToken,
-      config: sharedConfig,
+      issueReceipt,
     }),
   };
 }

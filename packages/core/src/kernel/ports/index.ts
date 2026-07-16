@@ -1,4 +1,6 @@
 export type { AccountRepository } from "./account-repository.port.js";
+export type { AccountQueryPort } from "./account-query.port.js";
+export type { AccountCommandPort } from "./account-command.port.js";
 
 export type { ReceiptSigner, ReceiptVerifier } from "./receipt-signer.port.js";
 

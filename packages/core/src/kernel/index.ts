@@ -45,6 +45,8 @@ export {
 // Ports (interfaces)
 export type {
   AccountRepository,
+  AccountQueryPort,
+  AccountCommandPort,
   ReceiptSigner,
   ReceiptVerifier,
   LoggerPort,
@@ -62,6 +64,11 @@ export {
   AuthOrchestrator,
   buildAuthLifecycle,
   type AuthLifecycle,
+  IssueReceiptUseCase,
+  type IssueReceiptDeps,
+  AuthenticateWithReceiptUseCase,
+  type AuthenticatedIdentity,
+  type AuthenticateWithReceiptDeps,
 } from "./shared/index.js";
 
 // DTO types derived from entities — shared across all modules

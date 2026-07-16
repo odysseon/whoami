@@ -1,5 +1,4 @@
 import type { AccountRepository } from "../../kernel/ports/account-repository.port.js";
-import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
 import type {
   IdGeneratorPort,
   LoggerPort,
@@ -9,6 +8,8 @@ import type {
 import type { PasswordHashStore } from "./ports/password-hash-store.port.js";
 import type { PasswordResetTokenStore } from "./ports/password-reset-token-store.port.js";
 import type { PasswordHasher } from "./ports/password-hasher.port.js";
+import type { ReceiptSigner } from "../../kernel/ports/receipt-signer.port.js";
+import { IssueReceiptUseCase } from "../../kernel/shared/issue-receipt.use-case.js";
 
 export interface PasswordModuleDeps {
   readonly accountRepo: AccountRepository;
@@ -41,12 +42,8 @@ export type RegisterWithPasswordDeps = Pick<
 
 export type AuthenticateWithPasswordDeps = Pick<
   PasswordModuleDeps,
-  | "accountRepo"
-  | "passwordHashStore"
-  | "passwordHasher"
-  | "receiptSigner"
-  | "logger"
-> & { readonly tokenLifespanMinutes: number };
+  "accountRepo" | "passwordHashStore" | "passwordHasher" | "logger"
+> & { readonly issueReceipt: IssueReceiptUseCase };
 
 export type ChangePasswordDeps = Pick<
   PasswordModuleDeps,

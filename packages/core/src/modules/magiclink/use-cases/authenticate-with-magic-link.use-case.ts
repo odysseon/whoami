@@ -44,13 +44,7 @@ export class AuthenticateWithMagicLinkUseCase {
     const updatedProof = markMagicLinkAsUsed(proof, now);
     await this.#deps.magicLinkStore.update(credential.id, updatedProof);
 
-    const expiresAt = new Date(
-      now.getTime() + this.#deps.config.receiptLifespanMinutes * 60 * 1000,
-    );
-    const receipt = await this.#deps.receiptSigner.sign(
-      credential.accountId,
-      expiresAt,
-    );
+    const receipt = await this.#deps.issueReceipt.execute(credential.accountId);
 
     return {
       receipt: receipt.toDTO(),
