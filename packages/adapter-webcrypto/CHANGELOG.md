@@ -1,5 +1,12 @@
 # @odysseon/whoami-adapter-webcrypto
 
+## 13.0.0
+
+### Patch Changes
+
+- Updated dependencies [88d365c]
+  - @odysseon/whoami-core@13.1.0
+
 ## 12.0.0
 
 ### Patch Changes

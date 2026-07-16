@@ -1,5 +1,11 @@
 # @odysseon/whoami-core
 
+## 13.1.0
+
+### Minor Changes
+
+- 88d365c: Refactored authentication flows to use the unified `AuthenticateWithReceiptUseCase`. Replaced `ReceiptVerifier` with `AuthenticateWithReceiptUseCase` in the adapters to enforce existence checks alongside cryptographic verification. Identities now expose strictly `accountId` and `expiresAt` to avoid data leaks.
+
 ## 13.0.0
 
 ### Major Changes
