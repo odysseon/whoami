@@ -54,11 +54,7 @@ export class AuthenticateWithPasswordUseCase {
       throw new AuthenticationError("Invalid credentials");
     }
 
-    const expiresAt = new Date(
-      Date.now() + this.#deps.tokenLifespanMinutes * 60 * 1000,
-    );
-    const receipt = await this.#deps.receiptSigner.sign(account.id, expiresAt);
-
+    const receipt = await this.#deps.issueReceipt.execute(account.id);
     this.#deps.logger.info("Account authenticated with password", {
       accountId: account.id.toString(),
     });

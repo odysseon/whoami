@@ -8,6 +8,7 @@ import {
   RevokeAllPasswordResetsUseCase,
 } from "./use-cases/index.js";
 import type { PasswordModuleConfig } from "./password.config.js";
+import { IssueReceiptUseCase } from "../../kernel/shared/issue-receipt.use-case.js";
 
 export interface PasswordUseCases {
   readonly register: RegisterWithPasswordUseCase;
@@ -24,6 +25,11 @@ export function buildPasswordUseCases(
   tokenLifespanMinutes: number,
   resetTokenLifespanMinutes: number,
 ): PasswordUseCases {
+  const issueReceipt = new IssueReceiptUseCase({
+    receiptSigner: config.receiptSigner,
+    tokenLifespanMinutes,
+  });
+
   return {
     register: new RegisterWithPasswordUseCase({
       accountRepo: config.accountRepo,
@@ -37,9 +43,8 @@ export function buildPasswordUseCases(
       accountRepo: config.accountRepo,
       passwordHashStore: config.passwordHashStore,
       passwordHasher: config.passwordHasher,
-      receiptSigner: config.receiptSigner,
       logger: config.logger,
-      tokenLifespanMinutes,
+      issueReceipt,
     }),
 
     changePassword: new ChangePasswordUseCase({

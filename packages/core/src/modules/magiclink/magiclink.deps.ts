@@ -7,6 +7,7 @@ import type {
   SecureTokenPort,
 } from "../../kernel/ports/shared-ports.port.js";
 import type { MagicLinkTokenStore } from "./ports/magiclink-token-store.port.js";
+import { IssueReceiptUseCase } from "../../kernel/shared/issue-receipt.use-case.js";
 
 export interface MagicLinkModuleDeps {
   readonly accountRepo: AccountRepository;
@@ -20,7 +21,6 @@ export interface MagicLinkModuleDeps {
 
 export interface MagicLinkConfig {
   readonly tokenLifespanMinutes: number;
-  readonly receiptLifespanMinutes: number;
 }
 
 export type RequestMagicLinkDeps = Pick<
@@ -35,5 +35,7 @@ export type RequestMagicLinkDeps = Pick<
 
 export type AuthenticateWithMagicLinkDeps = Pick<
   MagicLinkModuleDeps,
-  "magicLinkStore" | "receiptSigner" | "secureToken"
-> & { readonly config: MagicLinkConfig };
+  "magicLinkStore" | "secureToken"
+> & {
+  readonly issueReceipt: IssueReceiptUseCase;
+};

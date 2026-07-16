@@ -12,7 +12,6 @@ import {
   AuthenticationError,
   InvalidEmailError,
 } from "../../../kernel/domain/errors/index.js";
-import type { Receipt } from "../../../kernel/domain/entities/index.js";
 import { Account } from "../../../kernel/domain/entities/account.js";
 import { createOAuthProof } from "../entities/oauth.proof.js";
 import type {
@@ -68,7 +67,7 @@ export class AuthenticateWithOAuthUseCase {
       this.#deps.logger.error("Orphaned OAuth credential", { provider });
       throw new AuthenticationError("Account not found");
     }
-    const receipt = await this.#issueReceipt(accountId);
+    const receipt = await this.#deps.issueReceipt.execute(accountId);
     this.#deps.logger.info("OAuth authentication (fast path)", {
       accountId: accountId.toString(),
       provider,
@@ -94,7 +93,7 @@ export class AuthenticateWithOAuthUseCase {
     });
     await this.#deps.accountRepo.save(newAccount);
     await this.#deps.oauthStore.save(credential);
-    const receipt = await this.#issueReceipt(accountId);
+    const receipt = await this.#deps.issueReceipt.execute(accountId);
     this.#deps.logger.info("OAuth auto-registration", {
       accountId: accountId.toString(),
       provider,
@@ -104,12 +103,5 @@ export class AuthenticateWithOAuthUseCase {
       account: newAccount.toDTO(),
       isNewAccount: true,
     };
-  }
-
-  async #issueReceipt(accountId: AccountId): Promise<Receipt> {
-    const expiresAt = new Date(
-      Date.now() + this.#deps.tokenLifespanMinutes * 60 * 1000,
-    );
-    return await this.#deps.receiptSigner.sign(accountId, expiresAt);
   }
 }

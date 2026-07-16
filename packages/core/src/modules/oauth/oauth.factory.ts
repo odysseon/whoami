@@ -4,6 +4,7 @@ import {
   UnlinkOAuthProviderUseCase,
 } from "./use-cases/index.js";
 import type { OAuthModuleConfig } from "./oauth.config.js";
+import { IssueReceiptUseCase } from "../../kernel/shared/issue-receipt.use-case.js";
 
 export interface OAuthUseCases {
   readonly authenticate: AuthenticateWithOAuthUseCase;
@@ -15,14 +16,18 @@ export function buildOAuthUseCases(
   config: OAuthModuleConfig,
   tokenLifespanMinutes: number,
 ): OAuthUseCases {
+  const issueReceipt = new IssueReceiptUseCase({
+    receiptSigner: config.receiptSigner,
+    tokenLifespanMinutes,
+  });
+
   return {
     authenticate: new AuthenticateWithOAuthUseCase({
       accountRepo: config.accountRepo,
       oauthStore: config.oauthStore,
-      receiptSigner: config.receiptSigner,
       idGenerator: config.idGenerator,
       logger: config.logger,
-      tokenLifespanMinutes,
+      issueReceipt,
     }),
 
     link: new LinkOAuthToAccountUseCase({
