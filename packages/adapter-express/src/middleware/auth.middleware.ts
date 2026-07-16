@@ -1,7 +1,12 @@
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-import { DomainError, type ReceiptVerifier } from "@odysseon/whoami-core";
+import {
+  DomainError,
+  type AuthenticateWithReceiptUseCase,
+} from "@odysseon/whoami-core";
 
-export const requireAuth = (verifyReceipt: ReceiptVerifier): RequestHandler => {
+export const requireAuth = (
+  authenticator: AuthenticateWithReceiptUseCase,
+): RequestHandler => {
   return async (
     req: Request,
     res: Response,
@@ -13,12 +18,12 @@ export const requireAuth = (verifyReceipt: ReceiptVerifier): RequestHandler => {
       return;
     }
     try {
-      const receipt = await verifyReceipt.verify(token);
+      const identity = await authenticator.execute(token);
       req.identity = {
-        accountId: receipt.accountId,
-        expiresAt: receipt.expiresAt,
+        accountId: identity.accountId,
+        expiresAt: identity.expiresAt,
       };
-      req.accountId = receipt.accountId;
+      req.accountId = identity.accountId;
       next();
     } catch (err) {
       if (err instanceof DomainError) {
@@ -31,7 +36,7 @@ export const requireAuth = (verifyReceipt: ReceiptVerifier): RequestHandler => {
 };
 
 export const optionalAuth = (
-  verifyReceipt: ReceiptVerifier,
+  authenticator: AuthenticateWithReceiptUseCase,
 ): RequestHandler => {
   return async (
     req: Request,
@@ -41,12 +46,12 @@ export const optionalAuth = (
     const [type, token] = (req.headers.authorization ?? "").split(" ");
     if (type === "Bearer" && token) {
       try {
-        const receipt = await verifyReceipt.verify(token);
+        const identity = await authenticator.execute(token);
         req.identity = {
-          accountId: receipt.accountId,
-          expiresAt: receipt.expiresAt,
+          accountId: identity.accountId,
+          expiresAt: identity.expiresAt,
         };
-        req.accountId = receipt.accountId;
+        req.accountId = identity.accountId;
       } catch (err) {
         if (!(err instanceof DomainError)) {
           return next(err instanceof Error ? err : new Error(String(err)));
