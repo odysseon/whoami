@@ -5,12 +5,17 @@ import type {
   InjectionToken,
   OptionalFactoryDependency,
 } from "@nestjs/common";
-import type { AuthModule, ReceiptVerifier } from "@odysseon/whoami-core";
+import type {
+  AuthModule,
+  ReceiptVerifier,
+  AccountQueryPort,
+} from "@odysseon/whoami-core";
 import type { AuthTokenExtractor } from "./extractors/auth-token-extractor.port.js";
 
 export interface WhoamiModuleOptions {
   readonly modules: readonly AuthModule[];
   readonly receiptVerifier: ReceiptVerifier;
+  readonly accountQuery: AccountQueryPort;
   readonly tokenExtractor?: AuthTokenExtractor;
 }
 
