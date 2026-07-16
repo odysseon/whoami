@@ -79,6 +79,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
             }),
           ],
           receiptVerifier: verifier,
+          accountQuery: accountRepo,
         };
       },
     }),
@@ -97,6 +98,7 @@ export class AppModule {}
 | ----------------- | ----------------------- | -------- | --------------------------------------------------------------------------------- |
 | `modules`         | `readonly AuthModule[]` | ✅       | Auth modules to register (e.g. `PasswordModule(...)`, `OAuthModule(...)`)         |
 | `receiptVerifier` | `ReceiptVerifier`       | ✅       | Verifies incoming receipt tokens — use `JoseReceiptVerifier`                      |
+| `accountQuery`    | `AccountQueryPort`      | ✅       | Checks account existence during token verification — use `accountRepo`            |
 | `tokenExtractor`  | `AuthTokenExtractor`    | ✗        | Override token extraction (default: `Bearer <token>` from `Authorization` header) |
 
 ---
@@ -229,6 +231,7 @@ WhoamiModule.registerAsync({
   useFactory: () => ({
     modules: [...],
     receiptVerifier: verifier,
+    accountQuery: accountRepo,
     tokenExtractor: new CookieTokenExtractor(),
   }),
 });

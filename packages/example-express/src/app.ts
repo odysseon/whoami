@@ -1,7 +1,10 @@
 import express, { type Request, type Response, type Express } from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
-import type { AccountRepository, ReceiptVerifier } from "@odysseon/whoami-core";
+import type {
+  AccountRepository,
+  AuthenticateWithReceiptUseCase,
+} from "@odysseon/whoami-core";
 import type { PasswordMethods } from "@odysseon/whoami-core/password";
 import type { OAuthMethods } from "@odysseon/whoami-core/oauth";
 import type { MagicLinkMethods } from "@odysseon/whoami-core/magiclink";
@@ -18,7 +21,7 @@ interface AppDependencies {
   password: PasswordMethods;
   oauth: OAuthMethods;
   magicLink: MagicLinkMethods;
-  receiptVerifier: ReceiptVerifier;
+  receiptAuthenticator: AuthenticateWithReceiptUseCase;
   accountRepo: AccountRepository;
 }
 
@@ -34,7 +37,7 @@ export const createApp = (dependencies: AppDependencies): Express => {
     res.send(swaggerSpec);
   });
 
-  const authMiddleware = requireAuth(dependencies.receiptVerifier);
+  const authMiddleware = requireAuth(dependencies.receiptAuthenticator);
 
   app.use(createAccountsRouter(dependencies.password));
   app.use(

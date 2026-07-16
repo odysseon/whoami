@@ -50,6 +50,7 @@ import { prismaAdapters } from "./infrastructure/prisma-repositories.js";
 
         return {
           receiptVerifier,
+          accountQuery: prismaAdapters.accountRepo,
           modules: [
             PasswordModule({
               accountRepo: prismaAdapters.accountRepo,

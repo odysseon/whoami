@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { AuthenticateWithReceiptUseCase } from "@odysseon/whoami-core";
 import { pathToFileURL } from "node:url";
 import type { Server } from "node:http";
 import { PasswordModule } from "@odysseon/whoami-core/password";
@@ -66,11 +67,16 @@ const magicLink = MagicLinkModule({
   tokenLifespanMinutes: magicLinkLifespanMinutes,
 });
 
+const receiptAuthenticator = new AuthenticateWithReceiptUseCase({
+  receiptVerifier,
+  accountQuery: prismaAdapters.accountRepo,
+});
+
 const app = createApp({
   password,
   oauth,
   magicLink,
-  receiptVerifier,
+  receiptAuthenticator,
   accountRepo: prismaAdapters.accountRepo,
 });
 
